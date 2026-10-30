@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>flow preview</title>
+    <link rel="stylesheet" href="css/fonts.css">
+    <link rel="stylesheet" href="css/style.css?v=89">
+    <style>
+        body { padding: 24px; }
+        .preview-modal { max-height: none; overflow: visible; margin: 0 auto; }
+        .preview-narrow { max-width: 360px; margin-top: 28px; }
+    </style>
+</head>
+<body>
+    <div class="modal-box modal-box-xl preview-modal">
+        <div class="modal-body">
+            <section class="production-flow" aria-label="روند تولید">
+                <div class="profile-info-label">روند تولید</div>
+                <p class="flow-hint">از شروع‌نشده تا آماده تحویل، به ترتیب روال تولید. تاریخ، تاریخ انجام فرآیند همان موقعیت است.</p>
+                <p class="flow-banner flow-banner-weld">قطعه اکنون در ایستگاه جوشکاری است. جایگاهش روی خط، همان مرحلهٔ قبل از ارسال است.</p>
+                <ol class="flow-rail">
+                    <li class="flow-step is-done">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node"><div class="flow-row">
+                            <div class="flow-label-row"><span class="flow-label">شروع نشده</span></div>
+                            <span class="flow-status">انجام شده</span>
+                            <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">—</span></span>
+                            <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">—</span></span>
+                        </div></div>
+                    </li>
+                    <li class="flow-step is-done">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node"><div class="flow-row">
+                            <div class="flow-label-row"><span class="flow-label">ذوب‌ریزی</span></div>
+                            <span class="flow-status">انجام شده</span>
+                            <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">1404/06/12</span></span>
+                            <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">رضا محمدی</span></span>
+                        </div></div>
+                    </li>
+                    <li class="flow-step is-done is-grouped is-group-start">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node">
+                            <div class="flow-group"><span class="flow-group-name">خشن‌تراشی</span></div>
+                            <div class="flow-row">
+                                <div class="flow-label-row"><span class="flow-label">پلیسه‌گیری</span></div>
+                                <span class="flow-status">انجام شده</span>
+                                <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">1404/06/18</span></span>
+                                <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">سارا احمدی</span></span>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="flow-step is-skipped is-grouped">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node"><div class="flow-row">
+                            <div class="flow-label-row"><span class="flow-label">اصلاح اولیه</span></div>
+                            <span class="flow-status">عبور نشده</span>
+                            <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">—</span></span>
+                            <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">—</span></span>
+                        </div></div>
+                    </li>
+                    <li class="flow-step is-current is-grouped is-group-end" aria-current="step">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node"><div class="flow-row">
+                            <div class="flow-label-row"><span class="flow-label">تراش</span><span class="flow-weld-tag">ایستگاه جوشکاری</span></div>
+                            <span class="flow-status">موقعیت فعلی</span>
+                            <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">1404/07/02</span></span>
+                            <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val" title="علی‌اکبر کشاورز مقدم">علی‌اکبر کشاورز مقدم</span></span>
+                        </div></div>
+                    </li>
+                    <li class="flow-step is-upcoming is-grouped is-group-start">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node">
+                            <div class="flow-group"><span class="flow-group-name">رادیوگرافی</span></div>
+                            <div class="flow-row">
+                                <div class="flow-label-row"><span class="flow-label">شوت</span></div>
+                                <span class="flow-status">مانده</span>
+                                <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">—</span></span>
+                                <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">—</span></span>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="flow-step is-upcoming is-grouped">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node"><div class="flow-row">
+                            <div class="flow-label-row"><span class="flow-label">تفسیر</span></div>
+                            <span class="flow-status">مانده</span>
+                            <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">—</span></span>
+                            <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">—</span></span>
+                        </div></div>
+                    </li>
+                    <li class="flow-step is-upcoming is-grouped is-group-end">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node"><div class="flow-row">
+                            <div class="flow-label-row"><span class="flow-label">VT</span></div>
+                            <span class="flow-status">مانده</span>
+                            <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">—</span></span>
+                            <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">—</span></span>
+                        </div></div>
+                    </li>
+                    <li class="flow-step is-upcoming is-grouped is-group-start is-group-end">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node">
+                            <div class="flow-group"><span class="flow-group-name">عملیات حرارتی</span></div>
+                            <div class="flow-row">
+                                <div class="flow-label-row"><span class="flow-label">منتظر عملیات</span></div>
+                                <span class="flow-status">مانده</span>
+                                <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">—</span></span>
+                                <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">—</span></span>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="flow-step is-skipped">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node"><div class="flow-row">
+                            <div class="flow-label-row"><span class="flow-label">تست کشش</span></div>
+                            <span class="flow-status">عبور نشده</span>
+                            <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">—</span></span>
+                            <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">—</span></span>
+                        </div></div>
+                    </li>
+                    <li class="flow-step is-upcoming">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node"><div class="flow-row">
+                            <div class="flow-label-row"><span class="flow-label">شات‌بلاست</span></div>
+                            <span class="flow-status">مانده</span>
+                            <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">—</span></span>
+                            <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">—</span></span>
+                        </div></div>
+                    </li>
+                    <li class="flow-step is-upcoming">
+                        <div class="flow-track" aria-hidden="true"><span class="flow-connector flow-connector-before"></span><span class="flow-dot"></span><span class="flow-connector flow-connector-after"></span></div>
+                        <div class="flow-node"><div class="flow-row">
+                            <div class="flow-label-row"><span class="flow-label">آماده تحویل</span></div>
+                            <span class="flow-status">مانده</span>
+                            <span class="flow-date"><span class="flow-meta-key">تاریخ انجام</span><span class="flow-meta-val">—</span></span>
+                            <span class="flow-operator"><span class="flow-meta-key">ثبت‌کننده</span><span class="flow-meta-val">—</span></span>
+                        </div></div>
+                    </li>
+                </ol>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

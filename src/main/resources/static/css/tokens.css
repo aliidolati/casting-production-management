@@ -1,0 +1,197 @@
+/* ===========================
+   توکن‌های طراحی (Design Tokens)
+   ---------------------------
+   مقدار واقعی توکن‌ها را theme-manager.js از روی theme-definitions.js روی <html>
+   می‌نویسد. مقدارهای این فایل فقط «پشتیبان» هستند (تم کلاسیک) تا اگر جاوااسکریپت
+   بارگذاری نشد، صفحه بی‌رنگ نماند.
+
+   قانون: در style.css رنگ ثابت ننویسید؛ از توکن‌های semantic استفاده کنید.
+   =========================== */
+:root {
+    /* --- سطوح --- */
+    --color-bg-primary: #F3F1F8;
+    --color-surface: #FFFFFF;
+    --color-surface-elevated: #FFFFFF;
+    --color-surface-hover: #F7F5FC;
+    --color-surface-active: #ECE9F8;
+
+    /* --- متن --- */
+    --color-text-primary: #1B1A2E;
+    --color-text-secondary: #5C5973;
+    --color-text-muted: #6E6B84;
+    --color-text-disabled: #A9A6BA;
+    --color-text-on-accent: #FFFFFF;
+    --color-text-on-status: #FFFFFF;
+
+    /* --- خط‌ها --- */
+    --color-border: #E6E2F0;
+    --color-border-subtle: #EFECF6;
+    --color-border-strong: #D4CFE3;
+
+    /* --- accent --- */
+    --color-accent: #6B5EF7;
+    --color-accent-hover: #5A4DE8;
+    --color-accent-soft: #EEEDFE;
+    --color-accent-text: #5346E0;
+    --color-accent-2: #3A70DD;
+
+    /* --- وضعیت‌ها --- */
+    --color-success: #04805A;
+    --color-success-soft: #E5F4EE;
+    --color-success-text: #065F46;
+    --color-warning: #B45F06;
+    --color-warning-soft: #FAEEDD;
+    --color-warning-text: #7C4104;
+    --color-danger: #CF4545;
+    --color-danger-soft: #FBEAEA;
+    --color-danger-text: #8C2B35;
+    --color-info: #3569DE;
+    --color-info-soft: #E8EFFC;
+    --color-info-text: #1E4AA8;
+    --color-teal: #0F766E;
+    --color-teal-soft: #E4F1F0;
+    --color-teal-text: #115E59;
+    --color-coral: #C4502F;
+    --color-coral-soft: #F9EAE6;
+    --color-coral-text: #8F3A22;
+
+    /* --- فرم‌ها --- */
+    --color-input-bg: #F7F5FC;
+    --color-input-bg-focus: #FFFFFF;
+    --color-input-border: #E6E2F0;
+    --color-input-placeholder: #6E6B84;
+
+    /* --- ناوبری، سایدبار، کارت --- */
+    --color-navbar-bg: rgba(255, 255, 255, 0.72);
+    --color-navbar-border: #E6E2F0;
+    --color-navbar-text: #5C5973;
+    --color-navbar-text-active: #FFFFFF;
+    --color-sidebar-bg: #FFFFFF;
+    --color-sidebar-border: #E6E2F0;
+    --color-sidebar-text: #5C5973;
+    --color-sidebar-active-bg: #EEEDFE;
+    --color-sidebar-active-text: #5346E0;
+    --color-card-bg: #FFFFFF;
+    --color-card-border: #E6E2F0;
+
+    /* --- پوسته و پس‌زمینه --- */
+    --gradient-primary: linear-gradient(135deg, #6B5EF7 0%, #3A70DD 100%);
+    --gradient-primary-hover: linear-gradient(135deg, #5A4DE8 0%, #3E7AF0 100%);
+    --gradient-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.78) 100%);
+    --color-shell-border: rgba(255, 255, 255, 0.72);
+    --color-overlay: rgba(27, 26, 46, 0.38);
+    --color-loading-overlay: rgba(255, 255, 255, 0.72);
+    --bg-glow-1: rgba(107, 94, 247, 0.20);
+    --bg-glow-2: rgba(255, 158, 110, 0.18);
+    --bg-glow-3: rgba(79, 140, 255, 0.14);
+
+    /* --- سایه‌ها --- */
+    --shadow: 0 8px 28px rgba(80, 70, 140, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 18px 48px rgba(80, 70, 140, 0.10), 0 0 0 1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 24px 64px rgba(80, 70, 140, 0.12);
+    --shadow-border:
+        0px 0px 0px 1px rgba(0, 0, 0, 0.08),
+        0px 1px 2px -1px rgba(0, 0, 0, 0.06),
+        0px 2px 4px 0px rgba(0, 0, 0, 0.04);
+    --shadow-border-hover:
+        0px 0px 0px 1px rgba(0, 0, 0, 0.10),
+        0px 1px 2px -1px rgba(0, 0, 0, 0.08),
+        0px 2px 4px 0px rgba(0, 0, 0, 0.06);
+    --shadow-lift: 0 14px 28px rgba(0, 0, 0, 0.12);
+    --shadow-lift-hover: 0 28px 56px rgba(0, 0, 0, 0.18);
+    --shadow-accent: 0 8px 18px rgba(107, 94, 247, 0.30);
+    --shadow-accent-hover: 0 10px 22px rgba(107, 94, 247, 0.36);
+    --focus-ring: 0 0 0 4px rgba(107, 94, 247, 0.18);
+
+    /* --- نمودارها --- */
+    --chart-1: #6B5EF7;
+    --chart-2: #0F766E;
+    --chart-3: #B45309;
+    --chart-4: #BE185D;
+    --chart-5: #2563EB;
+    --chart-6: #C2410C;
+    --chart-success: #16A34A;
+    --chart-warning: #CA8A04;
+    --chart-danger: #DC2626;
+    --chart-neutral: #6E6B84;
+    --chart-plot-bg: #FFFFFF;
+    --chart-grid: #E9E6F2;
+    --chart-axis: #55546A;
+    --chart-label: #5C5973;
+    --chart-title: #1B1A2E;
+    --chart-reference: #5346E0;
+    --chart-point-stroke: #FFFFFF;
+    --chart-tooltip-background: #1B1A2E;
+    --chart-tooltip-text: #FFFFFF;
+
+    /* --- مراحل تولید --- */
+    --stage-not-started: #9E9CAD;
+    --stage-casting: #D1975F;
+    --stage-rough-machining: #7D8BA2;
+    --stage-radiography: #CAA653;
+    --stage-welding: #CA6E6E;
+    --stage-heat-treatment: #53A69D;
+    --stage-tensile: #CA8265;
+    --stage-shot-blasting: #7D6ED1;
+    --stage-ready: #53A87C;
+    --stage-delivered: #5280D7;
+    --stage-scrapped: #BC6060;
+    --stage-bg-mix: 16%;
+    --stage-text-mix: 36%;
+
+    /* --- «کاغذ»: زمینه‌ی اسناد فنی (نقشه‌ها و برگه‌ی چاپی)؛ عمداً مستقل از تم --- */
+    --color-paper: #FFFFFF;
+
+    /* --- شعاع‌ها (مستقل از تم) --- */
+    --radius: 16px;
+    --radius-sm: 10px;
+    --radius-lg: 24px;
+    --radius-xl: 32px;
+
+    /* ===========================
+       نام‌های قدیمی (Legacy aliases)
+       کل style.css هنوز از این نام‌ها استفاده می‌کند؛ همه به توکن‌های semantic اشاره
+       می‌کنند تا با تغییر تم خودکار عوض شوند. در کد جدید از نام‌های semantic استفاده کنید.
+       =========================== */
+    --color-bg: var(--color-bg-primary);
+    --color-surface2: var(--color-surface-hover);
+    --color-border2: var(--color-border-strong);
+    --color-text: var(--color-text-primary);
+
+    --color-primary: var(--color-accent);
+    --color-primary-bg: var(--color-accent-soft);
+    --color-primary-dark: var(--color-accent-text);
+    --color-secondary: var(--color-info);
+    --color-secondary-bg: var(--color-info-soft);
+
+    --color-amber: var(--color-warning);
+    --color-amber-bg: var(--color-warning-soft);
+    --color-amber-text: var(--color-warning-text);
+    --color-teal-bg: var(--color-teal-soft);
+    --color-coral-bg: var(--color-coral-soft);
+    --color-success-bg: var(--color-success-soft);
+    --color-danger-bg: var(--color-danger-soft);
+}
+
+/* انتقال نرم هنگام تعویض تم (فقط چند لحظه بعد از انتخاب فعال است) */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+    transition:
+        background-color 0.28s ease,
+        color 0.28s ease,
+        border-color 0.28s ease,
+        box-shadow 0.28s ease,
+        fill 0.28s ease,
+        stroke 0.28s ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.theme-switching,
+    html.theme-switching *,
+    html.theme-switching *::before,
+    html.theme-switching *::after {
+        transition: none !important;
+    }
+}

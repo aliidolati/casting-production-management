@@ -1,0 +1,84 @@
+HELP.md
+target/
+uploads/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+# Private runtime configuration, database exports and local scratch files
+.env
+.env.*
+!.env.example
+application-local*.properties
+application-private*.properties
+*-private.*
+*.sql.gz
+*.sql.zip
+*.dump
+*.bak
+/backups/
+/tmp/
+/System.Collections.Hashtable
+
+# Generated frontend/tooling output (there is no frontend build today)
+node_modules/
+dist/
+out/
+.cache/
+.gradle/
+coverage/
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Private keys, credential stores and database exports
+.secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.sql
+!src/main/resources/db/migration/*.sql
+!src/test/resources/db/mysql/schema-synthetic.sql
+*.sql.*
+*.sqlite
+*.sqlite3
+*.db
+*.hprof
+hs_err_pid*
+/docs/audits/*-summary.json

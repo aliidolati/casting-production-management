@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سیستم مدیریت تولید</title>
+    <!-- آیکن درون‌خطی تا مرورگر درخواست جداگانه‌ی /favicon.ico نزند -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 22V10h6a4 4 0 010 8h-3v4z' fill='%23fff'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/fonts.css?v=48">
+    <link rel="stylesheet" href="css/tokens.css?v=1">
+    <link rel="stylesheet" href="css/style.css?v=103">
+    <link rel="stylesheet" href="css/theme-selector.css?v=1">
+    <link rel="stylesheet" href="css/tasks.css?v=2">
+    <link rel="stylesheet" href="css/performance.css?v=1">
+    <link rel="stylesheet" href="css/radiography-workflow.css?v=3">
+    <link rel="stylesheet" href="css/melt-passport.css?v=6">
+    <!-- تم باید قبل از اولین رنگ‌آمیزی (هم‌زمان) اعمال شود تا صفحه چشمک نزند -->
+    <script src="js/theme-definitions.js?v=1"></script>
+    <script src="js/theme-manager.js?v=1"></script>
+</head>
+<body>
+
+    <!-- صفحه‌ی ورود -->
+    <div class="login-screen" id="login-screen">
+        <div class="login-theme-slot" data-theme-selector></div>
+        <form class="login-card" id="form-login">
+            <div class="login-brand">
+                <div class="brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg></div>
+                <h1 class="app-title">سیستم مدیریت تولید</h1>
+            </div>
+            <div class="form-group">
+                <label for="input-login-username">نام کاربری</label>
+                <input type="text" id="input-login-username" required autocomplete="username" />
+            </div>
+            <div class="form-group">
+                <label for="input-login-password">رمز عبور</label>
+                <input type="password" id="input-login-password" required autocomplete="current-password" />
+            </div>
+            <div class="form-error" id="login-error" role="alert"></div>
+            <button type="submit" class="btn btn-primary btn-login-submit" id="btn-login-submit">ورود</button>
+        </form>
+    </div>
+
+    <!-- پوسته‌ی اصلی اپلیکیشن (تا زمان احراز هویت مخفی است) -->
+    <div id="app-shell" class="hidden">
+
+    <!-- هدر بالای صفحه -->
+    <header class="app-header">
+        <div class="header-content">
+            <div class="header-brand">
+                <div class="brand-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg></div>
+                <h1 class="app-title">سیستم مدیریت تولید</h1>
+            </div>
+            <nav class="main-nav">
+                <button class="nav-btn active" data-section="dashboard" id="nav-btn-dashboard">داشبورد</button>
+                <button class="nav-btn" data-section="projects">پروژه‌ها</button>
+                <button class="nav-btn" data-section="tracking">ردیابی قطعات</button>
+                <button class="nav-btn" data-section="tasks-my" id="nav-btn-tasks-my">وظایف من</button>
+                <button class="nav-btn hidden" data-section="tasks-all" id="nav-btn-tasks-all">همه وظایف</button>
+                <button class="nav-btn hidden" data-section="users" id="nav-btn-users">کاربران</button>
+            </nav>
+            <div class="header-user">
+                <div class="theme-selector" id="theme-selector" data-theme-selector></div>
+                <div class="notification-center hidden" id="notification-center">
+                    <button type="button" class="notification-bell" id="btn-notifications" aria-label="اعلان‌ها" aria-expanded="false" aria-haspopup="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span class="notification-badge hidden" id="notification-badge">0</span>
+                    </button>
+                    <div class="notification-panel hidden" id="notification-panel" role="dialog" aria-label="صندوق اعلان‌ها">
+                        <div class="notification-panel-header">
+                            <strong>اعلان‌ها</strong>
+                            <button type="button" class="btn-link" id="btn-notifications-read-all">همه خوانده شد</button>
+                        </div>
+                        <div class="notification-list" id="notification-list"></div>
+                    </div>
+                </div>
+                <span class="current-user-info" id="current-user-info"></span>
+                <button class="btn btn-secondary btn-sm" id="btn-change-password">تغییر رمز</button>
+                <button class="btn btn-secondary btn-sm" id="btn-logout">خروج</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- محتوای اصلی -->
+    <main class="app-main">
+
+        <!-- بخش داشبورد -->
+        <section id="dashboard-section" class="content-section active" aria-label="داشبورد کلی">
+            <div class="dashboard-topbar">
+                <div class="dashboard-topbar-main">
+                    <h2 class="section-title">داشبورد کلی</h2>
+                    <div class="dashboard-meta">
+                        <div class="dashboard-filter-chips" id="dashboard-filter-summary" aria-live="polite"></div>
+                        <span class="dashboard-last-updated" id="dashboard-last-updated" aria-live="polite"></span>
+                        <span class="dashboard-refresh-hint" id="dashboard-refresh-hint">به‌روزرسانی خودکار هر ۲ دقیقه</span>
+                    </div>
+                </div>
+                <div class="dashboard-topbar-actions">
+                    <button type="button" class="btn btn-secondary btn-sm dashboard-action-btn" id="btn-aggregate-welding-map">
+                        <svg class="dash-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3V7z"/><path d="M9 4v13M15 7v13"/></svg>
+                        نقشه جوش تجمیعی
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-dashboard-refresh">به‌روزرسانی</button>
+                </div>
+            </div>
+
+            <div class="dashboard-error-banner hidden" id="dashboard-error-banner" role="alert">
+                <span id="dashboard-error-text"></span>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-dashboard-retry">تلاش مجدد</button>
+            </div>
+
+            <!-- ویجت «وظایف من» (برای همه‌ی کاربران) -->
+            <section class="dashboard-panel my-tasks-widget" id="my-tasks-widget" aria-labelledby="my-tasks-widget-title">
+                <div class="section-header dashboard-panel-header">
+                    <h3 class="dashboard-panel-title" id="my-tasks-widget-title">وظایف من</h3>
+                    <div class="section-header-actions">
+                        <a class="btn btn-secondary btn-sm" href="#/tasks/my">مشاهده همه</a>
+                    </div>
+                </div>
+                <div id="my-tasks-widget-body" aria-live="polite"></div>
+            </section>
+
+            <div class="dashboard-nav" id="dashboard-nav">
+                <div class="dashboard-tabs" role="tablist" aria-label="بخش‌های داشبورد">
+                    <button type="button" class="dashboard-tab active" role="tab" id="dashboard-tab-btn-overview" aria-selected="true" aria-controls="dashboard-tab-overview" data-tab="overview">نمای کلی</button>
+                    <button type="button" class="dashboard-tab" role="tab" id="dashboard-tab-btn-alerts" aria-selected="false" aria-controls="dashboard-tab-alerts" data-tab="alerts">هشدارها</button>
+                    <button type="button" class="dashboard-tab" id="dashboard-tab-btn-reports" aria-selected="false" aria-controls="dashboard-reports-menu" aria-haspopup="true" aria-expanded="false" data-tab="reports">گزارش‌ها</button>
+                </div>
+                <div class="dashboard-reports-menu hidden" id="dashboard-reports-menu" role="menu" aria-labelledby="dashboard-tab-btn-reports">
+                    <button type="button" class="dashboard-report-link" role="menuitem" id="btn-melt-register">شناسنامه‌های ذوب</button>
+                    <button type="button" class="dashboard-report-link" role="menuitem" data-tab="defect-report">گزارش عیوب</button>
+                    <button type="button" class="dashboard-report-link" role="menuitem" data-tab="occupancy-report">گزارش مراحل</button>
+                    <button type="button" class="dashboard-report-link hidden" role="menuitem" id="btn-dashboard-furnaces">کوره‌های عملیات حرارتی</button>
+                    <button type="button" class="dashboard-report-link" role="menuitem" data-tab="welding-report">گزارش جوشکاری</button>
+                    <button type="button" class="dashboard-report-link" role="menuitem" data-tab="tensile-quality-report">گزارش تست کشش</button>
+                    <button type="button" class="dashboard-report-link" role="menuitem" data-tab="tensile-trend-report">روند تست کشش</button>
+                </div>
+            </div>
+
+            <div class="dashboard-tab-panel active" id="dashboard-tab-overview" role="tabpanel" aria-labelledby="dashboard-tab-btn-overview">
+                <div class="dashboard-filters dashboard-filters-primary">
+                    <div class="dashboard-filters-heading">فیلتر نمای کلی</div>
+                    <div class="form-group">
+                        <label for="dashboard-project-filter">پروژه</label>
+                        <select id="dashboard-project-filter">
+                            <option value="">همه پروژه‌ها</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="dashboard-date-from">از تاریخ</label>
+                        <input type="text" id="dashboard-date-from" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="dashboard-date-to">تا تاریخ</label>
+                        <input type="text" id="dashboard-date-to" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="dashboard-filters-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-dashboard-clear-filters">پاک کردن فیلترها</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid stats-grid-primary card-tilt-wrap" id="dashboard-kpi-primary">
+                    <div class="stat-card card-tilt stat-card-hero stat-card-wip" data-stat="wip">
+                        <span class="stat-value" id="stat-wip">—</span>
+                        <span class="stat-label">در جریان تولید</span>
+                        <span class="stat-sublabel" id="stat-wip-percent"></span>
+                    </div>
+                    <div class="stat-card card-tilt stat-card-hero stat-card-scrap" data-stat="scrap">
+                        <span class="stat-value" id="stat-scrap-rate">—</span>
+                        <span class="stat-label">نرخ اسقاط</span>
+                    </div>
+                    <div class="stat-card card-tilt stat-card-hero stat-card-cycle" data-stat="cycle">
+                        <span class="stat-value" id="stat-cycle-time">—</span>
+                        <span class="stat-label">میانگین زمان چرخه (روز)</span>
+                    </div>
+                </div>
+
+                <div class="stats-grid stats-grid-secondary card-tilt-wrap" id="dashboard-kpi-secondary">
+                    <div class="stat-card card-tilt stat-card-secondary" data-stat="projects">
+                        <span class="stat-value" id="stat-total-projects">—</span>
+                        <span class="stat-label">تعداد پروژه‌ها</span>
+                    </div>
+                    <div class="stat-card card-tilt stat-card-secondary" data-stat="pieces">
+                        <span class="stat-value" id="stat-total-pieces">—</span>
+                        <span class="stat-label">تعداد کل قطعات</span>
+                    </div>
+                    <div class="stat-card card-tilt stat-card-secondary stat-card-scrapped" data-stat="scrapped-count">
+                        <span class="stat-value" id="stat-scrapped-count">—</span>
+                        <span class="stat-label">قطعات اسقاط‌شده</span>
+                        <span class="stat-sublabel">وضعیت فعلی، بدون بایگانی‌شده‌ها</span>
+                    </div>
+                    <div class="stat-card card-tilt stat-card-secondary stat-card-success" data-stat="delivered-period">
+                        <span class="stat-value" id="stat-delivered-period">—</span>
+                        <span class="stat-label">تحویل در بازه</span>
+                    </div>
+                    <div class="stat-card card-tilt stat-card-secondary stat-card-success" data-stat="ready-period">
+                        <span class="stat-value" id="stat-ready-period">—</span>
+                        <span class="stat-label">آماده در بازه</span>
+                    </div>
+                    <div class="stat-card card-tilt stat-card-secondary stat-card-success" data-stat="shot-blasting-period">
+                        <span class="stat-value" id="stat-shot-blasting-period">—</span>
+                        <span class="stat-label">شات‌بلاست در بازه</span>
+                    </div>
+                    <div class="stat-card card-tilt stat-card-secondary stat-card-success" data-stat="heat-stage1-period">
+                        <span class="stat-value" id="stat-heat-stage1-period">—</span>
+                        <span class="stat-label">مرحله اول عملیات در بازه</span>
+                    </div>
+                </div>
+
+                <div class="dashboard-bottleneck-row card-tilt-wrap" id="dashboard-bottleneck-row">
+                    <div class="bottleneck-card card-tilt">
+                        <span class="bottleneck-label">گلوگاه مرحله</span>
+                        <span class="bottleneck-value" id="bottleneck-stage">—</span>
+                    </div>
+                    <div class="bottleneck-card card-tilt" id="bottleneck-project-card">
+                        <span class="bottleneck-label">گلوگاه پروژه</span>
+                        <span class="bottleneck-value" id="bottleneck-project">—</span>
+                    </div>
+                </div>
+
+                <div class="dashboard-panel">
+                    <h3 class="dashboard-panel-title">توزیع وضعیت قطعات</h3>
+                    <div class="stage-bar-chart" id="stage-distribution" aria-label="نمودار توزیع مراحل">
+                        <!-- با JS پر می‌شود -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-tab-panel" id="dashboard-tab-alerts" role="tabpanel" aria-labelledby="dashboard-tab-btn-alerts" hidden>
+                <div class="dashboard-filters dashboard-filters-primary">
+                    <div class="dashboard-filters-heading">فیلتر هشدارها</div>
+                    <div class="form-group">
+                        <label for="dashboard-alerts-project-filter">پروژه</label>
+                        <select id="dashboard-alerts-project-filter">
+                            <option value="">همه پروژه‌ها</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="dashboard-alerts-date-from">از تاریخ</label>
+                        <input type="text" id="dashboard-alerts-date-from" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="dashboard-alerts-date-to">تا تاریخ</label>
+                        <input type="text" id="dashboard-alerts-date-to" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="dashboard-filters-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-alerts-clear-filters">پاک کردن فیلترها</button>
+                    </div>
+                </div>
+
+                <details class="dashboard-advanced-panel">
+                    <summary class="dashboard-advanced-summary">تنظیمات هشدار</summary>
+                    <div class="dashboard-advanced-body">
+                        <div class="form-group">
+                            <label for="alert-stuck-threshold">آستانه گیرکرده (روز)</label>
+                            <input type="number" id="alert-stuck-threshold" min="1" value="7" />
+                        </div>
+                        <div class="form-group">
+                            <label for="alert-substage-threshold">آستانه زیرمرحله (روز)</label>
+                            <input type="number" id="alert-substage-threshold" min="1" value="3" />
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-alert-thresholds-apply">اعمال آستانه‌ها</button>
+                    </div>
+                </details>
+
+                <div class="alerts-grid" id="dashboard-alerts-grid">
+                    <div class="alert-widget alert-widget-danger" data-severity="critical">
+                        <div class="alert-widget-header">
+                            <svg class="dash-icon dash-icon-danger" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                            <span class="alert-widget-title">قطعات در ایستگاه جوشکاری</span>
+                            <span class="alert-widget-count alert-widget-count-danger" id="alert-welding-count">۰</span>
+                        </div>
+                        <div class="alert-widget-list" id="alert-welding-list"></div>
+                    </div>
+
+                    <div class="alert-widget alert-widget-warning" data-severity="high">
+                        <div class="alert-widget-header">
+                            <svg class="dash-icon dash-icon-warning" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                            <span class="alert-widget-title">قطعات گیرکرده در یک مرحله</span>
+                            <span class="alert-widget-count alert-widget-count-warning" id="alert-stuck-count">۰</span>
+                        </div>
+                        <div class="alert-widget-list" id="alert-stuck-list"></div>
+                    </div>
+
+                    <div class="alert-widget alert-widget-warning" data-severity="medium">
+                        <div class="alert-widget-header">
+                            <svg class="dash-icon dash-icon-warning" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
+                            <span class="alert-widget-title">تفسیر بیش از حد</span>
+                            <span class="alert-widget-count alert-widget-count-warning" id="alert-interp-count">۰</span>
+                        </div>
+                        <div class="alert-widget-list" id="alert-interp-list"></div>
+                    </div>
+
+                    <div class="alert-widget alert-widget-warning" data-severity="medium">
+                        <div class="alert-widget-header">
+                            <svg class="dash-icon dash-icon-warning" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                            <span class="alert-widget-title">منتظر عملیات بیش از حد</span>
+                            <span class="alert-widget-count alert-widget-count-warning" id="alert-ops-count">۰</span>
+                        </div>
+                        <div class="alert-widget-list" id="alert-ops-list"></div>
+                    </div>
+
+                    <div class="alert-widget alert-widget-danger" data-severity="high">
+                        <div class="alert-widget-header">
+                            <svg class="dash-icon dash-icon-danger" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/></svg>
+                            <span class="alert-widget-title">نیازمند تعیین‌تکلیف کشش</span>
+                            <span class="alert-widget-count alert-widget-count-danger" id="alert-tensile-count">۰</span>
+                        </div>
+                        <div class="alert-widget-list" id="alert-tensile-list"></div>
+                    </div>
+                </div>
+
+                <div class="dashboard-panel">
+                    <h3 class="dashboard-panel-title">آخرین تغییر وضعیت‌ها</h3>
+                    <div class="recent-moves-list" id="recent-moves-list"></div>
+                </div>
+            </div>
+
+            <div class="dashboard-tab-panel" id="dashboard-tab-defect-report" role="tabpanel" aria-labelledby="dashboard-tab-btn-defect-report" hidden>
+                <div class="section-header dashboard-panel-header">
+                    <h3 class="dashboard-panel-title">گزارش عیوب رادیوگرافی</h3>
+                    <div class="section-header-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-defect-report-export-summary" disabled>خروجی خلاصه CSV</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-defect-report-export-detail" disabled>خروجی جزئیات قطعات CSV</button>
+                    </div>
+                </div>
+                <div class="dashboard-filters dashboard-filters-primary" id="defect-report-filters">
+                    <div class="dashboard-filters-heading">فیلتر گزارش عیوب</div>
+                    <div class="form-group">
+                        <label for="defect-report-project">پروژه *</label>
+                        <select id="defect-report-project">
+                            <option value="">انتخاب پروژه</option>
+                        </select>
+                    </div>
+                    <div class="multi-filter-group">
+                        <span class="multi-filter-title" id="defect-report-definitions-title">ردیف قطعه</span>
+                        <details class="multi-filter-details">
+                            <summary class="multi-filter-summary" aria-labelledby="defect-report-definitions-title">
+                                <span class="multi-filter-badge is-empty" data-for="defect-report-definitions">بدون محدودیت</span>
+                            </summary>
+                            <div class="multi-filter-options" id="defect-report-definitions"></div>
+                        </details>
+                    </div>
+                    <div class="multi-filter-group">
+                        <span class="multi-filter-title" id="defect-report-defect-types-title">نوع عیب</span>
+                        <details class="multi-filter-details">
+                            <summary class="multi-filter-summary" aria-labelledby="defect-report-defect-types-title">
+                                <span class="multi-filter-badge is-empty" data-for="defect-report-defect-types">بدون محدودیت</span>
+                            </summary>
+                            <div class="multi-filter-options" id="defect-report-defect-types"></div>
+                        </details>
+                    </div>
+                    <div class="multi-filter-group">
+                        <span class="multi-filter-title" id="defect-report-statuses-title">وضعیت عیب</span>
+                        <details class="multi-filter-details">
+                            <summary class="multi-filter-summary" aria-labelledby="defect-report-statuses-title">
+                                <span class="multi-filter-badge is-empty" data-for="defect-report-statuses">بدون محدودیت</span>
+                            </summary>
+                            <div class="multi-filter-options" id="defect-report-statuses"></div>
+                        </details>
+                    </div>
+                    <div class="multi-filter-group">
+                        <span class="multi-filter-title" id="defect-report-welding-confirmed-title">تایید جوش</span>
+                        <details class="multi-filter-details">
+                            <summary class="multi-filter-summary" aria-labelledby="defect-report-welding-confirmed-title">
+                                <span class="multi-filter-badge is-empty" data-for="defect-report-welding-confirmed">بدون محدودیت</span>
+                            </summary>
+                            <div class="multi-filter-options" id="defect-report-welding-confirmed"></div>
+                        </details>
+                    </div>
+                    <div class="form-group">
+                        <label for="defect-report-date-from">از تاریخ ورود به ذوب‌ریزی</label>
+                        <input type="text" id="defect-report-date-from" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="defect-report-date-to">تا تاریخ ورود به ذوب‌ریزی</label>
+                        <input type="text" id="defect-report-date-to" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="dashboard-filters-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-defect-report-clear">پاک کردن</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-defect-report-run">اجرای گزارش</button>
+                    </div>
+                </div>
+                <div class="table-wrap table-wrap-scroll">
+                    <table class="data-table" id="defect-report-table">
+                        <thead>
+                            <tr>
+                                <th>کد پروژه</th>
+                                <th>ردیف</th>
+                                <th>نام قطعه</th>
+                                <th>نوع عیب</th>
+                                <th>تعداد عیب</th>
+                                <th>قطعات دارای عیب</th>
+                                <th>کل قطعات ردیف</th>
+                                <th>درصد قطعات دارای عیب</th>
+                                <th class="defect-report-action-col">جزئیات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="defect-report-table-body">
+                            <tr class="empty-row"><td colspan="9">برای مشاهده گزارش، یک پروژه انتخاب کنید و «اجرای گزارش» را بزنید</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="dashboard-tab-panel" id="dashboard-tab-occupancy-report" role="tabpanel" aria-labelledby="dashboard-tab-btn-occupancy-report" hidden>
+                <div class="section-header dashboard-panel-header">
+                    <h3 class="dashboard-panel-title">گزارش حضور قطعات در مراحل</h3>
+                    <div class="section-header-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-occupancy-report-export" disabled>خروجی CSV</button>
+                    </div>
+                </div>
+                <p class="form-hint occupancy-report-hint">مراحل اصلی و زیرمرحله‌های قبلی و فعلی قطعه نمایش داده می‌شوند. مبنا تاریخ انجام فرآیند هر موقعیت است؛ اگر خالی یا بعد از خروج باشد، تاریخ ورود ثبت‌شده استفاده می‌شود. برای هر موقعیت، آخرین حضور نمایش داده می‌شود.</p>
+                <div class="dashboard-filters dashboard-filters-primary" id="occupancy-report-filters">
+                    <div class="dashboard-filters-heading">فیلتر گزارش مراحل</div>
+                    <div class="form-group">
+                        <label for="occupancy-report-project">پروژه</label>
+                        <select id="occupancy-report-project">
+                            <option value="">همه پروژه‌ها</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="occupancy-report-date-from">از تاریخ *</label>
+                        <input type="text" id="occupancy-report-date-from" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="occupancy-report-date-to">تا تاریخ *</label>
+                        <input type="text" id="occupancy-report-date-to" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="dashboard-filters-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-occupancy-report-clear">پاک کردن</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-occupancy-report-run">اجرای گزارش</button>
+                    </div>
+                </div>
+                <div class="table-wrap table-wrap-scroll">
+                    <table class="data-table" id="occupancy-report-table">
+                        <thead>
+                            <tr>
+                                <th>کد پروژه</th>
+                                <th>ردیف</th>
+                                <th>نام قطعه</th>
+                                <th>شماره قطعه</th>
+                                <th>مرحله</th>
+                                <th>ورود به مرحله</th>
+                                <th>خروج از مرحله</th>
+                                <th>هنوز در این مرحله</th>
+                            </tr>
+                        </thead>
+                        <tbody id="occupancy-report-table-body">
+                            <tr class="empty-row"><td colspan="8">تاریخ شروع و پایان را انتخاب کنید و «اجرای گزارش» را بزنید</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="dashboard-tab-panel" id="dashboard-tab-welding-report" role="tabpanel" aria-labelledby="dashboard-tab-btn-reports" hidden>
+                <div class="section-header dashboard-panel-header">
+                    <h3 class="dashboard-panel-title">گزارش قطعات ایستگاه جوشکاری</h3>
+                    <div class="section-header-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-welding-report-export" disabled>خروجی CSV</button>
+                    </div>
+                </div>
+                <p class="form-hint occupancy-report-hint">قطعاتی که هم‌اکنون در ایستگاه جوشکاری هستند، همراه با نوع عیب</p>
+                <div class="dashboard-filters dashboard-filters-primary" id="welding-report-filters">
+                    <div class="dashboard-filters-heading">فیلتر گزارش جوشکاری</div>
+                    <div class="form-group">
+                        <label for="welding-report-project">پروژه</label>
+                        <select id="welding-report-project">
+                            <option value="">همه پروژه‌ها</option>
+                        </select>
+                    </div>
+                    <div class="dashboard-filters-actions">
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-welding-report-run">اجرای گزارش</button>
+                    </div>
+                </div>
+                <div class="table-wrap table-wrap-scroll">
+                    <table class="data-table" id="welding-report-table">
+                        <thead>
+                            <tr>
+                                <th>کد پروژه</th>
+                                <th>نام قطعه</th>
+                                <th>شماره قطعه</th>
+                                <th>نوع عیب</th>
+                                <th>توضیحات</th>
+                                <th>ارسال‌کننده</th>
+                                <th>تاریخ ارسال</th>
+                            </tr>
+                        </thead>
+                        <tbody id="welding-report-table-body">
+                            <tr class="empty-row"><td colspan="7">«اجرای گزارش» را بزنید</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="dashboard-tab-panel" id="dashboard-tab-tensile-quality-report" role="tabpanel" aria-labelledby="dashboard-tab-btn-reports" hidden>
+                <div class="section-header dashboard-panel-header">
+                    <h3 class="dashboard-panel-title">گزارش Quality Index تست کشش</h3>
+                </div>
+                <p class="form-hint occupancy-report-hint">هر نقطه یک نمونه است: محور افقی YS و محور عمودی EL. خط مرجع ثابت است:0.25. اگر رنج خالی بماند، محور YS از ۰ تا ۶۰۰ و محور EL از ۰ تا ۱۰ است.</p>
+                <div class="dashboard-filters dashboard-filters-primary" id="tensile-quality-filters">
+                    <div class="dashboard-filters-heading">فیلتر گزارش تست کشش</div>
+                    <div class="form-group">
+                        <label for="tensile-quality-project">Project</label>
+                        <select id="tensile-quality-project">
+                            <option value="">همه پروژه‌ها</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-quality-part">Part</label>
+                        <select id="tensile-quality-part" disabled>
+                            <option value="">ابتدا پروژه را انتخاب کنید</option>
+                        </select>
+                    </div>
+                    <div class="multi-filter-group" id="tensile-quality-plate-group">
+                        <span class="multi-filter-title" id="tensile-quality-plate-title">شماره تست پلیت</span>
+                        <details class="multi-filter-details" id="tensile-quality-plate-details">
+                            <summary class="multi-filter-summary" aria-labelledby="tensile-quality-plate-title">
+                                <span class="multi-filter-badge is-empty" data-for="tensile-quality-plates">بدون محدودیت</span>
+                            </summary>
+                            <div class="multi-filter-options" id="tensile-quality-plates"></div>
+                        </details>
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-quality-date-from">Date From</label>
+                        <input type="text" id="tensile-quality-date-from" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-quality-date-to">Date To</label>
+                        <input type="text" id="tensile-quality-date-to" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-quality-ys-min">YS از</label>
+                        <input type="number" dir="ltr" id="tensile-quality-ys-min" inputmode="decimal" step="any" placeholder="0" />
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-quality-ys-max">YS تا</label>
+                        <input type="number" dir="ltr" id="tensile-quality-ys-max" inputmode="decimal" step="any" placeholder="600" />
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-quality-el-min">EL از</label>
+                        <input type="number" dir="ltr" id="tensile-quality-el-min" inputmode="decimal" step="any" placeholder="0" />
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-quality-el-max">EL تا</label>
+                        <input type="number" dir="ltr" id="tensile-quality-el-max" inputmode="decimal" step="any" placeholder="10" />
+                    </div>
+                    <div class="dashboard-filters-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-tensile-quality-reset">Reset Filters</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-tensile-quality-run">اعمال فیلتر</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-tensile-quality-export" disabled>خروجی CSV</button>
+                    </div>
+                </div>
+                <div class="form-error" id="tensile-quality-error"></div>
+                <div class="tensile-quality-stats" id="tensile-quality-stats"></div>
+                <div class="tensile-quality-legend" id="tensile-quality-legend">
+                    <span class="tensile-quality-legend-item"><i class="tensile-quality-swatch" data-band="GREEN"></i>Q &gt; 0.25</span>
+                    <span class="tensile-quality-legend-item"><i class="tensile-quality-swatch" data-band="YELLOW"></i>Q = 0.25</span>
+                    <span class="tensile-quality-legend-item"><i class="tensile-quality-swatch" data-band="RED"></i>Q &lt; 0.25</span>
+                    <span class="tensile-quality-legend-item"><i class="tensile-quality-swatch" data-band="UNDEFINED"></i>Q نامعتبر</span>
+                    <span class="tensile-quality-legend-item"><i class="tensile-quality-line-sample"></i>EL = 0.25 × (36 − 0.064 × YS)</span>
+                </div>
+                <div class="tensile-quality-chart-wrap" dir="ltr">
+                    <canvas id="tensile-quality-canvas" aria-label="نمودار YS در برابر EL"></canvas>
+                    <div class="tensile-quality-tooltip" id="tensile-quality-tooltip" hidden></div>
+                </div>
+            </div>
+
+            <div class="dashboard-tab-panel" id="dashboard-tab-tensile-trend-report" role="tabpanel" aria-labelledby="dashboard-tab-btn-reports" hidden>
+                <div class="section-header dashboard-panel-header">
+                    <h3 class="dashboard-panel-title">روند تست کشش</h3>
+                </div>
+                <p class="form-hint occupancy-report-hint">روند UTS، YS و EL در بازه‌ی انتخاب‌شده با رگرسیون خطی روی تاریخ واقعی تست‌ها محاسبه می‌شود. هر نقطه یک نمونه تست کشش است و داده‌ای حذف نمی‌شود.</p>
+                <div class="dashboard-filters dashboard-filters-primary" id="tensile-trend-filters">
+                    <div class="dashboard-filters-heading">فیلتر روند تست کشش</div>
+                    <div class="form-group">
+                        <label for="tensile-trend-project">پروژه</label>
+                        <select id="tensile-trend-project">
+                            <option value="">همه پروژه‌ها</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-trend-part">قطعه</label>
+                        <select id="tensile-trend-part" disabled>
+                            <option value="">ابتدا پروژه را انتخاب کنید</option>
+                        </select>
+                    </div>
+                    <div class="multi-filter-group" id="tensile-trend-plate-group">
+                        <span class="multi-filter-title" id="tensile-trend-plate-title">شماره تست پلیت</span>
+                        <details class="multi-filter-details" id="tensile-trend-plate-details">
+                            <summary class="multi-filter-summary" aria-labelledby="tensile-trend-plate-title">
+                                <span class="multi-filter-badge is-empty" data-for="tensile-trend-plates">بدون محدودیت</span>
+                            </summary>
+                            <div class="multi-filter-options" id="tensile-trend-plates"></div>
+                        </details>
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-trend-date-from">از تاریخ</label>
+                        <input type="text" id="tensile-trend-date-from" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="tensile-trend-date-to">تا تاریخ</label>
+                        <input type="text" id="tensile-trend-date-to" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="dashboard-filters-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-tensile-trend-reset">پاک کردن فیلترها</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-tensile-trend-run">اجرای گزارش</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-tensile-trend-export" disabled>خروجی CSV</button>
+                    </div>
+                </div>
+                <div class="form-error" id="tensile-trend-error"></div>
+
+                <div id="tensile-trend-content" hidden>
+                    <div class="trend-meta" id="tensile-trend-meta"></div>
+                    <div class="trend-cards" id="tensile-trend-cards"></div>
+
+                    <section class="trend-panel" aria-labelledby="tensile-trend-summary-title">
+                        <h4 class="trend-panel-title" id="tensile-trend-summary-title">تحلیل روند بازه انتخاب‌شده</h4>
+                        <ul class="trend-summary-list" id="tensile-trend-summary-list"></ul>
+                        <p class="trend-summary-text" id="tensile-trend-summary-text"></p>
+                    </section>
+
+                    <section class="trend-panel" aria-labelledby="tensile-trend-compare-title">
+                        <h4 class="trend-panel-title" id="tensile-trend-compare-title">مقایسه ابتدا و انتهای بازه</h4>
+                        <div class="table-wrap table-wrap-scroll">
+                            <table class="data-table trend-table" id="tensile-trend-compare-table">
+                                <thead>
+                                    <tr>
+                                        <th>Parameter</th>
+                                        <th>First</th>
+                                        <th>Last</th>
+                                        <th>Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tensile-trend-compare-body"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <div class="trend-chart-toolbar" role="group" aria-label="گزینه‌های نمایش نمودار">
+                        <label class="trend-toggle"><input type="checkbox" id="tensile-trend-show-line" checked /> <span>Show Trend Line</span></label>
+                        <label class="trend-toggle"><input type="checkbox" id="tensile-trend-show-ma" /> <span>Show Moving Average</span></label>
+                        <label class="trend-toggle trend-toggle-select">
+                            <span>پنجره</span>
+                            <select id="tensile-trend-ma-window" aria-label="پنجره میانگین متحرک">
+                                <option value="3" selected>3</option>
+                                <option value="5">5</option>
+                            </select>
+                        </label>
+                        <span class="trend-legend" id="tensile-trend-legend"></span>
+                    </div>
+                    <div class="trend-charts" id="tensile-trend-charts" dir="ltr"></div>
+
+                    <section class="trend-panel" aria-labelledby="tensile-trend-details-title">
+                        <h4 class="trend-panel-title" id="tensile-trend-details-title">جزئیات تحلیل روند</h4>
+                        <div class="table-wrap table-wrap-scroll">
+                            <table class="data-table trend-table" id="tensile-trend-details-table">
+                                <thead>
+                                    <tr>
+                                        <th>Parameter</th>
+                                        <th>وضعیت</th>
+                                        <th>تعداد نقاط</th>
+                                        <th>میانگین</th>
+                                        <th>شیب (در روز)</th>
+                                        <th>R²</th>
+                                        <th>اطمینان</th>
+                                        <th>آستانه ثابت</th>
+                                        <th>داده پرت</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tensile-trend-details-body"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </section>
+
+        <!-- بخش پروژه‌ها -->
+        <section id="projects-section" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">پروژه‌ها</h2>
+                <button class="btn btn-primary" id="btn-add-project">+ افزودن پروژه جدید</button>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>کد پروژه</th>
+                            <th>نام پروژه</th>
+                            <th>تاریخ ثبت</th>
+                            <th>تعداد تعاریف قطعه</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="projects-table-body">
+                        <!-- با JS پر می‌شود -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- بخش جزئیات یک پروژه (لیست PieceDefinition ها) -->
+        <section id="project-detail-section" class="content-section">
+            <button class="btn btn-secondary btn-back" id="btn-back-to-projects"><svg class="icon-directional" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>بازگشت به پروژه‌ها</button>
+
+            <div class="section-header">
+                <h2 class="section-title" id="project-detail-title">جزئیات پروژه</h2>
+                <div class="section-header-actions">
+                    <button class="btn btn-danger" id="btn-archive-all-project-pieces">بایگانی همه قطعات پروژه</button>
+                    <button class="btn btn-primary" id="btn-add-definition">+ افزودن تعریف قطعه جدید</button>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ردیف</th>
+                            <th>نام قطعه</th>
+                            <th>تعداد قطعات ساخته‌شده</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="definitions-table-body">
+                        <!-- با JS پر می‌شود -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- بخش جزئیات یک تعریف قطعه (لیست Piece ها) -->
+        <section id="definition-detail-section" class="content-section">
+            <button class="btn btn-secondary btn-back" id="btn-back-to-project-detail"><svg class="icon-directional" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>بازگشت به پروژه</button>
+
+            <div class="section-header">
+                <h2 class="section-title" id="definition-detail-title">جزئیات قطعه</h2>
+                <div class="section-header-actions">
+                    <button class="btn btn-secondary" id="btn-row-status-report">گزارش وضعیت ردیف</button>
+                    <label class="inline-check" for="chk-show-archived-pieces">
+                        <input type="checkbox" id="chk-show-archived-pieces" />
+                        نمایش بایگانی‌شده‌ها
+                    </label>
+                    <button class="btn btn-danger" id="btn-archive-all-definition-pieces">بایگانی همه قطعات ردیف</button>
+                    <button class="btn btn-secondary" id="btn-bulk-add-piece">+ افزودن دسته‌ای قطعات</button>
+                    <button class="btn btn-primary" id="btn-add-piece">+ افزودن قطعه جدید</button>
+                </div>
+            </div>
+
+            <div id="row-status-summary" class="row-status-summary card-tilt-wrap"></div>
+
+            <div id="row-status-report" class="row-status-report" hidden></div>
+
+            <div class="bulk-actions-bar" id="pieces-bulk-actions-bar" style="display: none;">
+                <span class="bulk-actions-count" id="pieces-bulk-actions-count">۰ قطعه انتخاب شده</span>
+                <button class="btn btn-danger btn-sm" id="btn-bulk-archive-pieces">بایگانی انتخاب‌شده‌ها</button>
+                <button class="btn btn-secondary btn-sm" id="btn-bulk-restore-pieces">بازگردانی انتخاب‌شده‌ها</button>
+                <button class="btn btn-secondary btn-sm" id="btn-pieces-clear-selection">لغو انتخاب</button>
+            </div>
+
+            <div class="table-wrap table-wrap-scroll" id="pieces-table-wrap">
+                <table class="data-table" id="pieces-table">
+                    <thead>
+                        <tr>
+                            <th class="checkbox-cell" id="pieces-select-all-cell"><input type="checkbox" id="pieces-select-all-checkbox" /></th>
+                            <th>شماره قطعه</th>
+                            <th>وضعیت فعلی</th>
+                            <th>ورود به مرحله</th>
+                            <th>تاریخ ثبت</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="pieces-table-body">
+                        <!-- با JS پر می‌شود -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- بخش ردیابی قطعات (بر اساس مرحله، از کل سیستم) -->
+        <section id="tracking-section" class="content-section">
+
+            <!-- متریک‌های کلی -->
+            <div class="metrics-row card-tilt-wrap" id="tracking-metrics">
+                <!-- با JS پر می‌شود -->
+            </div>
+
+            <!-- کارت‌های مرحله -->
+            <div class="stages-row card-tilt-wrap" id="tracking-stages-row">
+                <!-- با JS پر می‌شود -->
+            </div>
+
+            <!-- نوار جستجو -->
+            <div class="search-bar">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <input type="text" id="tracking-search-input" class="search-input" placeholder="شماره دقیق قطعه یا بخشی از نام قطعه / کد پروژه..." title="ورودی فقط عددی: شماره دقیق قطعه؛ برای جستجوی عدد در کد پروژه یا نام قطعه از فیلتر همان ستون استفاده کنید" />
+                <button class="btn btn-secondary btn-sm" id="btn-clear-search">پاک کردن</button>
+            </div>
+
+            <!-- فیلترهای پیشرفته: بازه‌ی تاریخ ورود به مرحله -->
+            <div class="advanced-filters">
+                <div class="filter-field">
+                    <label for="filter-date-from">از تاریخ ورود به مرحله</label>
+                    <input type="text" id="filter-date-from" placeholder="انتخاب تاریخ" />
+                </div>
+                <div class="filter-field">
+                    <label for="filter-date-to">تا تاریخ ورود به مرحله</label>
+                    <input type="text" id="filter-date-to" placeholder="انتخاب تاریخ" />
+                </div>
+                <!-- فقط وقتی مرحله‌ی «رادیوگرافی» انتخاب شده باشد نمایش داده می‌شود؛ ظاهرش هم‌شکل دکمه‌هاست -->
+                <select id="filter-radiography-substage" class="btn btn-secondary btn-sm btn-filter-select" style="display: none;">
+                    <option value="">زیرمرحله: همه</option>
+                </select>
+                <!-- فقط وقتی مرحله‌ی «عملیات حرارتی» انتخاب شده باشد نمایش داده می‌شود -->
+                <select id="filter-heat-treatment-substage" class="btn btn-secondary btn-sm btn-filter-select" style="display: none;">
+                    <option value="">زیرمرحله: همه</option>
+                </select>
+                <!-- فقط وقتی مرحله‌ی «خشن‌تراشی» انتخاب شده باشد نمایش داده می‌شود -->
+                <select id="filter-rough-machining-substage" class="btn btn-secondary btn-sm btn-filter-select" style="display: none;">
+                    <option value="">زیرمرحله: همه</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" id="btn-clear-advanced-filters">پاک کردن فیلترها</button>
+            </div>
+
+            <div class="content-header">
+                <div class="content-title" id="tracking-table-title">همه قطعات در جریان تولید</div>
+                <div class="tracking-table-count" id="tracking-table-count">۰ قطعه</div>
+            </div>
+
+            <!-- نوار عملیات دسته‌جمعی؛ فقط وقتی حداقل یک قطعه انتخاب شده باشد نمایش داده می‌شود -->
+            <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none;">
+                <span class="bulk-actions-count" id="bulk-actions-count">۰ قطعه انتخاب شده</span>
+                <div class="bulk-actions-group" id="bulk-stage-group">
+                    <select id="bulk-stage-select"></select>
+                    <button class="btn btn-primary btn-sm" id="btn-bulk-apply-stage">تغییر وضعیت</button>
+                </div>
+                <div class="bulk-actions-group" id="bulk-radiography-substage-group" style="display: none;">
+                    <select id="bulk-radiography-substage-select"></select>
+                    <button class="btn btn-secondary btn-sm" id="btn-bulk-apply-radiography-substage">تغییر زیرمرحله رادیوگرافی</button>
+                </div>
+                <div class="bulk-actions-group" id="bulk-heat-treatment-substage-group" style="display: none;">
+                    <select id="bulk-heat-treatment-substage-select"></select>
+                    <button class="btn btn-secondary btn-sm" id="btn-bulk-apply-heat-treatment-substage">تغییر زیرمرحله عملیات حرارتی</button>
+                </div>
+                <div class="bulk-actions-group" id="bulk-rough-machining-substage-group" style="display: none;">
+                    <select id="bulk-rough-machining-substage-select"></select>
+                    <button class="btn btn-secondary btn-sm" id="btn-bulk-apply-rough-machining-substage">تغییر زیرمرحله خشن‌تراشی</button>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="btn-bulk-clear-selection">لغو انتخاب</button>
+            </div>
+
+            <div class="table-wrap table-wrap-sticky">
+                <table class="data-table" id="tracking-table">
+                    <thead>
+                        <tr>
+                            <th class="checkbox-cell"><input type="checkbox" id="select-all-checkbox" /></th>
+                            <th class="sortable-th th-with-filter" data-sort="pieceNumber" title="مرتب‌سازی بر اساس شماره قطعه">
+                                شماره قطعه
+                                <span class="sort-indicator" aria-hidden="true"></span>
+                                <input type="text" id="tracking-filter-piece-number" class="th-filter-input" placeholder="شماره دقیق..." autocomplete="off" inputmode="numeric" />
+                            </th>
+                            <th class="th-with-filter">
+                                نام قطعه
+                                <input type="text" id="tracking-filter-piece-name" class="th-filter-input" placeholder="جستجو..." autocomplete="off" />
+                            </th>
+                            <th class="th-with-filter">
+                                کد پروژه
+                                <input type="text" id="tracking-filter-project-code" class="th-filter-input" placeholder="جستجو..." autocomplete="off" />
+                            </th>
+                            <th>وضعیت فعلی</th>
+                            <th class="sortable-th" data-sort="processDate" title="مرتب‌سازی بر اساس تاریخ انجام فرآیند">
+                                تاریخ انجام فرآیند
+                                <span class="sort-indicator" aria-hidden="true"></span>
+                            </th>
+                            <th class="sortable-th" data-sort="stageEnteredAt" title="مرتب‌سازی بر اساس تاریخ ورود به مرحله">
+                                ورود به مرحله
+                                <span class="sort-indicator" aria-hidden="true"></span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="tracking-table-body">
+                        <!-- با JS پر می‌شود -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination-bar" id="tracking-pagination" hidden>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-tracking-prev">قبلی</button>
+                <span class="pagination-info" id="tracking-page-info"></span>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-tracking-next">بعدی</button>
+                <label class="pagination-size" for="tracking-page-size">
+                    تعداد در صفحه
+                    <select id="tracking-page-size">
+                        <option value="25">۲۵</option>
+                        <option value="50" selected>۵۰</option>
+                        <option value="100">۱۰۰</option>
+                    </select>
+                </label>
+            </div>
+        </section>
+
+        <!-- بخش مدیریت کاربران (فقط برای ادمین) -->
+        <section id="users-section" class="content-section">
+            <div class="section-header">
+                <h2 class="section-title">مدیریت کاربران</h2>
+                <button class="btn btn-primary" id="btn-add-user">+ افزودن کاربر جدید</button>
+            </div>
+
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>نام کاربری</th>
+                            <th>نام و نام خانوادگی</th>
+                            <th>نقش</th>
+                            <th>تاریخ ثبت</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        <!-- با JS پر می‌شود -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- بخش وظایف (وظایف من / همه وظایف) -->
+        <section id="tasks-section" class="content-section" aria-labelledby="tasks-title">
+            <div class="section-header">
+                <h2 class="section-title" id="tasks-title">وظایف من</h2>
+                <div class="section-header-actions">
+                    <button type="button" class="btn btn-primary hidden" id="btn-add-task">+ وظیفه‌ی جدید</button>
+                </div>
+            </div>
+
+            <div class="task-context-chips" id="task-context-chips"></div>
+
+            <form class="task-filters" id="task-filters" role="search" aria-label="فیلتر وظایف" autocomplete="off">
+                <div class="task-quick-tabs" id="task-quick-tabs" role="group" aria-label="فیلتر سریع">
+                    <button type="button" class="task-chip" data-quick="open" aria-pressed="true">باز</button>
+                    <button type="button" class="task-chip" data-quick="overdue" aria-pressed="false">دارای تأخیر</button>
+                    <button type="button" class="task-chip" data-quick="today" aria-pressed="false">مهلت امروز</button>
+                    <button type="button" class="task-chip" data-quick="done" aria-pressed="false">تکمیل‌شده</button>
+                    <button type="button" class="task-chip" data-quick="all" aria-pressed="false">همه</button>
+                </div>
+                <div class="task-filter-row">
+                    <div class="form-group task-filter-search">
+                        <label for="task-filter-q">جستجو</label>
+                        <input type="search" id="task-filter-q" placeholder="عنوان، توضیحات، پروژه، قطعه یا مسئول" />
+                    </div>
+                    <div class="form-group">
+                        <label for="task-filter-status">وضعیت</label>
+                        <select id="task-filter-status"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-filter-priority">اولویت</label>
+                        <select id="task-filter-priority"></select>
+                    </div>
+                    <div class="form-group hidden" id="task-filter-assignee-group">
+                        <label for="task-filter-assignee">مسئول</label>
+                        <select id="task-filter-assignee"><option value="">همه</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="task-filter-due-from">مهلت از</label>
+                        <input type="text" id="task-filter-due-from" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="task-filter-due-to">مهلت تا</label>
+                        <input type="text" id="task-filter-due-to" placeholder="انتخاب تاریخ" />
+                    </div>
+                    <div class="form-group">
+                        <label for="task-filter-sort">مرتب‌سازی</label>
+                        <select id="task-filter-sort">
+                            <option value="smart">هوشمند (تأخیر، اولویت، مهلت)</option>
+                            <option value="dueDate:asc">مهلت (نزدیک‌ترین اول)</option>
+                            <option value="dueDate:desc">مهلت (دورترین اول)</option>
+                            <option value="priority:desc">اولویت (بالاترین اول)</option>
+                            <option value="priority:asc">اولویت (پایین‌ترین اول)</option>
+                            <option value="createdAt:desc">جدیدترین</option>
+                            <option value="updatedAt:desc">آخرین تغییر</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="task-filter-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-task-filters-clear">پاک کردن فیلترها</button>
+                </div>
+            </form>
+
+            <div id="task-list-region" aria-live="polite"></div>
+            <div class="task-pagination" id="task-pagination"></div>
+        </section>
+
+        <!-- جزئیات یک وظیفه -->
+        <section id="task-detail-section" class="content-section" aria-label="جزئیات وظیفه">
+            <a class="btn btn-secondary btn-back" href="#/tasks/my"><svg class="icon-directional" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>بازگشت به وظایف</a>
+            <div id="task-detail-root"></div>
+        </section>
+
+        <!-- پروفایل کاربر -->
+        <section id="profile-section" class="content-section" aria-label="پروفایل کاربر">
+            <a class="btn btn-secondary btn-back" href="#/tasks/my"><svg class="icon-directional" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>بازگشت به وظایف</a>
+            <div id="profile-root"></div>
+        </section>
+
+    </main>
+
+    </div>
+    <!-- پایان app-shell -->
+
+    <!-- مودال (پنجره بازشو) برای فرم‌ها -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-box" id="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div class="modal-header">
+                <p id="modal-title">عنوان</p>
+                <button class="modal-close" id="modal-close" type="button" aria-label="بستن"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- فرم با JS تزریق می‌شود -->
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay nested-modal-overlay" id="nested-modal-overlay">
+        <div class="modal-box" id="nested-modal-box" role="dialog" aria-modal="true" aria-labelledby="nested-modal-title">
+            <div class="modal-header">
+                <p id="nested-modal-title">عنوان</p>
+                <button class="modal-close" id="nested-modal-close" type="button" aria-label="بستن"><span aria-hidden="true">&times;</span></button>
+            </div>
+            <div class="modal-body" id="nested-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- نوتیفیکیشن (پیام موفقیت/خطا) -->
+    <div class="toast" id="toast"></div>
+
+    <script src="js/jalali.js?v=64"></script>
+    <script src="js/persian-datepicker.js?v=66"></script>
+    <script src="js/api.js?v=90"></script>
+    <script src="js/auth.js?v=73"></script>
+    <script src="js/app.js?v=76"></script>
+    <script src="js/dashboard.js?v=83"></script>
+    <script src="js/projects.js?v=65"></script>
+    <script src="js/pieces.js?v=71"></script>
+    <script src="js/radiography.js?v=80"></script>
+    <script src="js/radiography-report.js?v=79"></script>
+    <script src="js/heat-treatment.js?v=72"></script>
+    <script src="js/heat-treatment-log.js?v=78"></script>
+    <script src="js/rough-machining.js?v=72"></script>
+    <script src="js/welding-station.js?v=77"></script>
+    <script src="js/notes.js?v=50"></script>
+    <script src="js/welding-map.js?v=66"></script>
+    <script src="js/tensile.js?v=76"></script>
+    <script src="js/tensile-quality-report.js?v=7"></script>
+    <script src="js/tensile-trend-report.js?v=2"></script>
+    <script src="js/production-flow.js?v=7"></script>
+    <script src="js/tracking.js?v=90"></script>
+    <script src="js/notifications.js?v=3"></script>
+    <script src="js/users.js?v=63"></script>
+    <script src="js/tasks-common.js?v=3"></script>
+    <script src="js/tasks.js?v=2"></script>
+    <script src="js/task-detail.js?v=3"></script>
+    <script src="js/profile.js?v=4"></script>
+    <script src="js/performance.js?v=1"></script>
+    <script src="js/radiography-workflow.js?v=2"></script>
+    <script src="js/melt-passport.js?v=7"></script>
+    <script src="js/task-router.js?v=1"></script>
+    <script src="js/theme-selector.js?v=1"></script>
+</body>
+</html>

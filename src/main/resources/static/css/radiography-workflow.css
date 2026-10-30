@@ -1,0 +1,268 @@
+﻿/* گردش‌کار تفسیر رادیوگرافی: پنل، نمودار مراحل، نشان نوع وظیفه و مهر «APPROVED» */
+
+.task-confirm-message {
+    white-space: pre-line;
+}
+
+/* ---------- نشان‌ها ---------- */
+.task-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface2, transparent);
+    color: var(--color-text-secondary, inherit);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.task-type-badge-radiography {
+    border-color: var(--color-primary, #5346e0);
+    color: var(--color-primary, #5346e0);
+}
+
+.rw-status {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid var(--color-border);
+}
+
+.rw-status-manager_review { background: var(--color-warning-soft); color: var(--color-warning-text); border-color: var(--color-warning); }
+.rw-status-reinterpretation_required { background: var(--color-danger-soft); color: var(--color-danger-text); border-color: var(--color-danger); }
+.rw-status-manager_approved { background: var(--color-success-soft); color: var(--color-success-text); border-color: var(--color-success); }
+.rw-status-interpreter_assigned,
+.rw-status-report_in_progress { background: var(--color-primary-bg, transparent); color: var(--color-primary, inherit); }
+
+/* ---------- پنل ---------- */
+.rw-card {
+    margin-top: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--color-surface, transparent);
+}
+
+.rw-title {
+    margin: 0 0 10px;
+    font-size: 15px;
+}
+
+.rw-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.rw-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 24px;
+    margin: 0 0 12px;
+}
+
+.rw-meta > div { display: flex; gap: 6px; }
+.rw-meta dt { color: var(--color-text-muted); }
+.rw-meta dt::after { content: ":"; }
+.rw-meta dd { margin: 0; font-weight: 600; }
+
+.rw-stepper {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.rw-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: var(--color-text-muted);
+}
+
+.rw-step-mark { font-weight: 700; }
+.rw-step-state { font-size: 11px; opacity: 0.8; }
+
+.rw-step.is-done {
+    border-color: var(--color-success);
+    background: var(--color-success-soft);
+    color: var(--color-success-text);
+}
+
+.rw-step.is-current {
+    border-color: var(--color-primary, #5346e0);
+    background: var(--color-primary-bg, transparent);
+    color: var(--color-primary, inherit);
+    font-weight: 700;
+}
+
+.rw-approval-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.rw-check { color: var(--color-success); font-weight: 700; }
+
+.rw-reject-box,
+.rw-warn {
+    margin: 10px 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--color-danger);
+    background: var(--color-danger-soft);
+    color: var(--color-danger-text);
+}
+
+.rw-reject-box p { margin: 4px 0 0; white-space: pre-wrap; }
+
+.rw-warn {
+    border-color: var(--color-warning);
+    background: var(--color-warning-soft);
+    color: var(--color-warning-text);
+}
+
+.rw-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.rw-history { margin-top: 12px; font-size: 13px; }
+.rw-history ul { margin: 8px 0 0; padding: 0 18px 0 0; }
+.rw-history li { margin-bottom: 6px; }
+.rw-history-reason { white-space: pre-wrap; color: var(--color-text-secondary); }
+
+/* ---------- سند ---------- */
+.rw-doc-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.rw-doc-version select { margin-inline-start: 6px; }
+.rw-review-note { margin-bottom: 10px; }
+.rw-doc-pages { overflow: auto; }
+.rw-doc-report-title { margin: 14px 0 6px; font-size: 14px; }
+.rw-doc-actions { position: sticky; bottom: 0; background: var(--color-surface-elevated, var(--color-surface, #fff)); padding-top: 10px; }
+
+/* ---------- امضای پروفایل ---------- */
+.rw-signature-card { margin-bottom: 16px; }
+.rw-signature-body { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.rw-signature-preview {
+    min-width: 220px;
+    min-height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border: 1px dashed var(--color-border2, var(--color-border));
+    border-radius: 8px;
+    background: #fff;
+}
+.rw-signature-preview img { max-width: 220px; max-height: 90px; object-fit: contain; }
+.rw-signature-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+
+/* ---------- مهر APPROVED داخل کادرهای امضای فوتر (همه‌ی لایه‌ها شفاف) ---------- */
+.rt-sign-block.is-stamped {
+    position: relative;
+}
+
+.rw-sign-stamp {
+    --stamp: #1b5e20;
+    flex: 1 1 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 13mm minmax(0, 1fr) 27mm;
+    align-items: center;
+    gap: 0.6mm;
+    padding: 0.3mm 0.8mm;
+    background: transparent;
+    color: var(--stamp);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.rw-stamp-manager { --stamp: #0d3b8c; }
+
+.rw-stamp-seal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4mm 0.6mm;
+    border: 0.35mm solid var(--stamp);
+    border-radius: 0.8mm;
+    background: transparent;
+    transform: rotate(-5deg);
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.rw-stamp-word {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 7px;
+    letter-spacing: 0.04em;
+    direction: ltr;
+}
+
+.rw-stamp-fa { font-size: 6px; }
+
+.rw-stamp-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2mm;
+    font-size: 7px;
+    line-height: 1.2;
+    color: #1c2430;
+}
+
+.rw-stamp-name {
+    font-weight: 700;
+    font-size: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rw-stamp-when { color: #4a5565; white-space: nowrap; }
+
+.rw-stamp-sign {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+}
+
+/* multiply: سفیدیِ پس‌زمینه‌ی تصویر امضا روی کاغذ دیده نمی‌شود و خطوط کادر را نمی‌پوشاند */
+.rw-stamp-sign img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    background: transparent;
+    image-rendering: auto;
+    mix-blend-mode: multiply;
+}
