@@ -751,7 +751,7 @@ function setupBulkActionsListeners() {
         }
 
         const toMove = selectedPieces.filter(
-            (p) => p.currentStage !== newStage && p.currentStage !== "WELDING"
+            (p) => p.currentStage !== newStage && (p.currentStage !== "WELDING" || newStage === "SCRAPPED")
         );
         const skipped = selectedPieces.length - toMove.length;
         if (toMove.length === 0) {
@@ -770,9 +770,12 @@ function setupBulkActionsListeners() {
 
         await withButtonLoader(applyStageBtn, async () => {
             try {
+                const scrap = newStage === "SCRAPPED" ? await requestScrapDetails({ count: toMove.length }) : undefined;
+                if (scrap === null) return;
                 await PieceAPI.bulkUpdateStage(
                     toMove.map((p) => p.id),
-                    newStage
+                    newStage,
+                    scrap
                 );
                 if (skipped > 0) {
                     showToast(`${toMove.length} قطعه منتقل شد؛ ${skipped} قطعه به‌خاطر تکراری بودن رد شد`);
@@ -940,7 +943,7 @@ function attachProcessDatePickers(root) {
 async function openPieceProfile(pieceId) {
     openModal("در حال بارگذاری", `<div class="loader-wrap">${loaderMarkup()}</div>`, { size: "lg" });
     try {
-        const [piece, history, subStageHistory, processDates, defects, notes, tensileTests, heatTreatments, weldingDispatches] = await Promise.all([
+        const [piece, history, subStageHistory, processDates, defects, notes, tensileTests, heatTreatments, weldingDispatches, scrapDispatches] = await Promise.all([
             PieceAPI.getById(pieceId),
             PieceAPI.getStageHistory(pieceId),
             PieceAPI.getSubStageHistory(pieceId),
@@ -954,12 +957,13 @@ async function openPieceProfile(pieceId) {
             TensileTestAPI.getByPiece(pieceId),
             HeatTreatmentAPI.getByPiece(pieceId),
             PieceAPI.getWeldingDispatches(pieceId),
+            PieceAPI.getScrapDispatches(pieceId),
         ]);
 
         resetRadiographyState();
         resetNotesState();
         resetTensileState();
-        renderPieceProfileModal(piece, history, defects, notes, subStageHistory, tensileTests, heatTreatments, weldingDispatches, processDates);
+        renderPieceProfileModal(piece, history, defects, notes, subStageHistory, tensileTests, heatTreatments, weldingDispatches, processDates, scrapDispatches);
     } catch (error) {
         openModal(
             "پروفایل قطعه",
@@ -979,7 +983,8 @@ function renderPieceProfileModal(
     tensileTests = [],
     heatTreatments = [],
     weldingDispatches = [],
-    processDates = []
+    processDates = [],
+    scrapDispatches = []
 ) {
     openModal(
         `قطعه شماره ${piece.pieceNumber} — ${piece.pieceName}`,
@@ -1041,6 +1046,7 @@ function renderPieceProfileModal(
         </div>
 
         ${piece.archivedAt ? "" : renderWeldingStationSection(piece, weldingDispatches)}
+        ${renderScrapSection(piece, scrapDispatches)}
 
         <div id="profile-notes-container">
             ${renderNotesSection(piece.id, notes)}
@@ -1059,6 +1065,7 @@ function renderPieceProfileModal(
     attachHeatTreatmentLogIconEvents(piece);
     attachNotesSectionEvents(piece.id);
     attachWeldingStationEvents(piece, defects, weldingDispatches);
+    attachScrapEvents(piece, defects, scrapDispatches);
     attachProfileStageActions(piece);
     attachProductionFlowEditors(piece);
     if (typeof loadPieceRadiographyWorkflow === "function") loadPieceRadiographyWorkflow(piece);
@@ -1233,7 +1240,9 @@ function attachProfileStageActions(piece) {
             if (!confirm("آیا از اسقاط این قطعه مطمئن هستید؟")) return;
             await withButtonLoader(scrapBtn, async () => {
                 try {
-                    await PieceAPI.updateStage(piece.id, "SCRAPPED");
+                    const scrap = await requestScrapDetails({ pieceId: piece.id });
+                    if (!scrap) return;
+                    await PieceAPI.updateStage(piece.id, "SCRAPPED", scrap);
                     showToast("قطعه اسقاط شد");
                     loadTracking();
                     await openPieceProfile(piece.id);
@@ -1383,7 +1392,9 @@ function openAdminJumpModal(piece) {
         await withButtonLoader(btn, async () => {
             try {
                 if (targetStage !== piece.currentStage) {
-                    await PieceAPI.updateStage(piece.id, targetStage);
+                    const scrap = targetStage === "SCRAPPED" ? await requestScrapDetails({ pieceId: piece.id }) : undefined;
+                    if (scrap === null) return;
+                    await PieceAPI.updateStage(piece.id, targetStage, scrap);
                     if (targetStage === "RADIOGRAPHY" && radio && radio !== "SHOT") {
                         await PieceAPI.updateRadiographySubStage(piece.id, radio);
                     } else if (targetStage === "HEAT_TREATMENT" && heat && heat !== "AWAITING_OPERATIONS") {
@@ -1414,7 +1425,7 @@ function openAdminJumpModal(piece) {
                 loadTracking();
                 await openPieceProfile(piece.id);
             } catch (error) {
-                if (errorBox) {
+                if (errorBox?.isConnected) {
                     errorBox.textContent = error.message;
                     errorBox.style.display = "block";
                 } else {

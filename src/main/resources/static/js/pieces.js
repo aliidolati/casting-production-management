@@ -170,7 +170,9 @@ function renderPiecesTable(pieces) {
             }
 
             try {
-                await PieceAPI.updateStage(pieceId, newStage);
+                const scrap = newStage === "SCRAPPED" ? await requestScrapDetails({ pieceId }) : undefined;
+                if (scrap === null) { if (previousStage) select.value = previousStage; return; }
+                await PieceAPI.updateStage(pieceId, newStage, scrap);
                 showToast("وضعیت قطعه با موفقیت تغییر کرد");
                 openDefinitionDetail(AppState.currentDefinitionId);
             } catch (error) {

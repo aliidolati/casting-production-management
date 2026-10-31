@@ -864,7 +864,8 @@ function renderReportDefectChip(d, canFill) {
     const classes = ["rt-defect-chip"];
     if (needsWeldingOpen) classes.push("rt-defect-chip-weld");
     const interactive = canFill ? `role="button" tabindex="0" title="ویرایش / حذف"` : "";
-    return `<span class="${classes.join(" ")}" data-id="${d.id}" ${interactive}>${escapeHtml(formatStructuredDefect(d))}</span>`;
+    const content = formatStructuredDefectHtml(d);
+    return `<span class="${classes.join(" ")}" data-id="${d.id}" ${interactive}>${content}</span>`;
 }
 
 function findReportDefect(defectId) {
@@ -1198,7 +1199,7 @@ function showReportLineDefectForm(templateLineId, courseCode, defect) {
     const refreshPreview = () => {
         const draft = readDraft();
         document.getElementById("rt-chain-visual").innerHTML = renderDefectChainVisual(draft);
-        document.getElementById("rt-chain-text").textContent = formatDefectChainText(draft);
+        document.getElementById("rt-chain-text").innerHTML = formatDefectChainHtml(draft);
     };
 
     const renderPositions = () => {

@@ -1,5 +1,7 @@
 # Inspected local MySQL structure — 2026-10-30
 
+Update 2026-10-31: Feature extension (not a new production inspection): V37 adds two scrap tables and three FKs; the synthetic fixture totals 48 tables/65 FKs. Original inspected tables below are unchanged. See [scrap](SCRAP.md) for the new columns and lifecycle.
+
 Read-only metadata inspection and logical export; application not started against the source.
 MySQL 8.0.31; 46 InnoDB base tables; 45 PRIMARY KEY, 27 UNIQUE, 62 FOREIGN KEY and 9 CHECK constraints.
 No triggers, routines or scheduled events were found. Metadata visibility depends on the source account privileges.

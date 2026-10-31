@@ -35,6 +35,13 @@ public interface PieceRepository extends JpaRepository<Piece, UUID>, PieceReposi
             @Param("referenceProject") String referenceProject, @Param("referenceRow") Integer referenceRow,
             @Param("referenceNumber") Integer referenceNumber, org.springframework.data.domain.Pageable pageable);
 
+    @Query("""
+        select p from Piece p join fetch p.pieceDefinition d join fetch d.project project
+        where p.currentStage = com.factory.productmanager.model.entity.PieceStage.SCRAPPED
+          and (:projectId is null or project.id = :projectId)
+        """)
+    List<Piece> findScrappedIncludingArchived(@Param("projectId") UUID projectId);
+
     List<Piece> findByPieceNumberAndArchivedAtIsNull(Integer pieceNumber);
     boolean existsByPieceDefinitionIdAndPieceNumber(UUID pieceDefinitionId, Integer pieceNumber);
 

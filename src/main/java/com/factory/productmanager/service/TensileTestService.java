@@ -50,6 +50,7 @@ public class TensileTestService {
     private final TensileTestDispositionRepository tensileTestDispositionRepository;
     private final PieceRepository pieceRepository;
     private final PieceService pieceService;
+    private final ScrapService scrapService;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
@@ -176,7 +177,7 @@ public class TensileTestService {
         test.setReviewedBy(resolveDisplayName(username));
 
         TensileTest saved = tensileTestRepository.save(test);
-        applyTensileStageMove(saved.getPiece().getId(), request.getNextStage(), username);
+        applyTensileStageMove(saved.getPiece().getId(), request.getNextStage(), username, request.getScrap());
         return toResponse(saved);
     }
 
@@ -298,6 +299,10 @@ public class TensileTestService {
      * پیرسازی → مرحله سوم/چهارم/پنجم. کشش بعدی و سایر قطعه را در کشش نگه می‌دارند.
      */
     private void applyTensileStageMove(UUID pieceId, TensileNextStage nextStage, String username) {
+        applyTensileStageMove(pieceId,nextStage,username,null);
+    }
+    private void applyTensileStageMove(UUID pieceId, TensileNextStage nextStage, String username,
+            com.factory.productmanager.model.dto.ScrapRequest scrap) {
         if (nextStage == null) {
             return;
         }
@@ -308,7 +313,13 @@ public class TensileTestService {
 
         switch (nextStage) {
             case APPROVED, CONCESSION_APPROVAL -> moveIfNeeded(piece, PieceStage.SHOT_BLASTING, null, username);
-            case SCRAP -> moveIfNeeded(piece, PieceStage.SCRAPPED, null, username);
+            case SCRAP -> {
+                if (piece.getCurrentStage() == PieceStage.SCRAPPED) {
+                    scrapService.edit(pieceId, scrap, username);
+                } else {
+                    pieceService.applyTrustedStageMove(pieceId, PieceStage.SCRAPPED, username, scrap);
+                }
+            }
             case RE_OPERATION -> moveIfNeeded(
                     piece, PieceStage.HEAT_TREATMENT, HeatTreatmentSubStage.AWAITING_OPERATIONS, username
             );

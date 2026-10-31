@@ -48,13 +48,15 @@ const OccupancyReportState = {
     projectCode: "",
 };
 
+const ScrapReportState = { projectId: "", projectCode: "", rows: [] };
+
 const WeldingReportState = {
     projectId: "",
     rows: [],
     projectCode: "",
 };
 
-const DASHBOARD_REPORT_TABS = new Set(["defect-report", "occupancy-report", "welding-report", "tensile-quality-report", "tensile-trend-report"]);
+const DASHBOARD_REPORT_TABS = new Set(["defect-report", "occupancy-report", "welding-report", "scrap-report", "tensile-quality-report", "tensile-trend-report"]);
 
 function formatFaNumber(value) {
     if (value == null || value === "" || Number.isNaN(Number(value))) return "—";
@@ -305,6 +307,11 @@ async function ensureDashboardProjects() {
         if (occupancySelect) {
             occupancySelect.innerHTML = `<option value="">همه پروژه‌ها</option>` + optionsHtml;
             occupancySelect.value = OccupancyReportState.projectId || "";
+        }
+        const scrapSelect = document.getElementById("scrap-report-project");
+        if (scrapSelect) {
+            scrapSelect.innerHTML = `<option value="">همه پروژه‌ها</option>` + optionsHtml;
+            scrapSelect.value = ScrapReportState.projectId || "";
         }
         const weldingSelect = document.getElementById("welding-report-project");
         if (weldingSelect) {
@@ -813,6 +820,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initDefectReportUi();
     initOccupancyReportUi();
     initWeldingReportUi();
+    initScrapReportUi();
     if (typeof initTensileQualityReportUi === "function") initTensileQualityReportUi();
     if (typeof initTensileTrendReportUi === "function") initTensileTrendReportUi();
     switchDashboardTab("overview");
@@ -1542,4 +1550,138 @@ function exportWeldingReportCsv() {
     const code = WeldingReportState.projectCode || "all";
     const today = new Date().toISOString().slice(0, 10);
     downloadCsv(`welding-station-${code}-${today}.csv`, lines);
+}
+
+function scrapOriginLabel(row) {
+    if (!row.originStage) return "ثبت نشده";
+    const sub = occupancySubStageLabel({ subStageKind: row.originStage, subStage: row.originSubStage });
+    return stageLabel(row.originStage) + (sub ? " — " + sub : "");
+}
+
+function initScrapReportUi() {
+    document.getElementById("scrap-report-project")?.addEventListener("change", (e) => {
+        ScrapReportState.projectId = e.target.value;
+        const opt = e.target.options[e.target.selectedIndex];
+        ScrapReportState.projectCode = opt && opt.value ? opt.textContent : "";
+    });
+    document.getElementById("btn-scrap-report-run")?.addEventListener("click", runScrapReport);
+    document.getElementById("btn-scrap-report-export")?.addEventListener("click", exportScrapReportCsv);
+}
+
+function setScrapReportExportEnabled(enabled) {
+    const exportBtn = document.getElementById("btn-scrap-report-export");
+    if (exportBtn) exportBtn.disabled = !enabled;
+}
+
+function clearScrapReportTable(message) {
+    ScrapReportState.rows = [];
+    const tbody = document.getElementById("scrap-report-table-body");
+    if (tbody) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="9">${escapeHtml(message)}</td></tr>`;
+    }
+    setScrapReportExportEnabled(false);
+}
+
+async function runScrapReport() {
+    ScrapReportState.projectId = document.getElementById("scrap-report-project")?.value || "";
+    const tbody = document.getElementById("scrap-report-table-body");
+    showTableLoader(tbody, 9);
+    const runBtn = document.getElementById("btn-scrap-report-run");
+    await withButtonLoader(runBtn, async () => {
+        try {
+            const rows = await DashboardAPI.getScrapReport({
+                projectId: ScrapReportState.projectId || undefined,
+            });
+            ScrapReportState.rows = rows || [];
+            renderScrapReportTable(ScrapReportState.rows);
+        } catch (error) {
+            showToast(error.message, "error");
+            clearScrapReportTable("خطا در اجرای گزارش");
+        }
+    });
+}
+
+function renderScrapReportTable(rows) {
+    const tbody = document.getElementById("scrap-report-table-body");
+    if (!tbody) return;
+
+    if (!rows.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="9">قطعه اسقاطی وجود ندارد</td></tr>`;
+        setScrapReportExportEnabled(false);
+        return;
+    }
+
+    tbody.innerHTML = rows
+        .map(
+            (r) => `
+        <tr class="scrap-report-row" data-piece-id="${r.pieceId}" tabindex="0" role="button">
+            <td><span class="code-num">${escapeHtml(r.projectCode || "")}</span></td>
+            <td>${escapeHtml(r.pieceName || "")}</td>
+            <td>${formatFaNumber(r.pieceNumber)}</td>
+            <td>${escapeHtml(r.defectLabel || "ثبت نشده")}</td>
+            <td>${escapeHtml(r.notes || "—")}</td>
+            <td>${escapeHtml(r.sentBy || "—")}</td>
+            <td>${r.sentAt ? formatDateTime(r.sentAt) : "—"}</td>
+            <td>${escapeHtml(scrapOriginLabel(r))}</td>
+            <td>${r.archived ? "بایگانی‌شده" : "بایگانی‌نشده"}</td>
+        </tr>`
+        )
+        .join("");
+
+    tbody.querySelectorAll(".scrap-report-row").forEach((tr) => {
+        const open = () => {
+            if (tr.dataset.pieceId && typeof openPieceProfile === "function") {
+                openPieceProfile(tr.dataset.pieceId);
+            }
+        };
+        tr.addEventListener("click", open);
+        tr.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                open();
+            }
+        });
+    });
+
+    setScrapReportExportEnabled(true);
+}
+
+function exportScrapReportCsv() {
+    const rows = ScrapReportState.rows || [];
+    if (!rows.length) {
+        showToast("ابتدا گزارش را اجرا کنید", "error");
+        return;
+    }
+
+    const headers = [
+        "کد پروژه",
+        "نام قطعه",
+        "شماره قطعه",
+        "علت اسقاط",
+        "توضیحات",
+        "ارسال‌کننده",
+        "تاریخ ارسال",
+        "مرحله مبدأ",
+        "بایگانی",
+    ];
+    const lines = [headers.join(",")];
+    rows.forEach((r) => {
+        lines.push(
+            [
+                csvEscape(r.projectCode),
+                csvEscape(r.pieceName),
+                r.pieceNumber ?? "",
+                csvEscape(r.defectLabel || "ثبت نشده"),
+                csvEscape(r.notes || ""),
+                csvEscape(r.sentBy || ""),
+                csvEscape(r.sentAt ? formatDateTime(r.sentAt) : ""),
+                csvEscape(scrapOriginLabel(r)),
+                csvEscape(r.archived ? "بایگانی‌شده" : "بایگانی‌نشده"),
+            ].join(",")
+        );
+    });
+
+    const code = ScrapReportState.projectCode || "all";
+    const today = new Date().toISOString().slice(0, 10);
+    downloadCsv(`scrap-${code}-${today}.csv`, lines);
 }

@@ -1,5 +1,7 @@
 # Backend architecture
 
+Update 2026-10-31: ScrapService records cycles through PieceService’s central stage boundary, including bulk/admin/trusted/tensile routes. ScrapController provides history, versioned reason editing and the VIEW_DASHBOARD scrap report. V37 is additive; existing workflow/archival guards remain. See [scrap](SCRAP.md).
+
 GitHub preparation note: the earlier inline-key description below is historical. Current application.properties uses external datasource/JWT placeholders and the bootstrap password is explicit; see [Cloud testing](CLOUD_TESTING.md). This source-publication task changes documentation/Git metadata only and preserves runtime code and contracts.
 
 Update 2026-10-30 (security fixes and requested key-storage rollback): access tokens use immutable user UUIDs and an opaque HMAC credential stamp captured by the password provider. At the user's request, a new random signing key is stored directly as app.jwt.secret in application.properties and included in the JAR; JWT_SECRET is no longer required. This reverts audit #2's external-key remediation only. Legacy username tokens are rejected. Password changes/reset invalidate existing tokens without a schema change. Credential writes lock the user row; User uses DynamicUpdate so stale profile/signature writes cannot restore an old password. DataSeeder no longer grants permissions to existing operators. Piece description changes require MANAGE_PIECES at both HTTP and service boundaries. See [implementation and launch notes](../audits/2026-10-30-security-fixes-fa.md).

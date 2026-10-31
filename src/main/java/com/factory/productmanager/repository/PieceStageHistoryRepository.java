@@ -18,6 +18,8 @@ import java.util.UUID;
 public interface PieceStageHistoryRepository extends JpaRepository<PieceStageHistory, UUID> {
     List<PieceStageHistory> findByPieceIdOrderByChangedAtDesc(UUID pieceId);
 
+    List<PieceStageHistory> findByPiece_IdInAndStageOrderByChangedAtAsc(Collection<UUID> pieceIds, PieceStage stage);
+
     List<PieceStageHistory> findByPiece_IdInOrderByChangedAtAsc(Collection<UUID> pieceIds);
 
     Optional<PieceStageHistory> findByIdAndPiece_Id(UUID id, UUID pieceId);

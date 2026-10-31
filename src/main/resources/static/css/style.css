@@ -5198,6 +5198,11 @@ select.stage-select {
     font-weight: 900;
 }
 
+.rt-chain-inline {
+    direction: ltr;
+    unicode-bidi: isolate;
+}
+
 .rt-chain-text {
     font-size: 13px;
     direction: ltr;

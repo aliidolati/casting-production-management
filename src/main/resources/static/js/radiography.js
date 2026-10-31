@@ -181,7 +181,7 @@ function formatPositionsText(positions) {
  * متن زنجیره: «(17) G.p T1 → جوش → OK → F.M.L T1 → سنگ زنی».
  * «جوش» فقط وقتی می‌آید که عیب اول جوشکاری شده باشد.
  */
-function formatDefectChainText(defect) {
+function defectChainParts(defect) {
     const join = (a, b) => [a, b].filter(Boolean).join(" ");
     const typeOf = (d) => {
         const t = defectTypeDisplay(d.defectType, d.defectTypeCustom);
@@ -199,7 +199,22 @@ function formatDefectChainText(defect) {
         parts.push(join(typeOf(second), second.defectClass || ""));
         parts.push(correctiveActionLabel(second.correctiveAction));
     }
-    return parts.filter(Boolean).join(" → ");
+    return parts.filter(Boolean);
+}
+
+function formatDefectChainText(defect) {
+    return defectChainParts(defect).join(" → ");
+}
+
+/** Keep Persian steps from merging into one RTL run across the arrows. */
+function formatDefectChainHtml(defect) {
+    const steps = defectChainParts(defect).map(part => `<bdi dir="auto">${escapeHtml(part)}</bdi>`);
+    return `<span class="rt-chain-inline" dir="ltr">${steps.join(" → ")}</span>`;
+}
+
+function formatStructuredDefectHtml(defect) {
+    return defect.reportLineId || defect.correctiveAction
+        ? formatDefectChainHtml(defect) : escapeHtml(formatStructuredDefect(defect));
 }
 
 /** نمایش ساخت‌یافته مثل G.h T1(13-17) (منجر به جوش) یا G.h T1(20) */
@@ -225,7 +240,7 @@ function formatDefectLine(defect) {
         statusLabel = "نیاز به جوش(تایید)";
     }
     const course = defect.course ? `${defect.course} — ` : "";
-    return `${course}${formatStructuredDefect(defect)}${statusLabel ? " — " + statusLabel : ""}`;
+    return `${escapeHtml(course)}${formatStructuredDefectHtml(defect)}${statusLabel ? " — " + escapeHtml(statusLabel) : ""}`;
 }
 
 /* ===========================

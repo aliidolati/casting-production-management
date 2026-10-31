@@ -16,6 +16,7 @@ import java.util.UUID;
 @Getter
 @Setter
 public class SaveTensileDispositionRequest {
+    private ScrapRequest scrap;
     @NotNull(message = "تاریخ تعیین‌تکلیف نمی‌تواند خالی باشد")
     private LocalDate dispositionDate;
 

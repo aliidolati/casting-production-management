@@ -1,5 +1,9 @@
 # Frontend architecture
 
+Update 2026-10-31: scrap.js shares the welding reason catalog, collects optional notes and supports active reason editing. Profile/dropdown/bulk/admin/tensile paths use the same form; the dashboard scrap tab includes archived pieces and CSV. See [scrap](SCRAP.md).
+
+Update 2026-10-31: radiography chain display isolates each step with `bdi` inside an LTR span so Persian defect names (including ابعادی) cannot reorder the welding step. The shared HTML formatter escapes all step text and is used in the editor preview, report/print chips and piece defect list. Plain-text formatting and stored records/snapshots are unchanged. Focused browser regression: `node src/test/js/radiography-order.browser.cjs` (Playwright and Chromium; `CHROME_BIN` may override the executable).
+
 Update 2026-10-30 (security): project code/name and definition pieceName are escaped when building edit input values, preserving the original text without interpreting stored markup. projects.js?v=65 and auth.js?v=73 invalidate the matching cached scripts. Successful own-password changes clear the local session immediately and show the login form; remote resets are handled by the existing 401 flow. Chrome regression covers all three stored-text sinks, editing/round trips, desktop/mobile and both password-change/reset flows. See [security fix notes](../audits/2026-10-30-security-fixes-fa.md).
 
 Update 2026-10-30: the melt form adds ADMIN operator selection/save-and-assign; task detail routes MELT_PASSPORT_ENTRY/APPROVAL to the melt form instead of the radiography API. Both have localized badges, and pooled review assignees display as a group without a profile link. Workflow actions refresh the task detail. New-cycle detection uses statuses, independent of the reader's editable flag. Matching script cache versions were updated. See [melt passports](MELT_PASSPORTS.md).

@@ -106,6 +106,10 @@ public class Piece {
     @JsonManagedReference
     private List<PieceWeldingDispatch> weldingDispatches = new ArrayList<>();
 
+    @OneToMany(mappedBy = "piece", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private List<PieceScrapDispatch> scrapDispatches = new ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

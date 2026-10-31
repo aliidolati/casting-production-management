@@ -12,6 +12,7 @@ import java.util.UUID;
 @Getter
 @Setter
 public class BulkUpdateStageRequest {
+    private ScrapRequest scrap;
     @NotEmpty(message = "باید حداقل یک قطعه انتخاب شود")
     private List<UUID> pieceIds;
 

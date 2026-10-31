@@ -221,7 +221,7 @@ const PieceAPI = {
     updateSubStageProcessDate: (id, kind, subStage, processDate) =>
         apiRequest(`/pieces/${id}/sub-stage-process-dates`, "PATCH", { kind, subStage, processDate }),
     getSubStageProcessDates: (id) => apiRequest(`/pieces/${id}/sub-stage-process-dates`),
-    updateStage: (id, data) => apiRequest(`/pieces/${id}/stage`, "PATCH", { newStage: data }),
+    updateStage: (id, data, scrap) => apiRequest(`/pieces/${id}/stage`, "PATCH", { newStage: data, scrap }),
     advance: (id, processDate) =>
         apiRequest(`/pieces/${id}/advance`, "POST", processDate ? { processDate } : {}),
     updateRadiographySubStage: (id, radiographySubStage) =>
@@ -233,6 +233,8 @@ const PieceAPI = {
     getStageProcessDates: (id) => apiRequest(`/pieces/${id}/stage-process-dates`),
     getStageHistory: (id) => apiRequest(`/pieces/${id}/stage-history`),
     getSubStageHistory: (id) => apiRequest(`/pieces/${id}/substage-history`),
+    getScrapDispatches: (id) => apiRequest(`/pieces/${id}/scrap-dispatches`),
+    updateScrapDispatch: (id, data) => apiRequest(`/pieces/${id}/scrap-dispatch`, "PATCH", data),
     getWeldingDispatches: (id) => apiRequest(`/pieces/${id}/welding-dispatches`),
     sendToWeldingStation: (id, data) => apiRequest(`/pieces/${id}/welding-station`, "POST", data),
     updateWeldingDispatch: (id, dispatchId, data) =>
@@ -243,7 +245,7 @@ const PieceAPI = {
         apiRequest(`/pieces/${pieceId}/stage-history/${historyId}`, "DELETE"),
     deleteSubStageHistory: (pieceId, historyId) =>
         apiRequest(`/pieces/${pieceId}/substage-history/${historyId}`, "DELETE"),
-    bulkUpdateStage: (pieceIds, newStage) => apiRequest("/pieces/bulk/stage", "PATCH", { pieceIds, newStage }),
+    bulkUpdateStage: (pieceIds, newStage, scrap) => apiRequest("/pieces/bulk/stage", "PATCH", { pieceIds, newStage, scrap }),
     bulkUpdateRadiographySubStage: (pieceIds, radiographySubStage) =>
         apiRequest("/pieces/bulk/radiography-substage", "PATCH", { pieceIds, radiographySubStage }),
     bulkUpdateHeatTreatmentSubStage: (pieceIds, heatTreatmentSubStage) =>
@@ -354,6 +356,11 @@ const DashboardAPI = {
         if (dateFrom) params.set("dateFrom", dateFrom);
         if (dateTo) params.set("dateTo", dateTo);
         return apiRequest(`/dashboard/stage-occupancy-report?${params.toString()}`);
+    },
+    getScrapReport: ({ projectId } = {}) => {
+        const params = new URLSearchParams();
+        if (projectId) params.set("projectId", projectId);
+        return apiRequest(`/dashboard/scrap-report?${params}`);
     },
     getWeldingStationReport: ({ projectId } = {}) => {
         const params = new URLSearchParams();

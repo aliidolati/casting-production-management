@@ -620,7 +620,12 @@ async function openTensileDispositionModal(piece, tensileTestId) {
 
         try {
             const nextStage = document.getElementById("disposition-next-stage").value;
+            const currentScrap = nextStage === "SCRAP" && piece.currentStage === "SCRAPPED"
+                ? (await PieceAPI.getScrapDispatches(piece.id)).find(d => d.active) || { version: null } : null;
+            const scrap = nextStage === "SCRAP" ? await requestScrapDetails({ pieceId: piece.id, dispatch: currentScrap }) : undefined;
+            if (scrap === null) return;
             await TensileTestAPI.saveDisposition(test.id, {
+                scrap,
                 dispositionDate: TensileState.dispositionDateIso,
                 quantity,
                 durationHours,

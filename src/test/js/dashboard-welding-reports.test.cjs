@@ -102,3 +102,24 @@ test('welding edit form restores values, sends the nested PATCH and refreshes th
     assert.match(view.run(`renderWeldingStationSection({currentStage:'WELDING'}, [{open:true,defectType:'VT'}])`), /btn-edit-welding-defect/);
     assert.doesNotMatch(view.run(`renderWeldingStationSection({currentStage:'READY'}, [])`), /btn-edit-welding-defect/);
 });
+
+
+test('scrap report preserves archived/legacy rows, escapes reasons and exports origin substage', () => {
+    const view = fixture();
+    view.context.formatDateTime = value => value;
+    view.run(`ScrapReportState.rows = [
+        {pieceId:'id',projectCode:'P',pieceName:'قطعه',pieceNumber:7,defectLabel:'عیب <ساختگی>',notes:'شرح, "خاص"',
+            sentAt:'2026-10-31',originStage:'RADIOGRAPHY',originSubStage:'INTERPRETATION',archived:true},
+        {pieceId:'old',projectCode:'P',pieceName:'قدیمی',pieceNumber:8,defectLabel:'ثبت نشده',archived:false}
+    ]; renderScrapReportTable(ScrapReportState.rows); exportScrapReportCsv();`);
+    const html = view.node('scrap-report-table-body').innerHTML;
+    assert.match(html, /عیب &lt;ساختگی&gt;/);
+    assert.doesNotMatch(html, /عیب <ساختگی>/);
+    assert.match(html, /بایگانی‌شده/);
+    assert.match(html, /بایگانی‌نشده/);
+    assert.match(html, /تفسیر/);
+    assert.equal(view.exported().lines.length, 3);
+    assert.match(view.exported().lines[1], /"شرح, ""خاص"""/);
+    assert.match(view.exported().lines[1], /تفسیر/);
+    assert.match(view.exported().lines[2], /ثبت نشده/);
+});

@@ -8,6 +8,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class UpdateStageRequest {
+    private ScrapRequest scrap;
     @NotNull(message = "وضعیت جدید نمی‌تواند خالی باشد")
     private PieceStage newStage ;
 }

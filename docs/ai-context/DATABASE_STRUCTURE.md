@@ -1,5 +1,7 @@
 # Database structure
 
+Update 2026-10-31: V37 adds piece_scrap_dispatches and piece_scrap_dispatch_defects for reasoned, editable scrap cycles. The synthetic fixture is now 48 tables/65 FKs; the original 46-table/62-FK inspection remains historical. No legacy reasons are invented and the incomplete Flyway chain remains disabled for tests. See [scrap](SCRAP.md).
+
 Update 2026-10-30 (Cloud preparation): [MySQL inventory](MYSQL_SCHEMA_INVENTORY.md) now records a read-only inspection of the local MySQL 8.0.31 schema (46 InnoDB tables, 62 FKs). The only Flyway history row is BASELINE 22. The older source-derived review below remains historical; no source schema was changed. A reviewed record-free schema fixture and isolated MySQL validation/CI are described in [Cloud testing](CLOUD_TESTING.md).
 
 Update 2026-10-30 (assignment conflict): task_type may still be a legacy native MySQL ENUM or carry a Hibernate-generated enum CHECK despite the VARCHAR declaration. These can reject new melt task codes with error 1265/3819, surfaced as a generic 409. TaskTypeSchemaRepair and V36 reconcile those restrictions conditionally, without rewriting rows or permissions; current/mixed/business CHECKs are preserved. Both cases were reproduced on disposable MySQL 8.0.31. The deployed schema was not inspected. See [melt passports](MELT_PASSPORTS.md).

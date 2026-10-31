@@ -57,6 +57,7 @@ public class PieceService {
     private final PieceStageHistoryRepository pieceStageHistoryRepository;
     private final PieceSubStageHistoryRepository pieceSubStageHistoryRepository;
     private final PieceWeldingDispatchRepository pieceWeldingDispatchRepository;
+    private final ScrapService scrapService;
     private final PieceDefinitionService pieceDefinitionService;
     private final ProjectService projectService;
     private final UserRepository userRepository;
@@ -647,7 +648,8 @@ public class PieceService {
                 false,
                 null,
                 null,
-                null
+                null,
+                request.getScrap()
         );
     }
 
@@ -792,6 +794,10 @@ public class PieceService {
         );
     }
 
+    public PieceResponse applyTrustedStageMove(UUID pieceId, PieceStage stage, String username, ScrapRequest scrap) {
+        return movePiece(pieceId, stage, username, true, null, null, null, scrap);
+    }
+
     private PieceResponse movePiece(
             UUID pieceId,
             PieceStage newStage,
@@ -801,7 +807,14 @@ public class PieceService {
             HeatTreatmentSubStage heatTreatmentOverride,
             RoughMachiningSubStage roughMachiningOverride
     ) {
-        Piece piece = findPieceOrThrow(pieceId);
+        return movePiece(pieceId, newStage, changedByUsername, trusted, radiographyOverride,
+                heatTreatmentOverride, roughMachiningOverride, null);
+    }
+
+    private PieceResponse movePiece(UUID pieceId, PieceStage newStage, String changedByUsername, boolean trusted,
+            RadiographySubStage radiographyOverride, HeatTreatmentSubStage heatTreatmentOverride,
+            RoughMachiningSubStage roughMachiningOverride, ScrapRequest scrap) {
+        Piece piece = pieceRepository.lockById(pieceId).orElseThrow(() -> new ResourceNotFoundException("قطعه پیدا نشد"));
         assertNotArchived(piece);
         boolean admin = permissionService.isAdmin(changedByUsername);
         applyStageChange(
@@ -811,7 +824,8 @@ public class PieceService {
                 trusted || admin,
                 radiographyOverride,
                 heatTreatmentOverride,
-                roughMachiningOverride
+                roughMachiningOverride,
+                scrap
         );
         Piece saved = pieceRepository.save(piece);
         return toResponse(saved);
@@ -872,7 +886,8 @@ public class PieceService {
      * پیدا نشود، کل عملیات رد می‌شود تا از تغییر نیمه‌کاره جلوگیری شود.
      */
     public List<PieceResponse> bulkUpdateStage(BulkUpdateStageRequest request, String changedByUsername) {
-        List<Piece> pieces = pieceRepository.findAllById(request.getPieceIds());
+        List<Piece> pieces = request.getPieceIds().stream().distinct().sorted()
+                .map(id -> pieceRepository.lockById(id).orElseThrow(() -> new ResourceNotFoundException("قطعه پیدا نشد"))).toList();
 
         if (pieces.size() != request.getPieceIds().size()) {
             throw new ResourceNotFoundException("برخی از قطعات انتخاب‌شده پیدا نشدند");
@@ -899,7 +914,7 @@ public class PieceService {
         }
 
         for (Piece piece : toMove) {
-            applyStageChange(piece, newStage, changedByUsername, trusted, null, null, null);
+            applyStageChange(piece, newStage, changedByUsername, trusted, null, null, null, request.getScrap());
         }
 
         List<Piece> saved = pieceRepository.saveAll(toMove);
@@ -1342,6 +1357,12 @@ public class PieceService {
             HeatTreatmentSubStage heatTreatmentOverride,
             RoughMachiningSubStage roughMachiningOverride
     ) {
+        applyStageChange(piece,newStage,changedByUsername,trusted,radiographyOverride,heatTreatmentOverride,roughMachiningOverride,null);
+    }
+
+    private void applyStageChange(Piece piece, PieceStage newStage, String changedByUsername, boolean trusted,
+            RadiographySubStage radiographyOverride, HeatTreatmentSubStage heatTreatmentOverride,
+            RoughMachiningSubStage roughMachiningOverride, ScrapRequest scrap) {
         radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
         meltPassportGate.assertDepartureAllowed(piece, newStage);
         PieceStage oldStage = piece.getCurrentStage();
@@ -1368,6 +1389,8 @@ public class PieceService {
             stageTransitionPolicy.assertStageAllowed(piece, newStage, false);
         }
 
+        if (newStage == PieceStage.SCRAPPED) scrapService.record(piece, scrap, changedByUsername);
+        if (oldStage == PieceStage.SCRAPPED) scrapService.reverse(piece.getId(), changedByUsername);
         String displayName = resolveDisplayName(changedByUsername);
 
         if (oldStage == PieceStage.WELDING) {
