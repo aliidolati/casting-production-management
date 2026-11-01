@@ -1,7 +1,5 @@
 package com.factory.productmanager.service;
 
-
-
 import com.factory.productmanager.exception.DuplicateResourceException;
 
 import com.factory.productmanager.exception.ResourceNotFoundException;
@@ -31,13 +29,9 @@ import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
 
-
-
 import java.util.List;
 
 import java.util.UUID;
-
-
 
 @Service
 
@@ -47,20 +41,20 @@ import java.util.UUID;
 
 public class UserService {
 
-
-
     private final UserRepository userRepository;
 
     private final PasswordEncoder passwordEncoder;
 
     private final PermissionService permissionService;
 
+    private final UserAdministrationPolicy administration;
+    private final com.factory.productmanager.repository.UserAccessEventRepository accessEvents;
     private final TaskRepository taskRepository;
     private final com.factory.productmanager.repository.PerformancePeriodRepository performancePeriodRepository;
 
-
-
     public UserResponse createUser(CreateUserRequest request) {
+        var locked = administration.lockAndRequireManager();
+        var actor = administration.currentManager(locked);
 
         if (userRepository.existsByUsername(request.getUsername())) {
 
@@ -71,8 +65,6 @@ public class UserService {
             );
 
         }
-
-
 
         User user = new User();
 
@@ -86,39 +78,51 @@ public class UserService {
 
         user.setPermissions(permissionService.sanitizePermissionsForRole(request.getRole(), request.getPermissions()));
 
-
-
         User saved = userRepository.save(user);
 
+        administration.record(actor, saved, "CREATED", "{}", administration.snapshot(saved));
         return toResponse(saved);
 
     }
 
-
-
     public UserResponse updateUserPermissions(UUID id, UpdateUserPermissionsRequest request) {
-
-        User user = userRepository.findById(id)
-
-                .orElseThrow(() -> new ResourceNotFoundException("کاربری با شناسه " + id + " پیدا نشد"));
-
-
-
-        if (user.getRole() == Role.ADMIN) {
-
-            throw new DuplicateResourceException("دسترسی‌های کاربر ادمین قابل تغییر نیست؛ ادمین همیشه همه دسترسی‌ها را دارد");
-
+        var locked = administration.lockAndRequireManager();
+        User user = administration.target(locked, id);
+        if (user.getRole() == Role.MANAGER) {
+            throw new DuplicateResourceException("مدیر همه دسترسی‌ها را دارد؛ برای محدودکردن ابتدا نقش را تغییر دهید");
         }
-
-
-
-        user.setPermissions(permissionService.sanitizePermissionsForRole(Role.OPERATOR, request.getPermissions()));
-
+        String before = administration.snapshot(user);
+        user.setPermissions(permissionService.sanitizePermissionsForRole(user.getRole(), request.getPermissions()));
+        administration.record(administration.currentManager(locked), user, "PERMISSIONS_CHANGED", before, administration.snapshot(user));
         return toResponse(userRepository.save(user));
-
     }
 
+    public UserResponse updateAccount(UUID id, com.factory.productmanager.model.dto.UpdateUserAccountRequest request) {
+        var locked = administration.lockAndRequireManager();
+        var actor = administration.currentManager(locked);
+        User user = administration.target(locked, id);
+        administration.preserveLastManager(locked, user, request.role(), user.isDisabled());
+        String before = administration.snapshot(user);
+        user.setFullName(request.fullName().trim());
+        Role previousRole = user.getRole();
+        user.setRole(request.role());
+        if (previousRole != Role.MANAGER || request.role() != Role.MANAGER) {
+            user.setPermissions(permissionService.sanitizePermissionsForRole(request.role(), request.permissions()));
+        }
+        administration.record(actor, user, "ACCOUNT_UPDATED", before, administration.snapshot(user));
+        return toResponse(userRepository.save(user));
+    }
 
+    @Transactional(readOnly = true)
+    public com.factory.productmanager.model.dto.PageResponse<com.factory.productmanager.model.dto.UserAccessEventResponse> accessHistory(UUID id, int page, int size) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !permissionService.isManager(auth.getName()))
+            throw new org.springframework.security.access.AccessDeniedException("فقط مدیر");
+        return com.factory.productmanager.model.dto.PageResponse.from(accessEvents.findByTargetId(id,
+                org.springframework.data.domain.PageRequest.of(Math.max(0, page), Math.min(100, Math.max(1, size)),
+                        org.springframework.data.domain.Sort.by("occurredAt").descending().and(org.springframework.data.domain.Sort.by("id").descending()))),
+                com.factory.productmanager.model.dto.UserAccessEventResponse::from);
+    }
 
     @Transactional(readOnly = true)
 
@@ -134,23 +138,19 @@ public class UserService {
 
     }
 
-
-
     public void deleteUser(UUID id, String currentUsername) {
 
-        User user = userRepository.lockForPerformance(id)
-
-                .orElseThrow(() -> new ResourceNotFoundException("کاربری با شناسه " + id + " پیدا نشد"));
-
-
+        var locked = administration.lockAndRequireManager();
+        var actor = administration.currentManager(locked);
+        User user = administration.target(locked, id);
+        administration.preserveLastManager(locked, user, user.getRole(), true);
+        String before = administration.snapshot(user);
 
         if (user.getUsername().equals(currentUsername)) {
 
             throw new DuplicateResourceException("نمی‌توانید حساب کاربری خودتان را حذف کنید");
 
         }
-
-
 
         // کاربری که در وظایف نقش دارد برای حفظ سابقه حذف نمی‌شود؛ باید غیرفعال شود
         if (taskRepository.existsByCreatedByIdOrAssignedToId(user.getId(), user.getId())) {
@@ -161,11 +161,10 @@ public class UserService {
         if (performancePeriodRepository.existsByUserId(id)) {
             throw new DuplicateResourceException("این کاربر سابقهٔ ارزیابی دارد؛ به‌جای حذف، حساب او را غیرفعال کنید");
         }
+        administration.record(actor, user, "DELETED", before, "{}");
         userRepository.delete(user);
 
     }
-
-
 
     public void changePassword(String username, ChangePasswordRequest request) {
         User user = userRepository.lockForCredentialsByUsername(username)
@@ -181,6 +180,7 @@ public class UserService {
 
     /** ادمین رمز عبور کاربر دیگر را بدون دانستن رمز فعلی تنظیم می‌کند (مثلاً در صورت فراموشی) */
     public void resetPasswordByAdmin(UUID id, String newPassword) {
+        administration.lockAndRequireManager();
         User user = userRepository.lockForCredentialsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("کاربری با شناسه " + id + " پیدا نشد"));
 
@@ -210,7 +210,5 @@ public class UserService {
 
     }
 
-
 }
-
 

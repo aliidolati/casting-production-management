@@ -9,7 +9,7 @@ import java.util.UUID;
 @Component @RequiredArgsConstructor
 public class PerformanceAccessPolicy {
     private final TaskAccessPolicy taskPolicy;
-    public boolean canManage(User actor) { return taskPolicy.isAdmin(actor); }
+    public boolean canManage(User actor) { return taskPolicy.isManager(actor); }
     public void requireVisible(User actor, UUID userId) {
         if (!actor.getId().equals(userId) && !canManage(actor))
             throw new ResourceNotFoundException("ارزیابی پیدا نشد");

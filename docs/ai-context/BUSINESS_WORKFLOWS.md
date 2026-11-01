@@ -1,5 +1,7 @@
 # Business workflows
 
+Update 2026-11-01: category 1 introduces MANAGER (full access), explicit-grant ADMIN/OPERATOR, manager-only account management and access audit. Historical ADMIN-as-full-access descriptions below are superseded by [User access](USER_ACCESS.md). V38 and the sanitized fixture include the new audit table; runtime upgrade requires explicit initial-manager selection. Local Java/MySQL validation is blocked by missing Maven dependencies; see the linked implementation/upgrade notes.
+
 Update 2026-10-31: Every new transition to SCRAPPED requires a welding-catalog reason (OTHER requires text), with optional notes. Reasons are editable without changing the original scrap time, and return/re-scrap preserves independent cycles. The dashboard scrap report includes archived and legacy current scraps. See [scrap](SCRAP.md).
 
 Update 2026-10-30: [melt passports](MELT_PASSPORTS.md) have ADMIN assignment/reassignment and task entry/review rounds. Only the assigned operator/ADMIN edits; live melt approvers share the review inbox without dashboard access. Return reopens the same entry task; approval atomically completes review and moves all passport members, including eligible pieces added by the operator. Central movement/date/archive rules are unchanged.

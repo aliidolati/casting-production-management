@@ -27,7 +27,7 @@ class SecuritySeedingAuditTest {
         seeder.run();
         var user=org.mockito.ArgumentCaptor.forClass(User.class);
         verify(repository).save(user.capture());
-        assertEquals(Role.ADMIN,user.getValue().getRole());
+        assertEquals(Role.MANAGER,user.getValue().getRole());
         assertEquals("synthetic-hash",user.getValue().getPassword());
         assertTrue(user.getValue().getPermissions().isEmpty());
     }

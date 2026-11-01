@@ -19,7 +19,7 @@ public class PermissionController {
     private final PermissionService permissionService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<List<PermissionInfoResponse>> listPermissions() {
         return ResponseEntity.ok(permissionService.getAllPermissions());
     }

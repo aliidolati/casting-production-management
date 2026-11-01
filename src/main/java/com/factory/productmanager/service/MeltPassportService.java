@@ -34,7 +34,7 @@ public class MeltPassportService {
     private final TaskAccessPolicy taskPolicy;
 
     private boolean canEdit(MeltPassport m, User u) {
-        return u.getRole() == Role.ADMIN || m.getAssignedOperatorId() == null || m.getAssignedOperatorId().equals(u.getId());
+        return u.getRole() == Role.MANAGER || m.getAssignedOperatorId() == null || m.getAssignedOperatorId().equals(u.getId());
     }
 
     private void requireEditor(MeltPassport m, User u) {
@@ -43,7 +43,7 @@ public class MeltPassportService {
 
     public MeltPassportResponse assign(UUID id, MeltAssignmentRequest r, String username) {
         User u = actor(username);
-        if (u.getRole() != Role.ADMIN) throw new AccessDeniedException("تخصیص اپراتور ذوب فقط توسط ادمین انجام می‌شود");
+        if (u.getRole() != Role.MANAGER) throw new AccessDeniedException("تخصیص اپراتور ذوب فقط توسط مدیر انجام می‌شود");
         var m = lock(id, r.version());
         assertEditable(m);
         var next = users.findById(r.assigneeId()).orElseThrow(() -> new ResourceNotFoundException("اپراتور پیدا نشد"));
@@ -58,7 +58,7 @@ public class MeltPassportService {
 
     public MeltPassportResponse assignPiece(UUID pieceId, MeltAssignmentRequest r, String username) {
         User u = actor(username);
-        if (u.getRole() != Role.ADMIN) throw new AccessDeniedException("تخصیص اپراتور ذوب فقط توسط ادمین انجام می‌شود");
+        if (u.getRole() != Role.MANAGER) throw new AccessDeniedException("تخصیص اپراتور ذوب فقط توسط مدیر انجام می‌شود");
         var existing = links.findByActivePieceKey(pieceId);
         if (existing.isPresent()) return assign(existing.get().getPassport().getId(), r, username);
         var request = new MeltPassportRequest(); request.setVersion(0L); request.setPieceIds(List.of(pieceId));
@@ -74,7 +74,7 @@ public class MeltPassportService {
     }
 
     private boolean reviewer(User u) {
-        return u.getRole() == Role.ADMIN || u.getPermissions().contains(Permission.APPROVE_MELT_PASSPORT);
+        return u.getRole() == Role.MANAGER || u.getPermissions().contains(Permission.APPROVE_MELT_PASSPORT);
     }
 
     private void requireReviewer(User u) {
@@ -82,7 +82,7 @@ public class MeltPassportService {
     }
 
     private void requireReportAccess(User u) {
-        if (u.getRole() != Role.ADMIN && !u.getPermissions().contains(Permission.VIEW_DASHBOARD)) {
+        if (u.getRole() != Role.MANAGER && !u.getPermissions().contains(Permission.VIEW_DASHBOARD)) {
             throw new AccessDeniedException("مجوز مشاهده داشبورد برای گزارش شناسنامه‌های ذوب لازم است");
         }
     }
@@ -155,7 +155,7 @@ public class MeltPassportService {
 
     public MeltPassportResponse correct(UUID id, MeltPassportCorrectionRequest request, String username) {
         User u = actor(username);
-        if (u.getRole() != Role.ADMIN) throw new AccessDeniedException("فقط ادمین می‌تواند شناسنامه تأییدشده را اصلاح کند");
+        if (u.getRole() != Role.MANAGER) throw new AccessDeniedException("فقط مدیر می‌تواند شناسنامه تأییدشده را اصلاح کند");
         var errors = validator.validate(request);
         if (!errors.isEmpty()) throw new IllegalArgumentException("اطلاعات اصلاح شناسنامه معتبر نیست: " + errors.iterator().next().getPropertyPath());
         var r = request.data();
@@ -420,7 +420,7 @@ public class MeltPassportService {
 
     public MeltMaterialResponse setMaterialActive(UUID id, boolean active, String username) {
         User u = actor(username);
-        if (u.getRole() != Role.ADMIN) throw new AccessDeniedException("فقط ادمین فهرست مواد را غیرفعال می‌کند");
+        if (u.getRole() != Role.MANAGER) throw new AccessDeniedException("فقط مدیر فهرست مواد را غیرفعال می‌کند");
         var material = materials.findById(id).orElseThrow(() -> new ResourceNotFoundException("ماده پیدا نشد"));
         material.setActive(active); return materialResponse(material);
     }
@@ -467,7 +467,7 @@ public class MeltPassportService {
                 m.getEvents().stream().map(e -> new MeltPassportResponse.Event(e.getAction(),e.getActorId(),e.getActorName(),e.getOccurredAt(),e.getReason(),audit.read(e.getOldValues()),audit.read(e.getNewValues()))).toList(),
                 m.getCreatedAt(),m.getCreatedBy(),m.getUpdatedAt(),m.getUpdatedBy(),m.getSubmittedAt(),m.getSubmittedBy(),m.getApprovedAt(),m.getApprovedBy(),m.getReturnedAt(),m.getReturnedBy(),m.getCorrectionReason(),editable,
                 reviewer(u) && m.getStatus() == MeltPassportStatus.PENDING_APPROVAL,
-                u.getRole() == Role.ADMIN && m.getStatus() == MeltPassportStatus.APPROVED,
-                m.getAssignedOperatorId(), m.getAssignedOperatorName(), u.getRole() == Role.ADMIN && editable);
+                u.getRole() == Role.MANAGER && m.getStatus() == MeltPassportStatus.APPROVED,
+                m.getAssignedOperatorId(), m.getAssignedOperatorName(), u.getRole() == Role.MANAGER && editable);
     }
 }

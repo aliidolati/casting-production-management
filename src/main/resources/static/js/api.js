@@ -425,6 +425,8 @@ const UserAPI = {
     delete: (id) => apiRequest(`/users/${id}`, "DELETE"),
     changeMyPassword: (data) => apiRequest("/users/me/password", "PATCH", data),
     resetPassword: (id, newPassword) => apiRequest(`/users/${id}/password`, "PATCH", { newPassword }),
+    updateAccount: (id, data) => apiRequest(`/users/${id}`, "PATCH", data),
+    accessHistory: (id, page = 0) => apiRequest(`/users/${id}/access-history?page=${page}&size=25`),
     updatePermissions: (id, permissions) => apiRequest(`/users/${id}/permissions`, "PATCH", { permissions }),
     getProfile: (id) => apiRequest(`/users/${id}/profile`),
     updateProfile: (id, data) => apiRequest(`/users/${id}/profile`, "PATCH", data),

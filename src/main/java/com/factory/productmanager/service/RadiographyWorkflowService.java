@@ -488,11 +488,11 @@ public class RadiographyWorkflowService {
     }
 
     private boolean isReviewer(User user) {
-        return !user.isDisabled() && (policy.isAdmin(user) || hasPermission(user, Permission.REVIEW_RADIOGRAPHY_REPORT));
+        return !user.isDisabled() && (policy.isManager(user) || hasPermission(user, Permission.REVIEW_RADIOGRAPHY_REPORT));
     }
 
     private boolean canInterpret(User user) {
-        return !user.isDisabled() && (policy.isAdmin(user) || hasPermission(user, Permission.INTERPRET_RADIOGRAPHY));
+        return !user.isDisabled() && (policy.isManager(user) || hasPermission(user, Permission.INTERPRET_RADIOGRAPHY));
     }
 
     private static boolean hasPermission(User user, Permission permission) {
@@ -767,7 +767,7 @@ public class RadiographyWorkflowService {
         boolean isInterpreter = workflow.getInterpreter().getId().equals(viewer.getId());
         boolean reviewer = isReviewer(viewer);
         WorkflowPermissions permissions = new WorkflowPermissions(
-                open && status.isInterpreterEditable() && (isInterpreter || policy.isAdmin(viewer)),
+                open && status.isInterpreterEditable() && (isInterpreter || policy.isManager(viewer)),
                 open && status.isInterpreterEditable() && isInterpreter && canInterpret(viewer),
                 open && status == RadiographyWorkflowStatus.MANAGER_REVIEW && reviewer,
                 open && status.isInterpreterEditable() && reviewer,

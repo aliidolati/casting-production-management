@@ -57,13 +57,15 @@ abstract class TaskTestBase {
     protected User outsider;
     protected User disabledWorker;
 
+    @Autowired protected com.factory.productmanager.security.JwtService testJwt;
     private final Map<UUID, String> tokens = new HashMap<>();
+    private final Map<UUID, String> tokenStates = new HashMap<>();
 
     @BeforeEach
     void seedUsers() {
-        tokens.clear();
+        tokens.clear(); tokenStates.clear();
         String s = UUID.randomUUID().toString().substring(0, 8);
-        admin = newUser("t_admin_" + s, Role.ADMIN, Set.of());
+        admin = newUser("t_admin_" + s, Role.MANAGER, Set.of());
         manager = newUser("t_mgr_" + s, Role.OPERATOR, Set.of(Permission.MANAGE_TASKS, Permission.RECEIVE_TASKS));
         otherManager = newUser("t_mgr2_" + s, Role.OPERATOR, Set.of(Permission.MANAGE_TASKS, Permission.RECEIVE_TASKS));
         worker = newUser("t_w1_" + s, Role.OPERATOR, Set.of(Permission.RECEIVE_TASKS));
@@ -85,6 +87,9 @@ abstract class TaskTestBase {
     }
 
     protected String token(User user) {
+        // Ordinary calls use a fresh login after grant/role changes. Tests of old JWTs keep their token explicitly.
+        String state = testJwt.credentialStamp(userRepository.findById(user.getId()).orElseThrow());
+        if (!state.equals(tokenStates.put(user.getId(), state))) tokens.remove(user.getId());
         return tokens.computeIfAbsent(user.getId(), id -> {
             try {
                 String body = mvc.perform(post("/api/auth/login")

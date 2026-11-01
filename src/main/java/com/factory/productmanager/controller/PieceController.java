@@ -282,7 +282,7 @@ public class PieceController {
     }
 
     @DeleteMapping("/{id}/stage-history/{historyId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<Void> deleteStageHistory(
             @PathVariable UUID id,
             @PathVariable UUID historyId,
@@ -293,7 +293,7 @@ public class PieceController {
     }
 
     @DeleteMapping("/{id}/substage-history/{historyId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<Void> deleteSubStageHistory(
             @PathVariable UUID id,
             @PathVariable UUID historyId,

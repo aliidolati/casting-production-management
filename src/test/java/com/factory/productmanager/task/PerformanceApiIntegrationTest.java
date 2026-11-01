@@ -147,7 +147,7 @@ class PerformanceApiIntegrationTest extends TaskTestBase {
 
     @Test @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void concurrentCreationAndEditsAndRolloverHaveOnlyOneWinner() throws Exception {
-        var otherAdmin = newUser("perf_admin_" + UUID.randomUUID(), Role.ADMIN, Set.of());
+        var otherAdmin = newUser("perf_admin_" + UUID.randomUUID(), Role.MANAGER, Set.of());
         var outcomes = race(() -> service.create(worker.getId(), new CreatePeriod("الف"), admin.getUsername()),
                 () -> service.create(worker.getId(), new CreatePeriod("ب"), otherAdmin.getUsername()));
         assertEquals(1, outcomes.stream().filter(Period.class::isInstance).count());

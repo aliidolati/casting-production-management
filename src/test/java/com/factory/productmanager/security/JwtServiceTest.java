@@ -54,6 +54,15 @@ class JwtServiceTest {
         var other=new JwtService("test-only-key-b-7da9c420207b4729af0b9988fa157447",60_000);
         assertThrows(Exception.class,()->other.parseToken(token));
     }
+    @Test void changedRoleAndPermissionsRejectPreviousSessionWithoutLeakingGrantsInToken() {
+        var u=user(); u.setRole(com.factory.productmanager.model.entity.Role.ADMIN);
+        var original=jwt.parseToken(jwt.generateToken(principal(u),"ADMIN"));
+        u.setRole(com.factory.productmanager.model.entity.Role.MANAGER);
+        assertFalse(jwt.isTokenValid(original,principal(u)));
+        var managerToken=jwt.parseToken(jwt.generateToken(principal(u),"MANAGER"));
+        u.getPermissions().add(com.factory.productmanager.model.entity.Permission.VIEW_DASHBOARD);
+        assertFalse(jwt.isTokenValid(managerToken,principal(u)));
+    }
     @Test void legacyOrIncompleteSignedTokensAreRejected() {
         var key=Keys.hmacShaKeyFor(TEST_KEY.getBytes(StandardCharsets.UTF_8));
         var now=new Date();var expiry=new Date(now.getTime()+60_000);

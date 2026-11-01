@@ -219,7 +219,7 @@ public class NotificationService {
 
     /** اعلان‌های همگانی (کشش) فقط برای ادمین و دارندگان دسترسی تعیین‌تکلیف کشش نمایش داده می‌شوند */
     private static boolean canSeeBroadcast(User user) {
-        return user.getRole() == Role.ADMIN
+        return user.getRole() == Role.MANAGER
                 || (user.getPermissions() != null && user.getPermissions().contains(Permission.REVIEW_TENSILE_TEST));
     }
 

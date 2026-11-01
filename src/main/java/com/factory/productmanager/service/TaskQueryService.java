@@ -105,7 +105,7 @@ public class TaskQueryService {
         TaskSort sort = filter.sort() == null ? TaskSort.SMART : filter.sort();
 
         Specification<Task> spec = Specification.allOf(
-                TaskSpecifications.visibleTo(actor.getId(), policy.isAdmin(actor), policy.hasManagePermission(actor), policy.canReviewMelt(actor)),
+                TaskSpecifications.visibleTo(actor.getId(), policy.isManager(actor), policy.hasManagePermission(actor), policy.canReviewMelt(actor)),
                 filter.mine() ? TaskSpecifications.inbox(actor.getId(), policy.canReviewMelt(actor)) : Specification.unrestricted(),
                 TaskSpecifications.matching(filter.mine() ? filter.withAssignee(null) : filter, now),
                 TaskSpecifications.orderedBy(sort, filter.ascending(), now)

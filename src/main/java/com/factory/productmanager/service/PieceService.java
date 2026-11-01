@@ -466,7 +466,7 @@ public class PieceService {
             Map<UUID, Long> defectsCounts,
             Map<UUID, LocalDateTime> stageEnteredAtMap
     ) {
-        boolean admin = currentUserIsAdmin();
+        boolean admin = currentUserIsManager();
         return pieces.stream()
                 .map(p -> toResponse(
                         p,
@@ -478,7 +478,7 @@ public class PieceService {
     }
 
     private PieceResponse toResponse(Piece piece, long defectsCount, LocalDateTime stageEnteredAt) {
-        return toResponse(piece, defectsCount, stageEnteredAt, currentUserIsAdmin());
+        return toResponse(piece, defectsCount, stageEnteredAt, currentUserIsManager());
     }
 
     private PieceResponse toResponse(Piece piece, long defectsCount, LocalDateTime stageEnteredAt, boolean admin) {
@@ -518,12 +518,12 @@ public class PieceService {
         );
     }
 
-    private boolean currentUserIsAdmin() {
+    private boolean currentUserIsManager() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getName())) {
             return false;
         }
-        return permissionService.isAdmin(auth.getName());
+        return permissionService.isManager(auth.getName());
     }
 
     private void recordSubStageHistory(Piece piece, SubStageKind kind, String subStage, String changedByUsername) {
@@ -816,7 +816,7 @@ public class PieceService {
             RoughMachiningSubStage roughMachiningOverride, ScrapRequest scrap) {
         Piece piece = pieceRepository.lockById(pieceId).orElseThrow(() -> new ResourceNotFoundException("قطعه پیدا نشد"));
         assertNotArchived(piece);
-        boolean admin = permissionService.isAdmin(changedByUsername);
+        boolean admin = permissionService.isManager(changedByUsername);
         applyStageChange(
                 piece,
                 newStage,
@@ -839,7 +839,7 @@ public class PieceService {
         assertNotArchived(piece);
         radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
         stageTransitionPolicy.assertRadiographySubStageAllowed(
-                piece, request.getRadiographySubStage(), permissionService.isAdmin(changedByUsername)
+                piece, request.getRadiographySubStage(), permissionService.isManager(changedByUsername)
         );
 
         piece.setRadiographySubStage(request.getRadiographySubStage());
@@ -855,7 +855,7 @@ public class PieceService {
         Piece piece = findPieceOrThrow(pieceId);
         assertNotArchived(piece);
         stageTransitionPolicy.assertHeatTreatmentSubStageAllowed(
-                piece, request.getHeatTreatmentSubStage(), permissionService.isAdmin(changedByUsername)
+                piece, request.getHeatTreatmentSubStage(), permissionService.isManager(changedByUsername)
         );
 
         piece.setHeatTreatmentSubStage(request.getHeatTreatmentSubStage());
@@ -872,7 +872,7 @@ public class PieceService {
         assertNotArchived(piece);
         RoughMachiningSubStage target = request.getRoughMachiningSubStage();
         stageTransitionPolicy.assertRoughMachiningSubStageAllowed(
-                piece, target, permissionService.isAdmin(changedByUsername)
+                piece, target, permissionService.isManager(changedByUsername)
         );
 
         piece.setRoughMachiningSubStage(target);
@@ -895,7 +895,7 @@ public class PieceService {
         pieces.forEach(this::assertNotArchived);
 
         PieceStage newStage = request.getNewStage();
-        boolean trusted = permissionService.isAdmin(changedByUsername);
+        boolean trusted = permissionService.isManager(changedByUsername);
         if (newStage == PieceStage.WELDING) {
             throw new IllegalStateException(
                     "جوشکاری ایستگاه است نه مرحله؛ از بخش ارسال به جوشکاری در پروفایل قطعه استفاده کنید"
@@ -945,7 +945,7 @@ public class PieceService {
             );
         }
 
-        boolean admin = permissionService.isAdmin(changedByUsername);
+        boolean admin = permissionService.isManager(changedByUsername);
         List<Piece> toMove = pieces.stream()
                 .filter(p -> p.getRadiographySubStage() != request.getRadiographySubStage())
                 .toList();
@@ -1003,7 +1003,7 @@ public class PieceService {
             );
         }
 
-        boolean admin = permissionService.isAdmin(changedByUsername);
+        boolean admin = permissionService.isManager(changedByUsername);
         List<Piece> toMove = pieces.stream()
                 .filter(p -> p.getHeatTreatmentSubStage() != request.getHeatTreatmentSubStage())
                 .toList();
@@ -1061,7 +1061,7 @@ public class PieceService {
             );
         }
 
-        boolean admin = permissionService.isAdmin(changedByUsername);
+        boolean admin = permissionService.isManager(changedByUsername);
         RoughMachiningSubStage target = request.getRoughMachiningSubStage();
         List<Piece> toMove = pieces.stream()
                 .filter(p -> p.getRoughMachiningSubStage() != target)
@@ -1337,7 +1337,7 @@ public class PieceService {
     }
 
     private void requireAdmin(String username) {
-        if (!permissionService.isAdmin(username)) {
+        if (!permissionService.isManager(username)) {
             throw new AccessDeniedException("فقط مدیر می‌تواند تاریخچه را حذف کند");
         }
     }

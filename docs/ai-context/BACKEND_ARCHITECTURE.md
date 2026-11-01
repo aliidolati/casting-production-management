@@ -1,5 +1,7 @@
 # Backend architecture
 
+Update 2026-11-01: category 1 introduces MANAGER (full access), explicit-grant ADMIN/OPERATOR, manager-only account management and access audit. Historical ADMIN-as-full-access descriptions below are superseded by [User access](USER_ACCESS.md). V38 and the sanitized fixture include the new audit table; runtime upgrade requires explicit initial-manager selection. Local Java/MySQL validation is blocked by missing Maven dependencies; see the linked implementation/upgrade notes.
+
 Update 2026-10-31: ScrapService records cycles through PieceService’s central stage boundary, including bulk/admin/trusted/tensile routes. ScrapController provides history, versioned reason editing and the VIEW_DASHBOARD scrap report. V37 is additive; existing workflow/archival guards remain. See [scrap](SCRAP.md).
 
 GitHub preparation note: the earlier inline-key description below is historical. Current application.properties uses external datasource/JWT placeholders and the bootstrap password is explicit; see [Cloud testing](CLOUD_TESTING.md). This source-publication task changes documentation/Git metadata only and preserves runtime code and contracts.

@@ -841,3 +841,15 @@ CREATE TABLE IF NOT EXISTS piece_scrap_dispatch_defects (
     CONSTRAINT fk_scrap_link_dispatch FOREIGN KEY (dispatch_id) REFERENCES piece_scrap_dispatches(id),
     CONSTRAINT fk_scrap_link_defect FOREIGN KEY (defect_id) REFERENCES radiography_defects(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS user_access_events (
+    id BINARY(16) NOT NULL PRIMARY KEY,
+    actor_id BINARY(16) NULL,
+    actor_username VARCHAR(255) NOT NULL,
+    target_id BINARY(16) NOT NULL,
+    action VARCHAR(40) NOT NULL,
+    occurred_at DATETIME(6) NOT NULL,
+    before_state TEXT NOT NULL,
+    after_state TEXT NOT NULL,
+    INDEX idx_user_access_target_time (target_id, occurred_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

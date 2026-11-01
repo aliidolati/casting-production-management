@@ -25,27 +25,27 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
         UserResponse response = userService.createUser(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<List<UserResponse>> listUsers() {
         return ResponseEntity.ok(userService.listUsers());
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<Void> deleteUser(@PathVariable UUID id, Authentication authentication) {
         userService.deleteUser(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/permissions")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<UserResponse> updateUserPermissions(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateUserPermissionsRequest request
@@ -53,9 +53,23 @@ public class UserController {
         return ResponseEntity.ok(userService.updateUserPermissions(id, request));
     }
 
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('MANAGER')")
+    public UserResponse updateAccount(@PathVariable UUID id,
+            @Valid @RequestBody com.factory.productmanager.model.dto.UpdateUserAccountRequest request) {
+        return userService.updateAccount(id, request);
+    }
+
+    @GetMapping("/{id}/access-history")
+    @PreAuthorize("hasRole('MANAGER')")
+    public com.factory.productmanager.model.dto.PageResponse<com.factory.productmanager.model.dto.UserAccessEventResponse> accessHistory(
+            @PathVariable UUID id, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "25") int size) {
+        return userService.accessHistory(id, page, size);
+    }
+
     /** ادمین می‌تواند رمز عبور هر کاربر را بدون رمز فعلی تنظیم کند */
     @PatchMapping("/{id}/password")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<Void> resetUserPassword(
             @PathVariable UUID id,
             @Valid @RequestBody AdminResetPasswordRequest request

@@ -12,7 +12,7 @@ import java.util.Set;
 
 /**
  * تمام قوانین دسترسی وظایف در یک جا. این کلاس از سیستم نقش/دسترسی موجود استفاده می‌کند
- * (Role.ADMIN و Permission.MANAGE_TASKS / RECEIVE_TASKS) و نقش یا مدل دسترسی دوم نمی‌سازد.
+ * (Role.MANAGER و Permission.MANAGE_TASKS / RECEIVE_TASKS) و نقش یا مدل دسترسی دوم نمی‌سازد.
  *
  * <ul>
  *   <li><b>ادمین</b>: همه‌ی وظایف را می‌بیند و مدیریت می‌کند.</li>
@@ -25,17 +25,17 @@ import java.util.Set;
 @Component
 public class TaskAccessPolicy {
 
-    public boolean isAdmin(User user) {
-        return user.getRole() == Role.ADMIN;
+    public boolean isManager(User user) {
+        return user.getRole() == Role.MANAGER;
     }
 
     public boolean hasManagePermission(User user) {
-        return isAdmin(user) || has(user, Permission.MANAGE_TASKS);
+        return isManager(user) || has(user, Permission.MANAGE_TASKS);
     }
 
     /** آیا این کاربر می‌تواند مسئول یک وظیفه شود؟ (حساب فعال + ادمین یا دارای RECEIVE_TASKS) */
     public boolean canReceiveTasks(User user) {
-        return !user.isDisabled() && (isAdmin(user) || has(user, Permission.RECEIVE_TASKS));
+        return !user.isDisabled() && (isManager(user) || has(user, Permission.RECEIVE_TASKS));
     }
 
     public boolean isAssignee(User user, Task task) {
@@ -48,17 +48,17 @@ public class TaskAccessPolicy {
 
     public boolean canView(User user, Task task) {
         if (task.getTaskType() == com.factory.productmanager.model.entity.TaskType.MELT_PASSPORT_APPROVAL) return canReviewMelt(user);
-        return isAdmin(user) || isAssignee(user, task) || isCreatorManager(user, task);
+        return isManager(user) || isAssignee(user, task) || isCreatorManager(user, task);
     }
 
     public boolean canReviewMelt(User user) {
-        return !user.isDisabled() && (isAdmin(user) || has(user, Permission.APPROVE_MELT_PASSPORT));
+        return !user.isDisabled() && (isManager(user) || has(user, Permission.APPROVE_MELT_PASSPORT));
     }
 
     /** ویرایش ساختاری: فیلدها، مسئول، اولویت، مهلت، لغو، بازگشایی، ساختار چک‌لیست و حذف نظرها */
     public boolean canManage(User user, Task task) {
-        if (task.getTaskType() == com.factory.productmanager.model.entity.TaskType.MELT_PASSPORT_APPROVAL) return isAdmin(user);
-        return isAdmin(user) || isCreatorManager(user, task);
+        if (task.getTaskType() == com.factory.productmanager.model.entity.TaskType.MELT_PASSPORT_APPROVAL) return isManager(user);
+        return isManager(user) || isCreatorManager(user, task);
     }
 
     /** وضعیت‌هایی که این کاربر می‌تواند وظیفه را به آن‌ها ببرد (خالی = اجازه‌ی تغییر وضعیت ندارد) */

@@ -30,6 +30,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("select u from User u where u.id = :id")
     Optional<User> lockForCredentialsById(@Param("id") UUID id);
 
+    /** Serialize user-administration writes, including competing last-manager changes. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u order by u.id")
+    List<User> lockForAdministration();
+
+    boolean existsByRoleAndDisabledFalse(com.factory.productmanager.model.entity.Role role);
+
     boolean existsByUsername(String username);
 
     @Modifying
@@ -44,7 +51,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             SELECT new com.factory.productmanager.model.dto.UserRefResponse(u.id, u.username, u.fullName, u.department)
             FROM User u
             WHERE u.disabled = false
-              AND (u.role = com.factory.productmanager.model.entity.Role.ADMIN
+              AND (u.role = com.factory.productmanager.model.entity.Role.MANAGER
                    OR :permission MEMBER OF u.permissions)
             ORDER BY LOWER(COALESCE(u.fullName, u.username))
             """)
