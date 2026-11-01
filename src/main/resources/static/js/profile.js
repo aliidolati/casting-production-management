@@ -77,7 +77,7 @@ function renderProfile(p) {
                 <span class="task-badge ${p.active ? "profile-active-on" : "profile-active-off"}">
                     <span aria-hidden="true">${p.active ? "●" : "○"}</span>${p.active ? "فعال" : "غیرفعال"}
                 </span>
-                ${isAdmin() ? `<button type="button" class="btn btn-secondary btn-sm" id="btn-profile-edit">ویرایش بخش و وضعیت</button>` : ""}
+                ${isManager() ? `<button type="button" class="btn btn-secondary btn-sm" id="btn-profile-edit">ویرایش بخش و وضعیت</button>` : ""}
             </div>
         </div>
 
@@ -109,7 +109,7 @@ function renderProfile(p) {
 
         ${isSelf ? `<div id="profile-signature-region"></div>` : ""}
 
-        ${isSelf || isAdmin() ? `<section id="profile-performance" class="task-card" aria-label="ارزیابی عملکرد" aria-live="polite"></section>` : ""}
+        ${isSelf || isManager() ? `<section id="profile-performance" class="task-card" aria-label="ارزیابی عملکرد" aria-live="polite"></section>` : ""}
 
         <section class="task-card" aria-labelledby="profile-tasks-title">
             <h3 class="task-card-title" id="profile-tasks-title">${isSelf ? "وظایف من" : "وظایف این کاربر"}</h3>
@@ -135,7 +135,7 @@ function renderProfile(p) {
     );
     document.getElementById("btn-profile-edit")?.addEventListener("click", () => openProfileEditModal(p));
     if (isSelf && typeof renderProfileSignatureCard === "function") renderProfileSignatureCard();
-    if ((isSelf || isAdmin()) && typeof mountPerformance === "function") mountPerformance(p.id);
+    if ((isSelf || isManager()) && typeof mountPerformance === "function") mountPerformance(p.id);
 }
 
 async function loadProfileTasks() {

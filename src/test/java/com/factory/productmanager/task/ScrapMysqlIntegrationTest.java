@@ -6,6 +6,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 
 @EnabledIfSystemProperty(named="mysql.tests.enabled", matches="true")
-@ActiveProfiles("mysql-cloud")
+@ActiveProfiles("scrap-mysql")
 @ContextConfiguration(initializers=MysqlTestContextInitializer.class)
 class ScrapMysqlIntegrationTest extends ScrapIntegrationTest { }

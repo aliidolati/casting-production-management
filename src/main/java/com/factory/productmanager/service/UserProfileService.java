@@ -24,6 +24,7 @@ import java.util.UUID;
 public class UserProfileService {
 
     private final UserRepository userRepository;
+    private final UserAdministrationPolicy administration;
     private final TaskLookup lookup;
     private final TaskQueryService queryService;
     private final TaskStatsService statsService;
@@ -38,11 +39,14 @@ public class UserProfileService {
         return toProfile(user);
     }
 
-    /** ویرایش بخش و فعال/غیرفعال‌بودن حساب (فقط ادمین؛ در کنترلر هم محدود شده است) */
+    /** ویرایش بخش و فعال/غیرفعال‌بودن حساب (فقط مدیر؛ در کنترلر هم محدود شده است) */
     @Transactional
     public UserProfileResponse updateProfile(UUID userId, UpdateUserProfileRequest request, String adminUsername) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("کاربر پیدا نشد"));
+        var locked = administration.lockAndRequireManager();
+        User user = administration.target(locked, userId);
+        var actor = administration.currentManager(locked);
+        administration.preserveLastManager(locked, user, user.getRole(), request.active() == null ? user.isDisabled() : !request.active());
+        String before = administration.snapshot(user);
 
         if (request.department() != null) {
             String department = request.department().trim();
@@ -55,6 +59,7 @@ public class UserProfileService {
             }
             user.setDisabled(disable);
         }
+        administration.record(actor, user, "PROFILE_UPDATED", before, administration.snapshot(user));
         return toProfile(userRepository.save(user));
     }
 

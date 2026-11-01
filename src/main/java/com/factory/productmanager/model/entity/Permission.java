@@ -3,7 +3,7 @@ package com.factory.productmanager.model.entity;
 import lombok.Getter;
 
 /**
- * دسترسی‌های جزئی اپراتور. کاربر با نقش ADMIN همیشه همه‌ی این دسترسی‌ها را دارد
+ * دسترسی‌های جزئی اپراتور. کاربر با نقش MANAGER همیشه همه‌ی این دسترسی‌ها را دارد
  * (نیازی به ثبت در جدول user_permissions ندارد).
  */
 @Getter

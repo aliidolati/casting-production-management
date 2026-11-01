@@ -41,7 +41,7 @@ class MeltPassportConcurrencyIntegrationTest {
         new TransactionTemplate(txManager).executeWithoutResult(tx -> {
             for(String username:List.of(author,reviewer,administrator)) {
                 var u=new User();u.setUsername(username);u.setFullName(username);u.setPassword("synthetic-test-hash");u.setRole(Role.OPERATOR);
-                if(username.equals(administrator)) u.setRole(Role.ADMIN);
+                if(username.equals(administrator)) u.setRole(Role.MANAGER);
                 u.setPermissions(new HashSet<>(username.equals(reviewer)?Set.of(Permission.APPROVE_MELT_PASSPORT):Set.of()));users.save(u);
             }
             var project=new Project();project.setCode("MELT-TX-"+suffix);project.setName("Synthetic melt transactions");projects.save(project);

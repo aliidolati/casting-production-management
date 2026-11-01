@@ -88,7 +88,7 @@ public class PieceNoteService {
     private boolean canDelete(PieceNote note, String requestingUsername) {
         if (requestingUsername == null) return false;
 
-        if (permissionService.isAdmin(requestingUsername)) {
+        if (permissionService.isManager(requestingUsername)) {
             return true;
         }
 

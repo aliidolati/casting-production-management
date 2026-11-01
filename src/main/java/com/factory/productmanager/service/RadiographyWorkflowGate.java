@@ -56,7 +56,7 @@ public class RadiographyWorkflowGate {
         if (actor == null) {
             throw new ForbiddenOperationException("شما اجازه‌ی ویرایش این گزارش را ندارید");
         }
-        boolean admin = actor.getRole() == Role.ADMIN;
+        boolean admin = actor.getRole() == Role.MANAGER;
         boolean assignedInterpreter = workflow.getInterpreter().getId().equals(actor.getId());
         if (!admin && !assignedInterpreter) {
             throw new ForbiddenOperationException(

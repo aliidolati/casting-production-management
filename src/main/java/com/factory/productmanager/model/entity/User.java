@@ -32,7 +32,8 @@ public class User {
     private String fullName;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
+    @Column(nullable = false, columnDefinition = "varchar(32)")
     private Role role;
 
     @ElementCollection(fetch = FetchType.EAGER)

@@ -31,7 +31,7 @@ public class UserProfileController {
     }
 
     @PatchMapping("/profile")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('MANAGER')")
     public UserProfileResponse updateProfile(
             @PathVariable UUID userId,
             @Valid @RequestBody UpdateUserProfileRequest request,

@@ -31,7 +31,7 @@ public class DashboardReportsBrowserFixture {
             user.setUsername("reports-ui-admin");
             user.setPassword(context.getBean(PasswordEncoder.class).encode("Synthetic-Reports-Only1"));
             user.setFullName("کاربر ساختگی گزارش‌ها");
-            user.setRole(Role.ADMIN);
+            user.setRole(Role.MANAGER);
             context.getBean(UserRepository.class).save(user);
             var project = new Project();
             project.setCode("SMOKE-REPORTS");

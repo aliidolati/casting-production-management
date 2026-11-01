@@ -42,26 +42,26 @@ public class PermissionService {
 
     public boolean hasPermission(String username, Permission permission) {
         return userRepository.findByUsername(username)
-                .map(user -> user.getRole() == Role.ADMIN || user.getPermissions().contains(permission))
+                .map(user -> !user.isDisabled() && (user.getRole() == Role.MANAGER || user.getPermissions().contains(permission)))
                 .orElse(false);
     }
 
-    public boolean isAdmin(String username) {
+    public boolean isManager(String username) {
         return userRepository.findByUsername(username)
-                .map(user -> user.getRole() == Role.ADMIN)
+                .map(user -> !user.isDisabled() && user.getRole() == Role.MANAGER)
                 .orElse(false);
     }
 
     public List<String> resolvePermissionCodes(User user) {
-        if (user.getRole() == Role.ADMIN) {
+        if (user.getRole() == Role.MANAGER) {
             return Arrays.stream(Permission.values()).map(Enum::name).toList();
         }
         return user.getPermissions().stream().map(Enum::name).sorted().toList();
     }
 
     public Set<Permission> sanitizePermissionsForRole(Role role, Set<Permission> requested) {
-        if (role == Role.ADMIN) {
-            return EnumSet.allOf(Permission.class);
+        if (role == Role.MANAGER) {
+            return EnumSet.noneOf(Permission.class);
         }
         if (requested == null || requested.isEmpty()) {
             return EnumSet.noneOf(Permission.class);

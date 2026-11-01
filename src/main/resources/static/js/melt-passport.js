@@ -111,11 +111,11 @@ async function openMeltPassport(id, piece = null, history = null) {
             id ? MeltPassportAPI.get(id) : Promise.resolve(null), MeltPassportAPI.materials(), MeltPassportAPI.ingotTypes(), MeltPassportAPI.today(),
             history === null && piece ? MeltPassportAPI.forPiece(piece.id) : Promise.resolve(history || []),
             piece ? PieceAPI.getById(piece.id) : Promise.resolve(null),
-            isAdmin() ? TaskAPI.assignees() : Promise.resolve([]),
+            isManager() ? TaskAPI.assignees() : Promise.resolve([]),
         ]);
         if (!stillCurrent()) return;
         piece = currentPiece;
-        const m = record || { version: 0, status: 'DRAFT', editable: true, assignable: isAdmin(), meltDate: today.date,
+        const m = record || { version: 0, status: 'DRAFT', editable: true, assignable: isManager(), meltDate: today.date,
             pieces: [{ id: piece.id, pieceName: piece.pieceName, pieceRef: pieceRefLabel(piece) }], materials: [], checks: [], magnesium: {}, process: {}, events: [] };
         renderMeltPassport({ m, catalog, ingotTypes, piece, history: records, assignees });
     } catch (e) { if (stillCurrent()) meltShowError(e); }
@@ -440,7 +440,7 @@ async function openMeltPassportRegister() {
             ${meltField('filter-ingot', 'نوع شمش (نام کامل)', '')}${meltField('filter-operator', 'اپراتور (نام کامل)', '')}
             ${meltField('filter-piece', 'شماره کامل قطعه', '', 'text', 'placeholder="498-2-54"')}
             <div class="form-group"><label for="melt-filter-material">ماده مصرفی</label><select id="melt-filter-material"><option value="">همه مواد</option></select></div>
-        </div><div class="form-actions"><button type="button" class="btn btn-primary" id="melt-filter-apply">اعمال فیلتر</button><button type="button" class="btn btn-secondary" id="melt-consumption">گزارش مصرف مواد</button>${isAdmin() ? '<button type="button" class="btn btn-secondary" id="melt-catalog-manage">مدیریت فهرست مواد</button>' : ''}</div>
+        </div><div class="form-actions"><button type="button" class="btn btn-primary" id="melt-filter-apply">اعمال فیلتر</button><button type="button" class="btn btn-secondary" id="melt-consumption">گزارش مصرف مواد</button>${isManager() ? '<button type="button" class="btn btn-secondary" id="melt-catalog-manage">مدیریت فهرست مواد</button>' : ''}</div>
         <div id="melt-register-results" aria-live="polite"></div><div class="form-actions"><button type="button" class="btn btn-secondary" id="melt-page-prev">قبلی</button><span id="melt-page-label"></span><button type="button" class="btn btn-secondary" id="melt-page-next">بعدی</button></div><div id="melt-consumption-results"></div></div>`, { size: 'xl' });
     const root = document.querySelector('.melt-register');
     const error = e => { if (root.isConnected) meltShowError(e); };

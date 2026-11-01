@@ -61,25 +61,25 @@ class SecurityRegressionIntegrationTest extends TaskTestBase {
     @Test void reusedUsernameCannotResurrectDeletedAccountsTokenOrInheritAdminRole() throws Exception {
         String old=token(outsider),username=outsider.getUsername();UUID original=outsider.getId();
         call(delete("/api/users/"+original),admin).andExpect(status().isNoContent());em.flush();em.clear();me(old,401);
-        var replacement=newUser(username,Role.ADMIN,Set.of());assertNotEquals(original,replacement.getId());
+        var replacement=newUser(username,Role.MANAGER,Set.of());assertNotEquals(original,replacement.getId());
         mvc.perform(get("/api/users").header("Authorization","Bearer "+old)).andExpect(status().isUnauthorized());
         me(freshLogin(username,PASSWORD),200);
     }
     @Test void legacyTokenWithCorrectSignatureIsRejected() throws Exception {
         var key=Keys.hmacShaKeyFor(testKey.getBytes(StandardCharsets.UTF_8));
-        String old=Jwts.builder().subject(outsider.getUsername()).claim("role","ADMIN").issuedAt(new Date())
+        String old=Jwts.builder().subject(outsider.getUsername()).claim("role","MANAGER").issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis()+60_000)).signWith(key).compact();
         me(old,401);
     }
     @Test void databaseRoleAndPermissionRevocationStillOverrideTokenClaims() throws Exception {
-        String claimedAdmin=jwt.generateToken(details.loadUserById(worker.getId()),"ADMIN");
+        String claimedAdmin=jwt.generateToken(details.loadUserById(worker.getId()),"MANAGER");
         mvc.perform(get("/api/users").header("Authorization","Bearer "+claimedAdmin)).andExpect(status().isForbidden());
         var p=newPiece("SEC-"+UUID.randomUUID(),"قطعه امنیتی",1);
         worker.getPermissions().add(Permission.MANAGE_PIECES);userRepository.saveAndFlush(worker);
         String old=token(worker);
         call(patch("/api/users/"+worker.getId()+"/permissions"),admin,Map.of("permissions",List.of("RECEIVE_TASKS"))).andExpect(status().isOk());
         mvc.perform(patch("/api/pieces/"+p.getId()+"/description").header("Authorization","Bearer "+old)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"description\":\"ممنوع\"}")).andExpect(status().isForbidden());
+                .contentType(MediaType.APPLICATION_JSON).content("{\"description\":\"ممنوع\"}")).andExpect(status().isUnauthorized());
     }
     @Test void startupPreservesEmptyAndExplicitOperatorPermissions() {
         var empty=Set.copyOf(outsider.getPermissions());

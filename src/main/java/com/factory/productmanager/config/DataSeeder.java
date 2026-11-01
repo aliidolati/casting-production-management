@@ -12,11 +12,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
 
 /**
- * اگر جدول کاربران خالی باشد (مثلاً اولین اجرای پروژه)، یک کاربر ادمین
+ * اگر جدول کاربران خالی باشد (مثلاً اولین اجرای پروژه)، یک کاربر مدیر
  * پیش‌فرض می‌سازد تا بشود اولین ورود را انجام داد.
  * دسترسی کاربران موجود فقط با تصمیم مدیر تغییر می‌کند؛ مجموعهٔ خالی نیز انتخاب معتبر است.
  */
 @Component
+@org.springframework.core.annotation.Order(10)
 @RequiredArgsConstructor
 public class DataSeeder implements CommandLineRunner {
 
@@ -38,10 +39,10 @@ public class DataSeeder implements CommandLineRunner {
             admin.setUsername(DEFAULT_USERNAME);
             admin.setPassword(passwordEncoder.encode(bootstrapPassword));
             admin.setFullName("مدیر سیستم");
-            admin.setRole(Role.ADMIN);
+            admin.setRole(Role.MANAGER);
             userRepository.save(admin);
 
-            log.warn("Initial administrator created. Change the bootstrap password after first login.");
+            log.warn("Initial manager created. Change the bootstrap password after first login.");
         }
 
     }

@@ -2,7 +2,7 @@
 
  * users.js
 
- * منطق مربوط به بخش «مدیریت کاربران»: فقط برای کاربران با نقش ADMIN قابل مشاهده است
+ * منطق مربوط به بخش «مدیریت کاربران»: فقط برای کاربران با نقش MANAGER قابل مشاهده است
 
  * (نمایش/مخفی‌سازی دکمه‌ی ناوبری در auth.js انجام می‌شود).
 
@@ -12,7 +12,8 @@
 
 const ROLE_LABELS = {
 
-    ADMIN: "مدیر",
+    MANAGER: "مدیر",
+    ADMIN: "ادمین",
 
     OPERATOR: "اپراتور",
 
@@ -106,7 +107,7 @@ function readSelectedPermissions(form, inputName = "user-permission") {
 
 function togglePermissionsSection(roleSelect, sectionEl) {
 
-    const isOperator = roleSelect.value === "OPERATOR";
+    const isOperator = roleSelect.value !== "MANAGER";
 
     sectionEl.style.display = isOperator ? "block" : "none";
 
@@ -161,7 +162,7 @@ function renderUsersTable(users) {
 
             <td><a href="#/profile/${u.id}" title="مشاهده پروفایل و وظایف">${escapeHtml(u.username)}</a>${u.active === false ? ` <span class="task-muted">(غیرفعال)</span>` : ""}</td>
 
-            <td>${u.fullName || "-"}</td>
+            <td>${escapeHtml(u.fullName || "-")}</td>
 
             <td>${roleLabel(u.role)}</td>
 
@@ -171,7 +172,7 @@ function renderUsersTable(users) {
 
                 ${
 
-                    u.role === "OPERATOR"
+                    u.role !== "MANAGER"
 
                         ? `<button class="btn btn-secondary btn-sm btn-edit-permissions" data-id="${u.id}" data-username="${escapeHtml(u.username)}">دسترسی‌ها</button>`
 
@@ -179,6 +180,8 @@ function renderUsersTable(users) {
 
                 }
 
+                <button class="btn btn-secondary btn-sm btn-edit-account" data-id="${u.id}">نام و نقش</button>
+                <button class="btn btn-secondary btn-sm btn-access-history" data-id="${u.id}">سابقه تغییرات</button>
                 <button class="btn btn-secondary btn-sm btn-reset-password" data-id="${u.id}" data-username="${escapeHtml(u.username)}">تغییر رمز</button>
 
                 <button class="btn btn-danger btn-delete-user" data-id="${u.id}">حذف</button>
@@ -227,6 +230,13 @@ function renderUsersTable(users) {
 
         btn.addEventListener("click", () => openEditPermissionsModal(btn.dataset.id, btn.dataset.username));
 
+    });
+
+    tbody.querySelectorAll(".btn-edit-account").forEach((btn) => {
+        btn.addEventListener("click", () => openEditUserAccount(users.find(u => u.id === btn.dataset.id)));
+    });
+    tbody.querySelectorAll(".btn-access-history").forEach((btn) => {
+        btn.addEventListener("click", () => openUserAccessHistory(btn.dataset.id));
     });
 
     tbody.querySelectorAll(".btn-reset-password").forEach((btn) => {
@@ -330,7 +340,7 @@ async function openEditPermissionsModal(userId, username) {
 
             <form id="form-edit-permissions">
 
-                <p class="form-hint">ادمین همیشه همه دسترسی‌ها را دارد؛ این تنظیمات فقط برای اپراتور معنا دارد.</p>
+                <p class="form-hint">مجوزهای ادمین و اپراتور توسط مدیر تعیین می‌شوند.</p>
 
                 <div class="permissions-grid" id="permissions-grid-edit">
 
@@ -456,7 +466,8 @@ document.getElementById("btn-add-user").addEventListener("click", async () => {
 
                         <option value="OPERATOR">اپراتور</option>
 
-                        <option value="ADMIN">مدیر</option>
+                        <option value="ADMIN">ادمین</option>
+                        <option value="MANAGER">مدیر</option>
 
                     </select>
 
@@ -464,7 +475,7 @@ document.getElementById("btn-add-user").addEventListener("click", async () => {
 
                 <div class="form-group" id="permissions-section">
 
-                    <label>دسترسی‌های اپراتور</label>
+                    <label>دسترسی‌های ادمین یا اپراتور</label>
 
                     <div class="permissions-grid" id="permissions-grid-create">
 
@@ -526,7 +537,7 @@ document.getElementById("btn-add-user").addEventListener("click", async () => {
 
             const payload = { username, fullName, password, role };
 
-            if (role === "OPERATOR") {
+            if (role !== "MANAGER") {
 
                 payload.permissions = readSelectedPermissions(e.target);
 
@@ -562,3 +573,80 @@ document.getElementById("btn-add-user").addEventListener("click", async () => {
 
 });
 
+
+
+async function openEditUserAccount(user) {
+    if (!user || !isManager()) return;
+    try {
+        await loadPermissionCatalog();
+        openModal("ویرایش نام و نقش کاربر", `
+            <form id="form-edit-account">
+                <p>نام کاربری: ${escapeHtml(user.username)}</p>
+                <div class="form-group"><label for="account-full-name">نام و نام خانوادگی</label>
+                    <input id="account-full-name" value="${escapeHtml(user.fullName || "")}" maxlength="255" required /></div>
+                <div class="form-group"><label for="account-role">نقش</label>
+                    <select id="account-role">${["MANAGER", "ADMIN", "OPERATOR"].map(role =>
+                        `<option value="${role}" ${role === user.role ? "selected" : ""}>${roleLabel(role)}</option>`).join("")}</select></div>
+                <p class="form-hint">مدیر همه دسترسی‌ها را دارد. برای ادمین و اپراتور، مجوزها را انتخاب کنید.</p>
+                <div id="account-permissions" class="permissions-grid">${renderPermissionCheckboxes(user.role === "MANAGER" ? [] : user.permissions)}</div>
+                <div id="account-error" class="form-error"></div>
+                <div class="form-actions"><button type="button" class="btn btn-secondary" id="account-cancel">انصراف</button>
+                    <button type="submit" class="btn btn-primary">ذخیره</button></div>
+            </form>`);
+        const role = document.getElementById("account-role");
+        const permissions = document.getElementById("account-permissions");
+        togglePermissionsSection(role, permissions);
+        role.addEventListener("change", () => togglePermissionsSection(role, permissions));
+        document.getElementById("account-cancel").addEventListener("click", closeModal);
+        document.getElementById("form-edit-account").addEventListener("submit", async e => {
+            e.preventDefault();
+            const button = e.target.querySelector('[type="submit"]');
+            button.disabled = true;
+            try {
+                const saved = await UserAPI.updateAccount(user.id, {
+                    fullName: document.getElementById("account-full-name").value.trim(),
+                    role: role.value, permissions: role.value === "MANAGER" ? [] : readSelectedPermissions(e.target),
+                });
+                closeModal();
+                showToast("نام و نقش کاربر به‌روزرسانی شد");
+                if (AuthState.user && AuthState.user.id === saved.id) {
+                    // Role/grant changes revoke this session. A name-only edit keeps it valid.
+                    if (saved.role !== AuthState.user.role) {
+                        clearSession(); showLoginScreen("نقش شما تغییر کرد؛ دوباره وارد شوید."); return;
+                    }
+                    AuthState.user.fullName = saved.fullName;
+                    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(AuthState.user)); renderCurrentUser();
+                }
+                await loadUsers();
+            } catch (error) {
+                const box = document.getElementById("account-error");
+                if (box) { box.textContent = error.message; box.style.display = "block"; }
+            } finally { button.disabled = false; }
+        });
+    } catch (error) { showToast(error.message, "error"); }
+}
+
+function accessSnapshotText(value) {
+    const data = JSON.parse(value);
+    if (!data.username) return "—";
+    const labels = new Map((cachedPermissionCatalog || []).map(p => [p.code, p.label]));
+    const permissions = (data.permissions || []).map(code => code === "ALL" ? "همه دسترسی‌ها" : labels.get(code) || code);
+    return `${data.fullName || data.username} | ${roleLabel(data.role)} | ${data.active ? "فعال" : "غیرفعال"} | ${data.department || "بدون بخش"} | ${permissions.join("، ") || "بدون مجوز"}`;
+}
+
+async function openUserAccessHistory(id, page = 0) {
+    try {
+        await loadPermissionCatalog();
+        const data = await UserAPI.accessHistory(id, page);
+        const actions = { CREATED: "ساخت کاربر", ACCOUNT_UPDATED: "تغییر نام یا نقش", PERMISSIONS_CHANGED: "تغییر مجوزها", PROFILE_UPDATED: "تغییر بخش یا وضعیت", DELETED: "حذف حساب", INITIAL_MANAGER_SELECTED: "تعیین مدیر اولیه" };
+        openModal("سابقه تغییرات کاربر", `<div class="task-list">${data.items.map(event => `
+            <article class="task-card"><p>${escapeHtml(actions[event.action] || event.action)} — ${escapeHtml(event.actorUsername)} — ${escapeHtml(formatDate(event.occurredAt))}</p>
+                <p>قبل: ${escapeHtml(accessSnapshotText(event.beforeState))}</p>
+                <p>بعد: ${escapeHtml(accessSnapshotText(event.afterState))}</p></article>`).join("") || "هنوز تغییری ثبت نشده است."}</div>
+            <div class="form-actions"><button type="button" class="btn btn-secondary" id="access-history-prev" ${page === 0 ? "disabled" : ""}>قبلی</button>
+                <span>${page + 1} / ${Math.max(1, data.totalPages)}</span>
+                <button type="button" class="btn btn-secondary" id="access-history-next" ${page + 1 >= data.totalPages ? "disabled" : ""}>بعدی</button></div>`);
+        document.getElementById("access-history-prev").addEventListener("click", () => openUserAccessHistory(id, page - 1));
+        document.getElementById("access-history-next").addEventListener("click", () => openUserAccessHistory(id, page + 1));
+    } catch (error) { showToast(error.message, "error"); }
+}

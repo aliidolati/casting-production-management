@@ -312,7 +312,7 @@ public class HeatTreatmentService {
 
     private boolean canDelete(String username) {
         if (username == null) return false;
-        return permissionService.isAdmin(username)
+        return permissionService.isManager(username)
                 || permissionService.hasPermission(username, Permission.MANAGE_HEAT_TREATMENT_LOG);
     }
 

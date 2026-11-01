@@ -11,5 +11,5 @@ import java.util.Set;
 @Setter
 public class UpdateUserPermissionsRequest {
     @NotNull(message = "لیست دسترسی‌ها نمی‌تواند خالی باشد")
-    private Set<Permission> permissions;
+    private Set<@jakarta.validation.constraints.NotNull Permission> permissions;
 }

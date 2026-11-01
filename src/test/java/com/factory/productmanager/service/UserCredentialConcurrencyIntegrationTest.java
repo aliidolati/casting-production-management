@@ -28,7 +28,11 @@ class UserCredentialConcurrencyIntegrationTest {
         try(var stale=factory.createEntityManager()) {
             stale.getTransaction().begin();
             var profile=stale.find(User.class,id);
-            users.resetPasswordByAdmin(id,"Replacement@456");
+            org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                    new org.springframework.security.authentication.UsernamePasswordAuthenticationToken("admin", null,
+                            java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_MANAGER"))));
+            try { users.resetPasswordByAdmin(id,"Replacement@456"); }
+            finally { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
             profile.setDepartment("ویرایش مستقل پروفایل");
             stale.getTransaction().commit();
             try(var current=factory.createEntityManager()) {

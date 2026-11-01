@@ -27,7 +27,7 @@ public class MeltPassportBrowserFixture {
             for(String username:List.of("melt-ui-operator","melt-ui-reviewer","melt-ui-admin")) {
                 var u=new User();u.setUsername(username);u.setPassword(encoder.encode("Synthetic-Melt-Only1"));u.setFullName(username.equals("melt-ui-operator")?"اپراتور آزمایشی":"کنترل کیفیت آزمایشی");u.setRole(Role.OPERATOR);
                 u.setPermissions(new HashSet<>(username.endsWith("reviewer")?Set.of(Permission.APPROVE_MELT_PASSPORT,Permission.VIEW_DASHBOARD):Set.of(Permission.MOVE_PIECE_STAGE,Permission.RECEIVE_TASKS)));
-                if(username.endsWith("admin")) u.setRole(Role.ADMIN);
+                if(username.endsWith("admin")) u.setRole(Role.MANAGER);
                 users.save(u);
             }
             var project=new Project();project.setCode("SMOKE-MELT");project.setName("پروژه ساختگی آزمون ذوب");context.getBean(ProjectRepository.class).save(project);

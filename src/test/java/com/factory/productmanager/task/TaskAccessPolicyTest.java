@@ -36,7 +36,7 @@ class TaskAccessPolicyTest {
 
     @Test
     void visibilityRules() {
-        User admin = user(Role.ADMIN);
+        User admin = user(Role.MANAGER);
         User manager = user(Role.OPERATOR, Permission.MANAGE_TASKS);
         User otherManager = user(Role.OPERATOR, Permission.MANAGE_TASKS);
         User worker = user(Role.OPERATOR, Permission.RECEIVE_TASKS);
@@ -72,7 +72,7 @@ class TaskAccessPolicyTest {
     void canReceiveTasksRequiresPermissionAndEnabledAccount() {
         User withPermission = user(Role.OPERATOR, Permission.RECEIVE_TASKS);
         User without = user(Role.OPERATOR);
-        User admin = user(Role.ADMIN);
+        User admin = user(Role.MANAGER);
         User disabled = user(Role.OPERATOR, Permission.RECEIVE_TASKS);
         disabled.setDisabled(true);
 

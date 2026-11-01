@@ -26,6 +26,6 @@ public class CreateUserRequest {
     @NotNull(message = "نقش کاربر نمی‌تواند خالی باشد")
     private Role role;
 
-    /** فقط برای اپراتور معنا دارد؛ ادمین همیشه همه دسترسی‌ها را دارد */
-    private Set<Permission> permissions;
+    /** مجوزهای صریح ادمین و اپراتور؛ مدیر همه دسترسی‌ها را دارد */
+    private Set<@jakarta.validation.constraints.NotNull Permission> permissions;
 }

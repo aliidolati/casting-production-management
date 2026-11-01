@@ -12,13 +12,13 @@ const AuthState = {
 
 function hasPermission(code) {
     if (!AuthState.user) return false;
-    if (AuthState.user.role === "ADMIN") return true;
+    if (AuthState.user.role === "MANAGER") return true;
     const perms = AuthState.user.permissions || [];
     return perms.includes(code);
 }
 
-function isAdmin() {
-    return !!AuthState.user && AuthState.user.role === "ADMIN";
+function isManager() {
+    return !!AuthState.user && AuthState.user.role === "MANAGER";
 }
 
 /** آیا کاربر حداقل یکی از دسترسی‌های عملیات دسته‌جمعی را دارد؟ */
@@ -85,7 +85,7 @@ const PERMISSION_BUTTONS = [
 ];
 
 function shouldShowButton({ permission, adminOnly }) {
-    if (adminOnly) return isAdmin();
+    if (adminOnly) return isManager();
     return hasPermission(permission);
 }
 
@@ -93,7 +93,7 @@ function renderCurrentUser() {
     const box = document.getElementById("current-user-info");
     if (!box || !AuthState.user) return;
 
-    const roleText = AuthState.user.role === "ADMIN" ? "مدیر" : "اپراتور";
+    const roleText = ({ MANAGER: "مدیر", ADMIN: "ادمین", OPERATOR: "اپراتور" })[AuthState.user.role] || AuthState.user.role;
     const displayName = AuthState.user.fullName || AuthState.user.username;
     if (AuthState.user.id) {
         // نام کاربر به پروفایل خودش لینک می‌شود

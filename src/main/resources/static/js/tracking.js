@@ -670,7 +670,7 @@ function fillBulkSelects(selectedPieces) {
     const applyHeatBtn = document.getElementById("btn-bulk-apply-heat-treatment-substage");
     const applyRoughBtn = document.getElementById("btn-bulk-apply-rough-machining-substage");
 
-    const stageValues = isAdmin()
+    const stageValues = isManager()
         ? TRANSFERABLE_STAGES
         : TRANSFERABLE_STAGES.filter((s) =>
               intersectAllowedValues(selectedPieces, "allowedNextStages").includes(s)
@@ -678,7 +678,7 @@ function fillBulkSelects(selectedPieces) {
     fillSelectOptions(stageSelect, stageValues, stageLabel);
     if (applyStageBtn) applyStageBtn.disabled = stageValues.length === 0;
 
-    const radioValues = isAdmin()
+    const radioValues = isManager()
         ? RADIOGRAPHY_SUBSTAGE_OPTIONS
         : RADIOGRAPHY_SUBSTAGE_OPTIONS.filter((s) =>
               intersectAllowedValues(selectedPieces, "allowedNextRadiographySubStages").includes(s)
@@ -686,7 +686,7 @@ function fillBulkSelects(selectedPieces) {
     fillSelectOptions(radioSelect, radioValues, RADIOGRAPHY_SUBSTAGE_LABELS);
     if (applyRadioBtn) applyRadioBtn.disabled = radioValues.length === 0;
 
-    const heatValues = isAdmin()
+    const heatValues = isManager()
         ? HEAT_TREATMENT_SUBSTAGE_OPTIONS
         : HEAT_TREATMENT_SUBSTAGE_OPTIONS.filter((s) =>
               intersectAllowedValues(selectedPieces, "allowedNextHeatTreatmentSubStages").includes(s)
@@ -694,7 +694,7 @@ function fillBulkSelects(selectedPieces) {
     fillSelectOptions(heatSelect, heatValues, HEAT_TREATMENT_SUBSTAGE_LABELS);
     if (applyHeatBtn) applyHeatBtn.disabled = heatValues.length === 0;
 
-    const roughValues = isAdmin()
+    const roughValues = isManager()
         ? ROUGH_MACHINING_SUBSTAGE_OPTIONS
         : ROUGH_MACHINING_SUBSTAGE_OPTIONS.filter((s) =>
               intersectAllowedValues(selectedPieces, "allowedNextRoughMachiningSubStages").includes(s)
@@ -705,7 +705,7 @@ function fillBulkSelects(selectedPieces) {
     const radioGroup = document.getElementById("bulk-radiography-substage-group");
     const heatGroup = document.getElementById("bulk-heat-treatment-substage-group");
     const roughGroup = document.getElementById("bulk-rough-machining-substage-group");
-    if (!isAdmin()) {
+    if (!isManager()) {
         if (radioGroup && radioValues.length === 0) radioGroup.style.display = "none";
         if (heatGroup && heatValues.length === 0) heatGroup.style.display = "none";
         if (roughGroup && roughValues.length === 0) roughGroup.style.display = "none";
@@ -1224,7 +1224,7 @@ function renderProfileStageActions(piece) {
             `<button type="button" class="btn btn-primary btn-sm" id="btn-profile-next">مرحله بعد: ${escapeHtml(forwardMoveLabel(piece.forwardMove))}</button>`
         );
     }
-    if (isAdmin() && piece.currentStage !== "WELDING") {
+    if (isManager() && piece.currentStage !== "WELDING") {
         bits.push(
             `<button type="button" class="profile-action-icon" id="btn-admin-jump" title="پرش ادمین / اصلاح" aria-label="پرش ادمین / اصلاح">↕</button>`
         );

@@ -85,7 +85,7 @@ public class JwtService {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(signingKey.getEncoded(), "HmacSHA256"));
-            byte[] material = (STAMP_CONTEXT + user.getId() + "\0" + user.getPassword()).getBytes(StandardCharsets.UTF_8);
+            byte[] material = (STAMP_CONTEXT + user.getId() + "\0" + user.getPassword() + "\0" + user.getRole() + "\0" + user.isDisabled() + "\0" + user.getPermissions().stream().map(Enum::name).sorted().collect(java.util.stream.Collectors.joining(","))).getBytes(StandardCharsets.UTF_8);
             return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(material));
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("Credential binding is unavailable", e);
