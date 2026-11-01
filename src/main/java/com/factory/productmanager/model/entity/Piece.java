@@ -110,6 +110,9 @@ public class Piece {
     @com.fasterxml.jackson.annotation.JsonIgnore
     private List<PieceScrapDispatch> scrapDispatches = new ArrayList<>();
 
+    @OneToMany(mappedBy = "piece", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PieceStageSkip> stageSkips = new ArrayList<>();
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

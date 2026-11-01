@@ -31,7 +31,7 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         second = new Piece(); second.setPieceDefinition(first.getPieceDefinition()); second.setPieceNumber(2); second.setCurrentStage(PieceStage.CASTING);
         pieceRepository.saveAndFlush(first); pieceRepository.saveAndFlush(second);
         manager.getPermissions().addAll(Set.of(Permission.APPROVE_MELT_PASSPORT, Permission.VIEW_DASHBOARD)); userRepository.saveAndFlush(manager);
-        worker.getPermissions().add(Permission.MOVE_PIECE_STAGE); userRepository.saveAndFlush(worker);
+        worker.getPermissions().addAll(Set.of(Permission.MOVE_PIECE_STAGE, Permission.ADVANCE_PIECE_STAGE)); userRepository.saveAndFlush(worker);
     }
 
     MeltPassportRequest body(Piece... selected) {

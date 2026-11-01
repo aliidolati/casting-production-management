@@ -221,7 +221,10 @@ const PieceAPI = {
     updateSubStageProcessDate: (id, kind, subStage, processDate) =>
         apiRequest(`/pieces/${id}/sub-stage-process-dates`, "PATCH", { kind, subStage, processDate }),
     getSubStageProcessDates: (id) => apiRequest(`/pieces/${id}/sub-stage-process-dates`),
-    updateStage: (id, data, scrap) => apiRequest(`/pieces/${id}/stage`, "PATCH", { newStage: data, scrap }),
+    updateStage: (id, data, scrap, substages = {}) => apiRequest(`/pieces/${id}/stage`, "PATCH", { newStage: data, scrap, ...substages }),
+    getSkipTargets: (id) => apiRequest(`/pieces/${id}/skip-targets`),
+    skipStage: (id, data) => apiRequest(`/pieces/${id}/skip`, "POST", data),
+    getStageSkips: (id) => apiRequest(`/pieces/${id}/stage-skips`),
     advance: (id, processDate) =>
         apiRequest(`/pieces/${id}/advance`, "POST", processDate ? { processDate } : {}),
     updateRadiographySubStage: (id, radiographySubStage) =>

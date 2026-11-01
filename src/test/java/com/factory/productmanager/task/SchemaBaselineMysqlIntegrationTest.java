@@ -16,10 +16,10 @@ class SchemaBaselineMysqlIntegrationTest extends MeltWorkflowIntegrationTest {
         try (var c = IsolatedMysql.connect("schema_baseline_synthetic"); var s = c.createStatement()) {
             IsolatedMysql.assertOwned(c, "schema_baseline_synthetic");
             try (var r = s.executeQuery("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()")) {
-                assertTrue(r.next()); assertEquals(49, r.getInt(1));
+                assertTrue(r.next()); assertEquals(50, r.getInt(1));
             }
             try (var r = s.executeQuery("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE()")) {
-                assertTrue(r.next()); assertEquals(65, r.getInt(1));
+                assertTrue(r.next()); assertEquals(66, r.getInt(1));
             }
             try (var r = s.executeQuery("SELECT COUNT(*) FROM flyway_schema_history")) {
                 assertTrue(r.next()); assertEquals(0, r.getInt(1));

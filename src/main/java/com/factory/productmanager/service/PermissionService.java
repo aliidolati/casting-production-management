@@ -22,6 +22,7 @@ public class PermissionService {
 
     /** Historical defaults retained for compatibility; never reapply to existing users at startup. */
     public static final Set<Permission> DEFAULT_OPERATOR_PERMISSIONS = EnumSet.of(
+            Permission.ADVANCE_PIECE_STAGE,
             Permission.MOVE_PIECE_STAGE,
             Permission.UPDATE_RADIOGRAPHY_SUBSTAGE,
             Permission.UPDATE_HEAT_TREATMENT_SUBSTAGE,
@@ -52,6 +53,13 @@ public class PermissionService {
                 .orElse(false);
     }
 
+    public boolean canSkipStage(String username) {
+        return userRepository.findByUsername(username)
+                .map(u -> !u.isDisabled() && (u.getRole() == Role.MANAGER
+                    || (u.getRole() == Role.ADMIN && u.getPermissions().contains(Permission.SKIP_PIECE_STAGE))))
+                .orElse(false);
+    }
+
     public List<String> resolvePermissionCodes(User user) {
         if (user.getRole() == Role.MANAGER) {
             return Arrays.stream(Permission.values()).map(Enum::name).toList();
@@ -65,6 +73,9 @@ public class PermissionService {
         }
         if (requested == null || requested.isEmpty()) {
             return EnumSet.noneOf(Permission.class);
+        }
+        if (role == Role.OPERATOR && requested.contains(Permission.SKIP_PIECE_STAGE)) {
+            throw new IllegalArgumentException("مجوز پرش مرحله فقط برای ادمین قابل واگذاری است");
         }
         return requested.stream()
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(Permission.class)));

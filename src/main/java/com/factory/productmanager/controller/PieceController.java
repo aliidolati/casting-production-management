@@ -110,7 +110,7 @@ public class PieceController {
 
     // اپراتور و ادمین هر دو مجاز به تغییر وضعیت قطعه هستند
     @PatchMapping("/{id}/stage")
-    @PreAuthorize("@permissionChecker.has(authentication, 'MOVE_PIECE_STAGE')")
+    @PreAuthorize("@permissionChecker.hasAny(authentication, 'ADVANCE_PIECE_STAGE', 'MOVE_PIECE_STAGE')")
     public ResponseEntity<PieceResponse> updateStage(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateStageRequest request,
@@ -119,8 +119,25 @@ public class PieceController {
         return ResponseEntity.ok(pieceService.updateStage(id, request, authentication.getName()));
     }
 
+    @GetMapping("/{id}/skip-targets")
+    @PreAuthorize("@permissionService.canSkipStage(authentication.name)")
+    public List<SkipStageTarget> skipTargets(@PathVariable UUID id, Authentication authentication) {
+        return pieceService.skipTargets(id, authentication.getName());
+    }
+
+    @PostMapping("/{id}/skip")
+    @PreAuthorize("@permissionService.canSkipStage(authentication.name)")
+    public PieceResponse skip(@PathVariable UUID id, @Valid @RequestBody SkipPieceStageRequest request, Authentication authentication) {
+        return pieceService.skipStage(id, request, authentication.getName());
+    }
+
+    @GetMapping("/{id}/stage-skips")
+    public List<PieceStageSkipResponse> skipHistory(@PathVariable UUID id) {
+        return pieceService.skipHistory(id);
+    }
+
     @PostMapping("/{id}/advance")
-    @PreAuthorize("@permissionChecker.hasAny(authentication, 'MOVE_PIECE_STAGE', 'UPDATE_RADIOGRAPHY_SUBSTAGE', 'UPDATE_HEAT_TREATMENT_SUBSTAGE', 'UPDATE_ROUGH_MACHINING_SUBSTAGE')")
+    @PreAuthorize("@permissionChecker.has(authentication, 'ADVANCE_PIECE_STAGE')")
     public ResponseEntity<PieceResponse> advancePiece(
             @PathVariable UUID id,
             @RequestBody(required = false) AdvancePieceRequest request,
@@ -135,7 +152,7 @@ public class PieceController {
 
     // پیشرفت بین زیرمرحله‌های رادیوگرافی، مثل تغییر وضعیت اصلی، برای اپراتور و ادمین هر دو باز است
     @PatchMapping("/{id}/radiography-substage")
-    @PreAuthorize("@permissionChecker.has(authentication, 'UPDATE_RADIOGRAPHY_SUBSTAGE')")
+    @PreAuthorize("@permissionChecker.hasAny(authentication, 'ADVANCE_PIECE_STAGE', 'UPDATE_RADIOGRAPHY_SUBSTAGE')")
     public ResponseEntity<PieceResponse> updateRadiographySubStage(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateRadiographySubStageRequest request,
@@ -146,7 +163,7 @@ public class PieceController {
 
     // پیشرفت بین زیرمرحله‌های عملیات حرارتی، مثل تغییر وضعیت اصلی، برای اپراتور و ادمین هر دو باز است
     @PatchMapping("/{id}/heat-treatment-substage")
-    @PreAuthorize("@permissionChecker.has(authentication, 'UPDATE_HEAT_TREATMENT_SUBSTAGE')")
+    @PreAuthorize("@permissionChecker.hasAny(authentication, 'ADVANCE_PIECE_STAGE', 'UPDATE_HEAT_TREATMENT_SUBSTAGE')")
     public ResponseEntity<PieceResponse> updateHeatTreatmentSubStage(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateHeatTreatmentSubStageRequest request,
@@ -157,7 +174,7 @@ public class PieceController {
 
     // پیشرفت بین زیرمرحله‌های خشن‌تراشی؛ عقب‌گرد در سرویس فقط برای ادمین باز است
     @PatchMapping("/{id}/rough-machining-substage")
-    @PreAuthorize("@permissionChecker.has(authentication, 'UPDATE_ROUGH_MACHINING_SUBSTAGE')")
+    @PreAuthorize("@permissionChecker.hasAny(authentication, 'ADVANCE_PIECE_STAGE', 'UPDATE_ROUGH_MACHINING_SUBSTAGE')")
     public ResponseEntity<PieceResponse> updateRoughMachiningSubStage(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateRoughMachiningSubStageRequest request,
@@ -168,7 +185,7 @@ public class PieceController {
 
     // تغییر وضعیت دسته‌جمعی چند قطعه هم‌زمان؛ مثل تغییر تکی، هم اپراتور هم ادمین مجازند
     @PatchMapping("/bulk/stage")
-    @PreAuthorize("@permissionChecker.has(authentication, 'MOVE_PIECE_STAGE')")
+    @PreAuthorize("@permissionChecker.hasAny(authentication, 'ADVANCE_PIECE_STAGE', 'MOVE_PIECE_STAGE')")
     public ResponseEntity<List<PieceResponse>> bulkUpdateStage(
             @Valid @RequestBody BulkUpdateStageRequest request,
             Authentication authentication
@@ -178,7 +195,7 @@ public class PieceController {
 
     // تغییر دسته‌جمعی زیرمرحله‌ی رادیوگرافی؛ مثل تغییر تکی، هم اپراتور هم ادمین مجازند
     @PatchMapping("/bulk/radiography-substage")
-    @PreAuthorize("@permissionChecker.has(authentication, 'UPDATE_RADIOGRAPHY_SUBSTAGE')")
+    @PreAuthorize("@permissionChecker.hasAny(authentication, 'ADVANCE_PIECE_STAGE', 'UPDATE_RADIOGRAPHY_SUBSTAGE')")
     public ResponseEntity<List<PieceResponse>> bulkUpdateRadiographySubStage(
             @Valid @RequestBody BulkUpdateRadiographySubStageRequest request,
             Authentication authentication
@@ -188,7 +205,7 @@ public class PieceController {
 
     // تغییر دسته‌جمعی زیرمرحله‌ی عملیات حرارتی؛ مثل تغییر تکی، هم اپراتور هم ادمین مجازند
     @PatchMapping("/bulk/heat-treatment-substage")
-    @PreAuthorize("@permissionChecker.has(authentication, 'UPDATE_HEAT_TREATMENT_SUBSTAGE')")
+    @PreAuthorize("@permissionChecker.hasAny(authentication, 'ADVANCE_PIECE_STAGE', 'UPDATE_HEAT_TREATMENT_SUBSTAGE')")
     public ResponseEntity<List<PieceResponse>> bulkUpdateHeatTreatmentSubStage(
             @Valid @RequestBody BulkUpdateHeatTreatmentSubStageRequest request,
             Authentication authentication
@@ -198,7 +215,7 @@ public class PieceController {
 
     // تغییر دسته‌جمعی زیرمرحله‌ی خشن‌تراشی؛ همه‌یا-هیچ، شامل بررسی عقب‌گرد برای کل دسته
     @PatchMapping("/bulk/rough-machining-substage")
-    @PreAuthorize("@permissionChecker.has(authentication, 'UPDATE_ROUGH_MACHINING_SUBSTAGE')")
+    @PreAuthorize("@permissionChecker.hasAny(authentication, 'ADVANCE_PIECE_STAGE', 'UPDATE_ROUGH_MACHINING_SUBSTAGE')")
     public ResponseEntity<List<PieceResponse>> bulkUpdateRoughMachiningSubStage(
             @Valid @RequestBody BulkUpdateRoughMachiningSubStageRequest request,
             Authentication authentication
