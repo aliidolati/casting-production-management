@@ -43,3 +43,9 @@ No production/default datasource was started or modified during implementation. 
 - Added isolated MySQL V38 preservation/repeatability test and inherited API suite; updated the fixture table-count assertion and legacy full-access test accounts to MANAGER. The common test login helper renews ordinary request tokens after state changes; explicit stale-token regressions retain their original tokens.
 - JDK 17 parsed all 422 main/test Java source files with zero syntax errors; parsing does not check types, compile, or execute tests. Chromium is not installed, so no real-browser smoke run was possible.
 - Local Maven online/offline attempts stop before compilation: Spring Boot 4.1.0 parent is unavailable in cache and Maven Central DNS cannot resolve. No Java, H2, MySQL or live-application browser result is claimed locally. Docker is absent. These checks must pass in CI before merge/deployment.
+
+### CI follow-up: scrap test isolation
+
+The first PR run successfully compiled Java and passed the isolated MySQL job. The fast job found one existing test-order dependency: `ScrapIntegrationTest.bulkFailureRollsBackTheFirstPiecesReasonStageAndHistory` runs without a surrounding test transaction to exercise actual rollback, then commits two successful scraps. Those fixtures survived in the shared H2 `testdb`, so the later global tracking counter expected 2 but found 4.
+
+ScrapIntegrationTest now uses its own synthetic H2 database/upload directory. The MySQL subclass similarly selects a dedicated `scrap-mysql` profile and the owned `scrap_workflow_synthetic` schema through IsolatedMysql. All existing assertions (including exact global scrap counts) and runtime behavior remain unchanged. Full CI must be rerun on this fix; prior green MySQL results are not results for the new commit.
