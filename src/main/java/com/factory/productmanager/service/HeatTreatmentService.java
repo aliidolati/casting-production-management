@@ -43,6 +43,33 @@ public class HeatTreatmentService {
     private final PieceService pieceService;
     private final UserRepository userRepository;
     private final PermissionService permissionService;
+    private final jakarta.persistence.EntityManager em;
+    private final com.factory.productmanager.repository.HeatBatchEventRepository batchEvents;
+    private final tools.jackson.databind.ObjectMapper mapper;
+
+    private HeatTreatmentBatch lockBatch(UUID id){var batch=em.find(HeatTreatmentBatch.class,id,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);if(batch==null)throw new ResourceNotFoundException("محموله پیدا نشد");return batch;}
+    private void requireBatchEditor(String username){if(!permissionService.hasPermission(username,Permission.EDIT_HEAT_TREATMENT_BATCH))throw new org.springframework.security.access.AccessDeniedException("مجوز اصلاح سیکل محموله لازم است");}
+    private String cycle(HeatTreatmentBatch b){var m=new java.util.LinkedHashMap<String,Object>();m.put("treatmentDate",b.getTreatmentDate());m.put("temperatureC",b.getTemperatureC());m.put("durationHours",b.getDurationHours());m.put("furnaceSize",b.getFurnaceSize());m.put("notes",b.getNotes());return mapper.writeValueAsString(m);}
+
+    @Transactional(readOnly=true)
+    public com.factory.productmanager.model.dto.PageResponse<HeatTreatmentBatchResponse> archive(String code,LocalDate from,LocalDate to,com.factory.productmanager.model.entity.FurnaceSize furnace,int page,int size){
+        if(from!=null&&to!=null&&from.isAfter(to))throw new IllegalArgumentException("بازه تاریخ نامعتبر است");
+        org.springframework.data.jpa.domain.Specification<HeatTreatmentBatch> filter=(root,query,cb)->{
+            var p=new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            if(code!=null&&!code.isBlank())p.add(cb.equal(root.get("batchCode"),code.trim()));
+            if(from!=null)p.add(cb.greaterThanOrEqualTo(root.get("treatmentDate"),from));
+            if(to!=null)p.add(cb.lessThanOrEqualTo(root.get("treatmentDate"),to));
+            if(furnace!=null)p.add(cb.equal(root.get("furnaceSize"),furnace));return cb.and(p.toArray(jakarta.persistence.criteria.Predicate[]::new));};
+        var result=batchRepository.findAll(filter,org.springframework.data.domain.PageRequest.of(Math.max(0,page),Math.min(100,Math.max(1,size)),org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,"treatmentDate","id")));
+        return com.factory.productmanager.model.dto.PageResponse.from(result,this::toBatchResponse);
+    }
+    @Transactional(readOnly=true)
+    public HeatTreatmentBatchResponse details(UUID id){return toBatchResponseWithPieces(batchRepository.findById(id).orElseThrow(()->new ResourceNotFoundException("محموله پیدا نشد")));}
+    @Transactional(readOnly=true)
+    public com.factory.productmanager.model.dto.PageResponse<com.factory.productmanager.model.entity.HeatBatchEvent> history(UUID id,int page,int size,String username){
+        requireBatchEditor(username);var result=batchEvents.findByBatchId(id,org.springframework.data.domain.PageRequest.of(Math.max(0,page),Math.min(100,Math.max(1,size)),org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,"occurredAt","id")));
+        return com.factory.productmanager.model.dto.PageResponse.of(result,result.getContent());
+    }
 
     /** بخش عددی انتهای کد محموله، برای استنتاج کد بعدی از روی قرارداد خود کاربر */
     private static final Pattern TRAILING_NUMBER = Pattern.compile("^(.*?)(\\d+)$");
@@ -63,6 +90,7 @@ public class HeatTreatmentService {
     ) {
         Piece piece = pieceService.findPieceOrThrow(pieceId);
         HeatTreatmentBatch batch = findOrCreateBatch(request, username);
+        lockBatch(batch.getId());
 
         if (pieceHeatTreatmentRepository.existsByBatchIdAndPieceId(batch.getId(), pieceId)) {
             throw new IllegalStateException("این قطعه قبلاً در محموله‌ی «" + batch.getBatchCode() + "» ثبت شده است");
@@ -120,15 +148,27 @@ public class HeatTreatmentService {
         return batchRepository.findByBatchCode(batchCode.trim()).map(this::toBatchResponseWithPieces);
     }
 
-    public HeatTreatmentBatchResponse updateBatch(UUID batchId, UpdateHeatTreatmentBatchRequest request) {
-        HeatTreatmentBatch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new ResourceNotFoundException("محموله‌ای با این شناسه پیدا نشد"));
+    public HeatTreatmentBatchResponse updateBatch(UUID batchId, UpdateHeatTreatmentBatchRequest request,String username) {
+        requireBatchEditor(username);
+        HeatTreatmentBatch batch = lockBatch(batchId);
+        if(request.getVersion()==null||request.getVersion()!=batch.getVersion())throw new com.factory.productmanager.exception.DuplicateResourceException("سیکل محموله تغییر کرده؛ دوباره مرور کنید");
+        if(request.getReason()==null||request.getReason().isBlank())throw new IllegalArgumentException("دلیل اصلاح سیکل لازم است");
+        var members=pieceHeatTreatmentRepository.lockMembers(batchId);
+        var ids=members.stream().map(x->x.getPiece().getId()).collect(java.util.stream.Collectors.toSet());
+        if(!ids.equals(request.getConfirmedPieceIds()))throw new com.factory.productmanager.exception.DuplicateResourceException("اعضای محموله تغییر کرده‌اند؛ فهرست جدید را مرور کنید");
+        String before=cycle(batch);
         batch.setTreatmentDate(request.getTreatmentDate());
         batch.setTemperatureC(request.getTemperatureC());
         batch.setDurationHours(request.getDurationHours());
         batch.setFurnaceSize(request.getFurnaceSize());
         batch.setNotes(trimToNull(request.getNotes()));
-        return toBatchResponseWithPieces(batchRepository.save(batch));
+        String after=cycle(batch);
+        if(!before.equals(after)) {
+            var actor=userRepository.findByUsername(username).orElseThrow();
+            batchEvents.save(new com.factory.productmanager.model.entity.HeatBatchEvent(batchId,actor,request.getReason().trim(),before,after,mapper.writeValueAsString(members.stream().map(this::toBatchPieceResponse).toList())));
+        }
+        batchRepository.saveAndFlush(batch);
+        return toBatchResponseWithPieces(batch);
     }
 
     /**
@@ -188,7 +228,7 @@ public class HeatTreatmentService {
 
     private HeatTreatmentBatchResponse toBatchResponse(HeatTreatmentBatch batch, boolean includePieces) {
         HeatTreatmentBatchResponse response = new HeatTreatmentBatchResponse(
-                batch.getId(),
+                batch.getVersion(),batch.getId(),
                 batch.getBatchCode(),
                 batch.getTreatmentDate(),
                 batch.getTemperatureC(),
@@ -238,6 +278,7 @@ public class HeatTreatmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("رکورد عملیات حرارتی با شناسه " + recordId + " پیدا نشد"));
 
         UUID batchId = record.getBatch().getId();
+        lockBatch(batchId);
         pieceHeatTreatmentRepository.delete(record);
         pieceHeatTreatmentRepository.flush();
 

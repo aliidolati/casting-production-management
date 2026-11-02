@@ -22,6 +22,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HeatTreatmentBatchResponse {
+    private long version;
     private UUID id;
     private String batchCode;
     private LocalDate treatmentDate;

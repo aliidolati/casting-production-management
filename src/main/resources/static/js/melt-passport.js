@@ -1,5 +1,5 @@
 /* Shared melt data; calculator inputs never read from process or ingot fields. */
-const MELT_STATUS = { DRAFT: 'پیش‌نویس', PENDING_APPROVAL: 'در انتظار تأیید', NEEDS_CORRECTION: 'نیازمند اصلاح', APPROVED: 'تأییدشده' };
+const MELT_STATUS = { DRAFT: 'پیش‌نویس', PENDING_APPROVAL: 'در انتظار تأیید', NEEDS_CORRECTION: 'نیازمند اصلاح', APPROVED: 'تأییدشده', CANCELLED: 'لغوشده' };
 const MELT_UNITS = { KG: 'کیلوگرم', G: 'گرم', TON: 'تن', L: 'لیتر', ML: 'میلی‌لیتر', COUNT: 'عدد' };
 const MELT_CHECKS = {
     LANCE_SEAL: 'آب‌بندی اتصالات لانس', LANCE_HEAD: 'وضعیت کلگی در ظاهر و داخل مذاب',
@@ -25,7 +25,7 @@ const MELT_PROCESS_GROUPS = [
     ]],
 ];
 const MELT_MG_FIELDS = [['mg', 'Mg'], ['rotary', 'T rotary'], ['at610', 'T 610'], ['ar', 'T ar'], ['b', 'B'], ['w', 'w']];
-const MELT_EVENT = { OPERATOR_ASSIGNED: 'تخصیص اپراتور ذوب', CREATED: 'ایجاد', UPDATED: 'ذخیره تغییرات', SUBMITTED: 'ارسال برای تأیید', APPROVED: 'تأیید و انتقال قطعات', RETURNED: 'بازگشت برای اصلاح', MAGNESIUM_CALCULATED: 'محاسبه منیزیم', ADMIN_CORRECTED: 'اصلاح پس از تأیید توسط ادمین' };
+const MELT_EVENT = { CANCELLED: 'لغو شناسنامه', OPERATOR_ASSIGNED: 'تخصیص اپراتور ذوب', CREATED: 'ایجاد', UPDATED: 'ذخیره تغییرات', SUBMITTED: 'ارسال برای تأیید', APPROVED: 'تأیید و انتقال قطعات', RETURNED: 'بازگشت برای اصلاح', MAGNESIUM_CALCULATED: 'محاسبه منیزیم', ADMIN_CORRECTED: 'اصلاح پس از تأیید توسط ادمین' };
 const MeltViewState = { openSeq: 0, lastError: '', lastErrorAt: 0 };
 
 async function loadMeltTaskPanel(task) {
@@ -194,6 +194,7 @@ function renderMeltPassport(state) {
             <div class="form-actions melt-actions">
                 <button type="button" class="btn btn-secondary" id="melt-back">${piece ? 'بازگشت به قطعه' : 'بستن'}</button>
                 ${correcting ? '<button type="button" class="btn btn-secondary" id="melt-cancel-correction">انصراف</button><button type="button" class="btn btn-primary" id="melt-save">ذخیره اصلاحات</button>' : m.editable ? '<button type="button" class="btn btn-secondary" id="melt-save">ذخیره پیش‌نویس / اصلاحات</button><button type="button" class="btn btn-primary" id="melt-submit">ارسال برای تأیید</button>' : ''}
+                ${m.cancellable ? '<button type="button" class="btn btn-danger" id="melt-cancel-passport">لغو شناسنامه</button>' : ''}
                 ${m.correctable && !correcting ? '<button type="button" class="btn btn-primary" id="melt-start-correction">ویرایش شناسنامه تأییدشده</button>' : ''}
             </div>
             ${m.reviewable ? `<section class="melt-section melt-review"><h3>بررسی شناسنامه</h3><label for="melt-return-reason">دلیل بازگشت برای اصلاح (الزامی برای بازگشت)</label><textarea id="melt-return-reason" maxlength="2000"></textarea><div class="form-actions"><button type="button" class="btn btn-secondary" id="melt-return">بازگشت برای اصلاح</button><button type="button" class="btn btn-primary" id="melt-approve">تأیید و انتقال همه قطعات</button></div></section>` : ''}
@@ -203,6 +204,7 @@ function renderMeltPassport(state) {
     state.mgStale = false;
     document.getElementById('melt-history')?.addEventListener('change', e => openMeltPassport(e.target.value || null, piece, history));
     document.getElementById('melt-new-cycle')?.addEventListener('click', () => openMeltPassport(null, piece, history));
+    document.getElementById('melt-cancel-passport')?.addEventListener('click',()=>openOperationCancellation('لغو شناسنامه ذوب',false,async reason=>{await OperationAPI.cancelMelt(m.id,m.version,reason);await openMeltPassport(m.id);}));
     document.getElementById('melt-start-correction')?.addEventListener('click', () => { state.correcting = true; renderMeltPassport(state); });
     document.getElementById('melt-cancel-correction')?.addEventListener('click', () => { state.correcting = false; renderMeltPassport(state); });
     state.selectedPieces = [...m.pieces];

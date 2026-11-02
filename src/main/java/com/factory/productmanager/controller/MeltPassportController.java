@@ -86,6 +86,8 @@ public class MeltPassportController {
     public MeltPassportResponse approve(@PathVariable UUID id, @Valid @RequestBody MeltDecisionRequest r, Authentication a) {
         return service.approve(id,r,a.getName());
     }
+    @PostMapping("/{id}/cancel")
+    public MeltPassportResponse cancel(@PathVariable UUID id,@Valid @RequestBody MeltDecisionRequest r,Authentication a){return service.cancel(id,r,a.getName());}
     @PostMapping("/{id}/return")
     public MeltPassportResponse returnForCorrection(@PathVariable UUID id, @Valid @RequestBody MeltDecisionRequest r, Authentication a) {
         return service.returnForCorrection(id,r,a.getName());

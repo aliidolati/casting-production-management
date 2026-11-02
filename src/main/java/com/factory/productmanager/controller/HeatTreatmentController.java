@@ -75,12 +75,19 @@ public class HeatTreatmentController {
         );
     }
 
+    @GetMapping("/api/heat-treatment-batches/archive")
+    public com.factory.productmanager.model.dto.PageResponse<HeatTreatmentBatchResponse> archive(@RequestParam(required=false) String code,@RequestParam(required=false) java.time.LocalDate from,@RequestParam(required=false) java.time.LocalDate to,@RequestParam(required=false) com.factory.productmanager.model.entity.FurnaceSize furnace,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="25") int size){return heatTreatmentService.archive(code,from,to,furnace,page,size);}
+    @GetMapping("/api/heat-treatment-batches/{id}")
+    public HeatTreatmentBatchResponse details(@PathVariable UUID id){return heatTreatmentService.details(id);}
+    @GetMapping("/api/heat-treatment-batches/{id}/history")
+    public com.factory.productmanager.model.dto.PageResponse<com.factory.productmanager.model.entity.HeatBatchEvent> history(@PathVariable UUID id,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="25") int size,Authentication a){return heatTreatmentService.history(id,page,size,a.getName());}
+
     @PatchMapping("/api/heat-treatment-batches/{id}")
-    @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_HEAT_TREATMENT_LOG')")
+    @PreAuthorize("@permissionChecker.has(authentication, 'EDIT_HEAT_TREATMENT_BATCH')")
     public ResponseEntity<HeatTreatmentBatchResponse> updateBatch(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateHeatTreatmentBatchRequest request
+            @Valid @RequestBody UpdateHeatTreatmentBatchRequest request,Authentication authentication
     ) {
-        return ResponseEntity.ok(heatTreatmentService.updateBatch(id, request));
+        return ResponseEntity.ok(heatTreatmentService.updateBatch(id, request,authentication.getName()));
     }
 }

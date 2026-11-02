@@ -35,6 +35,9 @@ public enum Permission {
     // «مدیر رادیوگرافی» مفسر را تخصیص می‌دهد و گزارش را تأیید یا رد می‌کند. ادمین هر دو را ضمنی دارد.
     INTERPRET_RADIOGRAPHY("تفسیر و صدور گزارش رادیوگرافی"),
     REVIEW_RADIOGRAPHY_REPORT("تخصیص مفسر و تأیید نهایی گزارش رادیوگرافی"),
+    CANCEL_MELT_PASSPORT("لغو شناسنامه ذوب"),
+    CANCEL_WELDING_DISPATCH("لغو اعزام جوشکاری"),
+    EDIT_HEAT_TREATMENT_BATCH("اصلاح سیکل محموله کوره"),
     APPROVE_MELT_PASSPORT("تأیید شناسنامه ذوب");
 
     private final String label;

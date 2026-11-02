@@ -87,6 +87,12 @@ public class PieceWeldingDispatch {
         }
     }
 
+    @Column(name="origin_process_date") private java.time.LocalDate originProcessDate;
+    @Column(name="dispatch_piece_version") private Long dispatchPieceVersion;
+    @Column(name="cancelled_at") private LocalDateTime cancelledAt;
+    @Column(name="cancelled_by") private String cancelledBy;
+    @Column(name="cancellation_reason",length=2000) private String cancellationReason;
+
     public boolean isOpen() {
         return completedAt == null;
     }

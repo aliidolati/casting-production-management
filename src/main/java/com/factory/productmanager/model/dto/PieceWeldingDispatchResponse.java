@@ -35,4 +35,7 @@ public class PieceWeldingDispatchResponse {
     private RadiographySubStage originRadiographySubStage;
     private HeatTreatmentSubStage originHeatTreatmentSubStage;
     private RoughMachiningSubStage originRoughMachiningSubStage;
+    private LocalDateTime cancelledAt;
+    private String cancelledBy;
+    private String cancellationReason;
 }

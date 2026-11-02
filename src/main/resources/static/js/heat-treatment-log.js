@@ -147,11 +147,12 @@ async function openFurnaceDashboardModal() {
 
     openModal(
         "کوره‌های عملیات حرارتی",
-        `<div id="heat-log-modal-body">${renderFurnaceDashboardPanel()}</div>`,
+        `<button type="button" class="btn btn-secondary" id="btn-heat-batch-archive">آرشیو محموله‌های کوره</button><div id="heat-log-modal-body">${renderFurnaceDashboardPanel()}</div>`,
         { size: "lg" }
     );
 
     attachHeatTreatmentLogPanelEvents(null);
+    document.getElementById("btn-heat-batch-archive").onclick=()=>openHeatBatchArchive();
 }
 
 const HEAT_TREATMENT_DISPOSITION_STAGES = ["RE_OPERATION", "AGING"];
@@ -429,7 +430,8 @@ function attachHeatTreatmentLogPanelEvents(piece) {
 
     document.getElementById("heat-log-batch-code").addEventListener("input", scheduleBatchLookup);
     document.getElementById("heat-log-disposition")?.addEventListener("change", applyDispositionPrefill);
-    document.getElementById("btn-heat-log-save-cycle")?.addEventListener("click", saveHeatLogCycleParams);
+    const saveCycle=document.getElementById("btn-heat-log-save-cycle");
+    if(saveCycle){saveCycle.hidden=!hasPermission('EDIT_HEAT_TREATMENT_BATCH');saveCycle.addEventListener('click',saveHeatLogCycleParams);}
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -626,6 +628,7 @@ async function submitHeatTreatmentRecord(piece) {
 }
 
 async function saveHeatLogCycleParams() {
+    if(!hasPermission('EDIT_HEAT_TREATMENT_BATCH')) {showToast('مجوز اصلاح سیکل لازم است','error');return;}
     const batch = HeatLogState.lockedBatch;
     if (!batch) return;
     if (!HeatLogState.treatmentDateIso) {
@@ -639,15 +642,13 @@ async function saveHeatLogCycleParams() {
         return;
     }
     try {
-        const updated = await HeatTreatmentAPI.updateBatch(batch.id, {
+        await previewHeatBatchChange(batch.id, {
             treatmentDate: HeatLogState.treatmentDateIso,
             temperatureC,
             durationHours,
             furnaceSize: document.getElementById("heat-log-furnace-size").value || null,
             notes: batch.notes || null,
-        });
-        applyLoadedBatch(updated);
-        showToast("پارامترهای سیکل ذخیره شد");
+        }, batch.version);
     } catch (error) {
         showToast(error.message, "error");
     }

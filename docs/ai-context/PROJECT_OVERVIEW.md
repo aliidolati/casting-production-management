@@ -1,5 +1,7 @@
 # Project overview
 
+Update 2026-11-02: category 5 adds reasoned melt/welding cancellation, heat-batch archive/details, and previewed/audited shared-cycle corrections with separate permissions. See [Operational controls](OPERATIONAL_CONTROLS.md) for V41, compatibility and limits.
+
 Update 2026-11-01: category 1 introduces MANAGER (full access), explicit-grant ADMIN/OPERATOR, manager-only account management and access audit. Historical ADMIN-as-full-access descriptions below are superseded by [User access](USER_ACCESS.md). V38 and the sanitized fixture include the new audit table; runtime upgrade requires explicit initial-manager selection. Local Java/MySQL validation is blocked by missing Maven dependencies; see the linked implementation/upgrade notes.
 
 Update 2026-10-30 (Cloud preparation): runtime datasource/JWT literals were externalized and the default bootstrap password was removed. The prior user-requested inline-key configuration described below is historical and superseded by this task. A real read-only local MySQL inspection/backup found 46 InnoDB tables and a single Flyway baseline at version 22. Reviewed record-free structural fixtures, isolated MySQL tests, Cloud setup and GitHub Actions are documented in [Cloud testing](CLOUD_TESTING.md) and [inspected schema inventory](MYSQL_SCHEMA_INVENTORY.md). No source database DDL/DML or runtime application startup was performed.

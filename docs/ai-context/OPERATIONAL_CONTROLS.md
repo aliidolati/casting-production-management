@@ -1,0 +1,31 @@
+# Category 5: cancellation and shared heat-batch controls
+
+Implements selected 5–1 through 5–4 independently from draft PRs #2–#4. No production/default datasource has been started or modified.
+
+## Melt cancellation
+
+POST /api/melt-passports/{id}/cancel accepts the existing version/reason decision request. CANCEL_MELT_PASSPORT is required (MANAGER implicit; ADMIN/OPERATOR explicitly granted). DRAFT, NEEDS_CORRECTION and PENDING_APPROVAL may be cancelled, with a nonblank reason, current passport version, all members still active/unarchived in CASTING and their original active links intact. APPROVED and CANCELLED cannot be cancelled, even by MANAGER.
+
+The passport lock and ordered member piece locks serialize cancellation against approval/membership changes. Cancellation sets status CANCELLED, appends a CANCELLED event with actor/time/reason and status before/after, nulls activePieceKey on retained historical membership rows and cancels only open entry/review tasks with task activity. Completed tasks stay completed. No production movement, signed data removal or destructive record deletion occurs. Old passports remain visible per piece; released pieces may receive a new passport. Cancelled passports cannot be edited, assigned, submitted or approved and never contribute to material consumption, even under an explicit cancelled-status report filter. Response adds cancellable capability; status filters and task panels display cancellation.
+
+## Undo a mistaken welding dispatch
+
+POST /api/pieces/{pieceId}/welding-dispatches/{dispatchId}/cancel requires CANCEL_WELDING_DISPATCH, a reason and explicit noWorkConfirmed=true. The piece is locked before the dispatch, as are send/update/complete operations. Piece must be unarchived, still WELDING, have no open RT workflow and retain the exact version captured when dispatched. A dispatch belonging to another piece, a closed dispatch or a legacy dispatch without the version snapshot cannot be undone automatically.
+
+The guard rejects newly recorded tensile tests, heat logs, RT defects, map marks and report changes since dispatch, and rejects linked defects already marked welded/confirmed. This checks recorded evidence; it cannot discover unrecorded physical work, hence the explicit operator confirmation. Ordinary child record writers retain their pre-existing locking behavior; this is not a universal serializable lock over every QC mutation path.
+
+On cancellation, retain the dispatch and its defect links; record cancelledAt/by/reason, and also completedAt/by to preserve all existing closed-dispatch queries. A new stage-history entry records the restored origin. Restore origin stage/substages/process date without creating a new casting cycle, releasing an existing approved melt membership or confirming welding. Old sending history remains. New dispatches copy originProcessDate and the piece version. No origin date/version is invented for legacy rows. History UI distinguishes cancellation from completion.
+
+## Heat-batch archive and shared-cycle corrections
+
+GET /api/heat-treatment-batches/archive supports exact code, inclusive treatment-date from/to, furnace enum and bounded page/size (max100), sorted by treatment date then ID. This preserves existing authenticated read access; existing today, exact-code and next-code routes keep their meaning. GET /api/heat-treatment-batches/{id} includes the complete member list and cycle version. The furnace dashboard links to the archive, with Jalali date filters, details and pagination.
+
+PATCH /api/heat-treatment-batches/{id} now requires EDIT_HEAT_TREATMENT_BATCH rather than MANAGE_HEAT_TREATMENT_LOG. It requires reason, version and confirmedPieceIds from the preview. A batch write lock and current locking member query reject a changed cycle or membership with 409 before writing. Membership add/remove operations lock the batch too. These controls apply to MANAGER as well. Existing callers must reload the current UI and supply the preview fields; ordinary per-piece log creation/deletion permissions stay unchanged.
+
+The UI previews old/new cycle and every affected member before confirmation. Correction changes only shared date/temperature/duration/furnace/notes, not production stage, process dates, piece logs or disposition links. Successful changes append heat_batch_events in the same transaction with scalar actor/batch identities, time, reason, cycle before/after and member snapshots. GET /api/heat-treatment-batches/{id}/history requires the batch-edit permission and is paginated. No edit/delete history endpoints exist; events have no foreign keys and survive deletion of the final member/batch. Creation metadata remains intact.
+
+## Upgrade and validation
+
+V41__operational_cancellation_and_batch_audit.sql conditionally adds batch version and nullable dispatch snapshot/cancellation columns, widens melt status to VARCHAR(32) and creates heat_batch_events. It is independent of V39/V40, preserves legacy rows, and does not infer missing welding origins. Review custom CHECK constraints on melt status before applying it; the inspected VARCHAR schema has none for this field. No new permission is automatically granted to existing accounts. Flyway is not enabled and the incomplete historical chain must not be enabled blindly. Reconcile with the installation's actual schema process before upgrade.
+
+JPA and the record-free MySQL fixture agree: this branch adds one table to main (50 tables/65 FKs). Combining with the independent category-4 history table adds another table. Regression suites cover cancellation state/permission/version/reason/task effects, released versus retained memberships, welding undo/date restoration/recorded later work/legacy safety, batch archive/details, separate edit permission, audited shared effects and stale previews. A standalone MySQL migration regression runs V41 twice over synthetic legacy fixtures. Node regressions cover explicit no-work confirmation, escaped member previews and version/member/reason submission. Full Java/H2/MySQL results must pass CI; local Maven dependencies are unavailable. Live browser smoke testing remains unverified.

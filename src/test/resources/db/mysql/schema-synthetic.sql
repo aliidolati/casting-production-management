@@ -22,6 +22,7 @@ CREATE TABLE `flyway_schema_history` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `heat_treatment_batches` (
+  `version` BIGINT NOT NULL DEFAULT 0,
   `id` binary(16) NOT NULL,
   `batch_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` datetime(6) NOT NULL,
@@ -348,6 +349,11 @@ CREATE TABLE `piece_welding_dispatch_defects` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `piece_welding_dispatches` (
+  `origin_process_date` DATE NULL,
+  `dispatch_piece_version` BIGINT NULL,
+  `cancelled_at` DATETIME(6) NULL,
+  `cancelled_by` VARCHAR(255) NULL,
+  `cancellation_reason` VARCHAR(2000) NULL,
   `id` binary(16) NOT NULL,
   `completed_at` datetime(6) DEFAULT NULL,
   `completed_by` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -852,4 +858,17 @@ CREATE TABLE IF NOT EXISTS user_access_events (
     before_state TEXT NOT NULL,
     after_state TEXT NOT NULL,
     INDEX idx_user_access_target_time (target_id, occurred_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS heat_batch_events (
+ id BINARY(16) NOT NULL PRIMARY KEY,
+ batch_id BINARY(16) NOT NULL,
+ actor_id BINARY(16) NOT NULL,
+ actor_name VARCHAR(255) NOT NULL,
+ occurred_at DATETIME(6) NOT NULL,
+ reason VARCHAR(2000) NOT NULL,
+ before_state LONGTEXT NOT NULL,
+ after_state LONGTEXT NOT NULL,
+ affected_pieces LONGTEXT NOT NULL,
+ INDEX idx_heat_batch_event_time(batch_id,occurred_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

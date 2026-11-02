@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface HeatTreatmentBatchRepository extends JpaRepository<HeatTreatmentBatch, UUID> {
+public interface HeatTreatmentBatchRepository extends JpaRepository<HeatTreatmentBatch, UUID>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<HeatTreatmentBatch> {
 
     Optional<HeatTreatmentBatch> findByBatchCode(String batchCode);
 
