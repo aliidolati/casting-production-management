@@ -28,7 +28,8 @@ class DrawingCatalogIntegrationTest extends TaskTestBase {
  Piece piece(){return newPiece("DRAW-"+UUID.randomUUID(),"قطعه آزمایشی",1);}
  UUID def(Piece p){return p.getPieceDefinition().getId();}
  MockMultipartFile image(String name,byte... data){return new MockMultipartFile("file",name,"image/png",data);}
- void upload(UUID id,MockMultipartFile f)throws Exception{call(multipart("/api/piece-definitions/"+id+"/drawing").file(f),admin).andExpect(status().isOk());}
+ org.springframework.test.web.servlet.ResultActions uploadRequest(org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder builder,User user)throws Exception{return mvc.perform(builder.header("Authorization","Bearer "+token(user)));}
+ void upload(UUID id,MockMultipartFile f)throws Exception{uploadRequest(multipart("/api/piece-definitions/"+id+"/drawing").file(f),admin).andExpect(status().isOk());}
  String current(UUID id)throws Exception{return JsonPath.read(call(get("/api/piece-definitions/"+id+"/drawing-current-id"),admin).andReturn().getResponse().getContentAsString(),"$.id");}
  String path(UUID id){return definitionRepository.findById(id).orElseThrow().getDrawingImagePath();}
  String token(UUID id,boolean project)throws Exception{return JsonPath.read(call(get("/api/"+(project?"projects":"piece-definitions")+"/"+id+"/deletion-preview"),admin).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(),"$.confirmationToken");}
@@ -44,7 +45,7 @@ class DrawingCatalogIntegrationTest extends TaskTestBase {
  }
  @Test void invalidReplacementAndRemoveCurrentNeverDestroyHistoricalFile()throws Exception{
   var p=piece();UUID id=def(p);upload(id,image("first.png",(byte)1));String oldPath=path(id);String revision=current(id);
-  call(multipart("/api/piece-definitions/"+id+"/drawing").file(new MockMultipartFile("file","bad.txt","text/plain",new byte[]{9})),admin).andExpect(status().isBadRequest());assertEquals(oldPath,path(id));
+  uploadRequest(multipart("/api/piece-definitions/"+id+"/drawing").file(new MockMultipartFile("file","bad.txt","text/plain",new byte[]{9})),admin).andExpect(status().isBadRequest());assertEquals(oldPath,path(id));
   call(delete("/api/piece-definitions/"+id+"/drawing"),admin).andExpect(status().isOk());assertNull(path(id));assertTrue(Files.exists(Path.of(uploadDir,oldPath)));
   call(get("/api/piece-definitions/"+id+"/drawing-revisions/"+revision),worker).andExpect(status().isOk()).andExpect(content().bytes(new byte[]{1}));
  }
