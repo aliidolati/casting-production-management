@@ -265,7 +265,7 @@ public class StageTransitionPolicy {
                 radio,
                 heat,
                 rough,
-                Permission.MOVE_PIECE_STAGE.name(),
+                Permission.ADVANCE_PIECE_STAGE.name(),
                 processDateRequired
         );
     }
@@ -277,7 +277,7 @@ public class StageTransitionPolicy {
                 target,
                 null,
                 null,
-                Permission.UPDATE_RADIOGRAPHY_SUBSTAGE.name(),
+                Permission.ADVANCE_PIECE_STAGE.name(),
                 processDateRequired
         );
     }
@@ -289,7 +289,7 @@ public class StageTransitionPolicy {
                 null,
                 target,
                 null,
-                Permission.UPDATE_HEAT_TREATMENT_SUBSTAGE.name(),
+                Permission.ADVANCE_PIECE_STAGE.name(),
                 processDateRequired
         );
     }
@@ -301,7 +301,7 @@ public class StageTransitionPolicy {
                 null,
                 null,
                 target,
-                Permission.UPDATE_ROUGH_MACHINING_SUBSTAGE.name(),
+                Permission.ADVANCE_PIECE_STAGE.name(),
                 processDateRequired
         );
     }

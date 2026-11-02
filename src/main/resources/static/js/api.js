@@ -19,6 +19,11 @@ const OperationAPI = {
     batchHistory: (id,page=0) => apiRequest(`/heat-treatment-batches/${id}/history?page=${page}&size=10`),
 };
 
+const RecordEditAPI = {
+    update: (kind, id, body) => apiRequest(`/${kind === 'materials' ? 'melt-passports/materials' : kind}/${encodeURIComponent(id)}`, 'PATCH', body),
+    history: (kind, id, page = 0) => apiRequest(`/record-edits/${kind}/${encodeURIComponent(id)}?page=${page}&size=10`),
+};
+
 const MeltPassportAPI = {
     assign: (id, assigneeId, version) => apiRequest(`/melt-passports/${encodeURIComponent(id)}/assignment`, 'POST', { assigneeId, version }),
     assignPiece: (id, assigneeId, version = null) => apiRequest(`/melt-passports/piece/${encodeURIComponent(id)}/assignment`, 'POST', { assigneeId, version }),
@@ -229,7 +234,10 @@ const PieceAPI = {
     updateSubStageProcessDate: (id, kind, subStage, processDate) =>
         apiRequest(`/pieces/${id}/sub-stage-process-dates`, "PATCH", { kind, subStage, processDate }),
     getSubStageProcessDates: (id) => apiRequest(`/pieces/${id}/sub-stage-process-dates`),
-    updateStage: (id, data, scrap) => apiRequest(`/pieces/${id}/stage`, "PATCH", { newStage: data, scrap }),
+    updateStage: (id, data, scrap, substages = {}) => apiRequest(`/pieces/${id}/stage`, "PATCH", { newStage: data, scrap, ...substages }),
+    getSkipTargets: (id) => apiRequest(`/pieces/${id}/skip-targets`),
+    skipStage: (id, data) => apiRequest(`/pieces/${id}/skip`, "POST", data),
+    getStageSkips: (id) => apiRequest(`/pieces/${id}/stage-skips`),
     advance: (id, processDate) =>
         apiRequest(`/pieces/${id}/advance`, "POST", processDate ? { processDate } : {}),
     updateRadiographySubStage: (id, radiographySubStage) =>

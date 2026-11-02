@@ -287,7 +287,7 @@ function showWeldingMarkDetails(mark) {
                 <button type="button" class="btn btn-secondary btn-sm" id="btn-close-weld-detail">بستن</button>
                 ${
                     canManage
-                        ? `<button type="button" class="btn btn-danger btn-sm" id="btn-delete-weld-mark">حذف</button>`
+                        ? `<button type="button" class="btn btn-secondary btn-sm" id="btn-edit-weld-mark">اصلاح</button><button type="button" class="btn btn-danger btn-sm" id="btn-delete-weld-mark">حذف</button>`
                         : ""
                 }
             </div>
@@ -303,6 +303,15 @@ function showWeldingMarkDetails(mark) {
         closeWeldingMapPopover();
     });
 
+    document.getElementById('btn-edit-weld-mark')?.addEventListener('click',()=>{
+        const type=DEFECT_TYPE_OPTIONS.includes(mark.defectType)?mark.defectType:'OTHER';
+        openRecordEdit('welding-marks',{...mark,defectType:type,defectTypeCustom:type==='OTHER'?mark.defectType:''},[
+            {key:'xPercent',label:'مختصات افقی (۰ تا ۱)',number:true,required:true},
+            {key:'yPercent',label:'مختصات عمودی (۰ تا ۱)',number:true,required:true},
+            {key:'defectType',label:'نوع عیب',options:DEFECT_TYPE_OPTIONS.map(value=>({value,label:defectTypeOptionLabel(value)}))},
+            {key:'defectTypeCustom',label:'نوع عیب دیگر'}, {key:'note',label:'توضیح'}
+        ],()=>openPieceProfile(WeldingMapState.pieceId));
+    });
     const deleteBtn = document.getElementById("btn-delete-weld-mark");
     if (deleteBtn) {
         deleteBtn.addEventListener("click", async (e) => {

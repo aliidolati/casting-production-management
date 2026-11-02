@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-// The NOT_SUPPORTED rollback regression commits its synthetic fixtures deliberately.
+// The NOT_SUPPORTED rollback regressions commit their synthetic fixtures deliberately.
 // Keep this context separate from tracking tests which assert global piece counts.
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:scrap_workflow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE",
@@ -110,7 +110,9 @@ class ScrapIntegrationTest extends TaskTestBase {
         assertEquals(PieceStage.WELDING,scraps.findByActivePieceKey(p.getId()).orElseThrow().getOriginStage());
         call(get("/api/pieces/"+p.getId()+"/welding-dispatches"),admin).andExpect(jsonPath("$[0].open").value(false));
     }
-    @Test void tensileDispositionRequiresReasonAndRepeatedEditsDoNotDuplicateScrap() throws Exception {
+    // Requests must use separate transactions: the rejected first request must roll back its decision.
+    @Test @Transactional(propagation=Propagation.NOT_SUPPORTED)
+    void tensileDispositionRequiresReasonAndRepeatedEditsDoNotDuplicateScrap() throws Exception {
         Piece p=piece(); p.setCurrentStage(PieceStage.TENSILE); pieceRepository.saveAndFlush(p);
         String test=call(post("/api/pieces/"+p.getId()+"/tensile-tests"),admin,
             Map.of("samples",List.of(Map.of("uts",100)))).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
@@ -125,7 +127,10 @@ class ScrapIntegrationTest extends TaskTestBase {
         body.put("scrap",Map.of("defectType","OTHER","defectTypeCustom","کشش ساختگی","version",d.getVersion()));
         call(put("/api/tensile-tests/"+id+"/disposition"),admin,body).andExpect(status().isOk());
         assertEquals(1,scraps.findByPieceIdOrderBySentAtDesc(p.getId()).size());
-        assertEquals(time,scraps.findByActivePieceKey(p.getId()).orElseThrow().getSentAt());
+        var after=scraps.findByActivePieceKey(p.getId()).orElseThrow();
+        assertEquals(time,after.getSentAt());
+        assertEquals(d.getDefectType(),after.getDefectType()); // Record-only corrections do not edit operational scrap data.
+        assertEquals(PieceStage.SCRAPPED,pieceRepository.findById(p.getId()).orElseThrow().getCurrentStage());
     }
     @Test @Transactional(propagation=Propagation.NOT_SUPPORTED)
     void bulkFailureRollsBackTheFirstPiecesReasonStageAndHistory() throws Exception {

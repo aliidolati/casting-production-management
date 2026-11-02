@@ -22,8 +22,8 @@ import java.util.UUID;
  * ریپازیتوری‌هاست تا چرخه‌ی وابستگی با سرویس‌هایی که خودِ گردش‌کار صدا می‌زند ایجاد نشود.
  *
  * <ul>
- *   <li>تا وقتی گردش‌کار تفسیر یک قطعه باز است، فقط مفسر مسئول (و ادمین) گزارش/عیوب را ویرایش می‌کند؛</li>
- *   <li>از لحظه‌ی تأیید مفسر تا تصمیم مدیر، گزارش برای همه قفل است (ادمین هم)؛</li>
+ *   <li>تا وقتی گردش‌کار تفسیر یک قطعه باز است، فقط مفسر مسئول (و مدیر) گزارش/عیوب را ویرایش می‌کند؛</li>
+ *   <li>از لحظه‌ی تأیید مفسر تا تصمیم مدیر، گزارش و عیوب برای غیرمدیر قفل هستند؛</li>
  *   <li>تا پایان یا لغو گردش‌کار، مرحله‌ی قطعه را نمی‌شود دستی عوض کرد (جابه‌جایی فقط با تأیید مدیر).</li>
  * </ul>
  */
@@ -39,32 +39,44 @@ public class RadiographyWorkflowGate {
 
     /** باید در تراکنش فراخواننده صدا زده شود؛ اولین ویرایش مفسر، گردش‌کار را به «در حال تفسیر» می‌برد */
     public void assertReportEditable(UUID pieceId) {
-        Optional<RadiographyWorkflow> open = workflowRepository.findByOpenKey(pieceId.toString());
+        Optional<RadiographyWorkflow> open = workflowRepository.findByOpenKeyForUpdate(pieceId.toString());
         if (open.isEmpty()) {
             return;
         }
         RadiographyWorkflow workflow = open.get();
-        if (!workflow.getStatus().isInterpreterEditable()) {
-            throw new IllegalStateException(
-                    "گزارش در انتظار تأیید مدیر است و قفل می‌باشد؛ تا تصمیم مدیر قابل ویرایش نیست");
-        }
         String username = currentUsername();
-        if (username == null) {
-            return; // فراخوانی داخلی بدون کاربر وب
+        User actor = username == null ? null : userRepository.findByUsername(username).orElse(null);
+        // Only the full-access manager is exempt; ADMIN still follows the review lock.
+        if (actor != null && !actor.isDisabled() && actor.getRole() == Role.MANAGER) return;
+        if (!workflow.getStatus().isInterpreterEditable()) {
+            throw new IllegalStateException("گزارش و عیوب تا تصمیم تأییدکننده قفل هستند؛ فقط مدیر می‌تواند اصلاح کند");
         }
-        User actor = userRepository.findByUsername(username).orElse(null);
-        if (actor == null) {
-            throw new ForbiddenOperationException("شما اجازه‌ی ویرایش این گزارش را ندارید");
+        if (username == null) return; // existing trusted internal edits in interpreter-editable states
+        if (actor == null || actor.isDisabled()) {
+            throw new ForbiddenOperationException("شما اجازه ویرایش این گزارش را ندارید");
         }
-        boolean admin = actor.getRole() == Role.MANAGER;
         boolean assignedInterpreter = workflow.getInterpreter().getId().equals(actor.getId());
-        if (!admin && !assignedInterpreter) {
+        if (!assignedInterpreter) {
             throw new ForbiddenOperationException(
                     "این گزارش در حال تفسیر توسط مفسر مسئول است و ویرایش آن برای شما مجاز نیست");
         }
         if (assignedInterpreter) {
             markStarted(workflow, actor);
         }
+    }
+
+    public boolean isPendingReview(UUID pieceId) {
+        return workflowRepository.existsByOpenKeyAndStatus(pieceId.toString(), RadiographyWorkflowStatus.MANAGER_REVIEW);
+    }
+
+    /** A shared template must not indirectly mutate pending reports. The manager can override this lock. */
+    public void assertTemplateEditable(UUID definitionId) {
+        var pending = workflowRepository.findPendingByDefinitionForUpdate(definitionId);
+        if (pending.isEmpty()) return;
+        String username = currentUsername();
+        User actor = username == null ? null : userRepository.findByUsername(username).orElse(null);
+        if (actor == null || actor.isDisabled() || actor.getRole() != Role.MANAGER)
+            throw new IllegalStateException("قالب دارای گزارش در انتظار تأیید است؛ فقط مدیر می‌تواند اصلاح کند");
     }
 
     /** قطعه‌ای که گردش‌کار باز دارد با انتقال دستی جابه‌جا نمی‌شود */

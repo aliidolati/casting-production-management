@@ -91,10 +91,12 @@ function radiographySubStageBadgeClass(subStage) {
 
 const RadiographyState = {
     expanded: false,
+    canEditReport: null,
 };
 
 function resetRadiographyState() {
     RadiographyState.expanded = false;
+    RadiographyState.canEditReport = null;
 }
 
 /**
@@ -248,7 +250,7 @@ function formatDefectLine(defect) {
    =========================== */
 
 function renderDefectsSection(pieceId, defects) {
-    const canManage = hasPermission("MANAGE_RADIOGRAPHY_DEFECTS");
+    const canManage = canEditRadiographyDefects();
     return `
         <div class="profile-defects">
             <div class="profile-defects-panel-header">
@@ -270,7 +272,7 @@ function renderDefectsSection(pieceId, defects) {
     `;
 }
 
-function renderDefectsList(defects, canManage = hasPermission("MANAGE_RADIOGRAPHY_DEFECTS")) {
+function renderDefectsList(defects, canManage = canEditRadiographyDefects()) {
     if (defects.length === 0) {
         return `<div class="history-empty">هنوز عیبی برای این قطعه ثبت نشده است</div>`;
     }
@@ -475,5 +477,23 @@ async function refreshDefectsSection(pieceId) {
         }
     } catch (error) {
         showToast(error.message, "error");
+    }
+}
+
+
+function canEditRadiographyDefects() {
+    return hasPermission("MANAGE_RADIOGRAPHY_DEFECTS") && (isManager() || RadiographyState.canEditReport !== false);
+}
+
+function syncRadiographyEditControls(canEdit) {
+    RadiographyState.canEditReport = canEdit;
+    const region = document.getElementById("profile-defects-container");
+    if (!region) return;
+    region.querySelectorAll("#btn-add-defect, .btn-delete-defect, .btn-confirm-welding").forEach(button => {
+        button.hidden = !canEditRadiographyDefects();
+        button.disabled = !canEditRadiographyDefects();
+    });
+    if (!canEditRadiographyDefects()) {
+        region.querySelectorAll("#add-defect-form-container input, #add-defect-form-container select, #add-defect-form-container button").forEach(input => { input.disabled = true; });
     }
 }
