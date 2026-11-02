@@ -26,6 +26,15 @@ public interface RadiographyWorkflowRepository extends JpaRepository<Radiography
     Optional<RadiographyWorkflow> findByOpenKey(String openKey);
 
     boolean existsByOpenKey(String openKey);
+    boolean existsByOpenKeyAndStatus(String openKey, com.factory.productmanager.model.entity.RadiographyWorkflowStatus status);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select w from RadiographyWorkflow w where w.openKey = :key")
+    Optional<RadiographyWorkflow> findByOpenKeyForUpdate(@Param("key") String key);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select w from RadiographyWorkflow w where w.piece.pieceDefinition.id = :definitionId and w.status = com.factory.productmanager.model.entity.RadiographyWorkflowStatus.MANAGER_REVIEW order by w.id")
+    List<RadiographyWorkflow> findPendingByDefinitionForUpdate(@Param("definitionId") UUID definitionId);
 
     @EntityGraph(attributePaths = {"interpreter", "assignedBy", "interpreterTask", "managerTask"})
     Optional<RadiographyWorkflow> findFirstByPieceIdOrderByCreatedAtDesc(UUID pieceId);

@@ -278,6 +278,9 @@ public class RadiographyWorkflowService {
         requireConfirmed(confirmed);
         RadiographyWorkflow workflow = lockForUpdate(workflowId);
         requireManagerReview(workflow);
+        if (!mayApprove(workflow, actor)) {
+            throw new ForbiddenOperationException("مفسر نمی‌تواند تأیید نهایی گزارش خودش را انجام دهد؛ فقط مدیر مستثناست");
+        }
         Piece piece = workflow.getPiece();
         requireStillInInterpretation(piece);
         StoredApprovalSignature signature = requireSignature(actor);
@@ -526,14 +529,27 @@ public class RadiographyWorkflowService {
                 .orElseThrow(() -> new IllegalArgumentException("کاربر انتخاب‌شده مجاز به تفسیر رادیوگرافی نیست"));
     }
 
+    private boolean mayApprove(RadiographyWorkflow workflow, User actor) {
+        if (policy.isManager(actor)) return true;
+        if (workflow.getInterpreter().getId().equals(actor.getId())) return false;
+        // Approval identity belongs to the current round, independent of any subsequent role/profile changes.
+        return approvalRepository.findByWorkflowIdOrderByApprovedAtAsc(workflow.getId()).stream()
+                .noneMatch(a -> a.getType() == RadiographyApprovalType.INTERPRETER
+                    && a.getRound() == workflow.getRound() && "APPROVED".equals(a.getDecision())
+                    && actor.getId().equals(a.getApproverUserId()));
+    }
+
     private User resolveManagerAssignee(RadiographyWorkflow workflow) {
         User assigner = workflow.getAssignedBy();
-        if (isReviewer(assigner)) {
+        if (isReviewer(assigner) && mayApprove(workflow, assigner)) {
             return assigner;
         }
         return userRepository.findAssignableUsers(Permission.REVIEW_RADIOGRAPHY_REPORT).stream()
+                .map(ref -> userRepository.findById(ref.id()).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .filter(this::isReviewer)
+                .filter(candidate -> mayApprove(workflow, candidate))
                 .findFirst()
-                .flatMap(ref -> userRepository.findById(ref.id()))
                 .orElseThrow(() -> new IllegalStateException(
                         "هیچ مدیر فعالی برای تأیید نهایی گزارش رادیوگرافی وجود ندارد"));
     }
@@ -767,12 +783,13 @@ public class RadiographyWorkflowService {
         boolean isInterpreter = workflow.getInterpreter().getId().equals(viewer.getId());
         boolean reviewer = isReviewer(viewer);
         WorkflowPermissions permissions = new WorkflowPermissions(
-                open && status.isInterpreterEditable() && (isInterpreter || policy.isManager(viewer)),
+                open && (policy.isManager(viewer) || (status.isInterpreterEditable() && isInterpreter)),
                 open && status.isInterpreterEditable() && isInterpreter && canInterpret(viewer),
                 open && status == RadiographyWorkflowStatus.MANAGER_REVIEW && reviewer,
                 open && status.isInterpreterEditable() && reviewer,
                 open && reviewer,
-                viewer.getSignaturePath() != null && !viewer.getSignaturePath().isBlank()
+                viewer.getSignaturePath() != null && !viewer.getSignaturePath().isBlank(),
+                open && status == RadiographyWorkflowStatus.MANAGER_REVIEW && reviewer && mayApprove(workflow, viewer)
         );
 
         return new WorkflowResponse(

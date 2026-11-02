@@ -25,6 +25,7 @@ const ROLE_LABELS = {
 
 const DEFAULT_OPERATOR_PERMISSIONS = [
 
+    "ADVANCE_PIECE_STAGE",
     "MOVE_PIECE_STAGE",
 
     "UPDATE_RADIOGRAPHY_SUBSTAGE",
@@ -110,6 +111,11 @@ function togglePermissionsSection(roleSelect, sectionEl) {
     const isOperator = roleSelect.value !== "MANAGER";
 
     sectionEl.style.display = isOperator ? "block" : "none";
+    const skip = sectionEl.querySelector?.('input[value="SKIP_PIECE_STAGE"]');
+    if (skip) {
+        skip.disabled = roleSelect.value === "OPERATOR";
+        if (skip.disabled) skip.checked = false;
+    }
 
 }
 
@@ -366,6 +372,7 @@ async function openEditPermissionsModal(userId, username) {
 
 
 
+        togglePermissionsSection({ value: user.role }, document.getElementById("permissions-grid-edit"));
         document.getElementById("btn-cancel-edit-permissions").addEventListener("click", closeModal);
 
 

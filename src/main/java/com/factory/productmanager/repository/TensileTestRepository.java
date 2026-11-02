@@ -17,6 +17,17 @@ import java.util.UUID;
 
 @Repository
 public interface TensileTestRepository extends JpaRepository<TensileTest, UUID> {
+    @Query("select t.piece.id from TensileTest t where t.id = :id")
+    java.util.Optional<UUID> findPieceIdForTest(@Param("id") UUID id);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from TensileTest t where t.id = :id")
+    java.util.Optional<TensileTest> findByIdForUpdate(@Param("id") UUID id);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from TensileTest t where t.piece.id = :pieceId order by t.testIndex desc")
+    List<TensileTest> findLatestForUpdate(@Param("pieceId") UUID pieceId, Pageable pageable);
+
 
     /** Flat per-test rows keep tracking display independent of lazy test/sample collections. */
     @Query("""

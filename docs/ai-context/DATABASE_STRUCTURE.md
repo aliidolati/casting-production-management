@@ -1,6 +1,12 @@
 # Database structure
 
+Integration 2026-11-02: approved categories 2–4 now combine with category 5; fixture totals are 52 tables / 66 FKs. See [Integrated release](INTEGRATED_RELEASE.md) for scope and upgrade requirements.
+
 Update 2026-11-02: category 5 adds reasoned melt/welding cancellation, heat-batch archive/details, and previewed/audited shared-cycle corrections with separate permissions. See [Operational controls](OPERATIONAL_CONTROLS.md) for V41, compatibility and limits.
+
+Update 2026-11-01 (items 2–1/2–2 only): normal progression uses independent ADVANCE_PIECE_STAGE; forward skips require MANAGER or an explicitly permitted ADMIN, a reason and an atomic audit. Other category-2 permission splits are deferred. See [Stage movement access](STAGE_MOVEMENT_ACCESS.md) for legacy-route guards, upgrade grants, V39 and validation limits.
+
+Update 2026-11-02: category 4 adds audited note, welding mark, per-piece heat-treatment and material-catalog corrections; catalog writes require MANAGE_MELT_MATERIALS. V40 adds record_edit_events (50 tables, 65 FKs in synthetic fixture). See [CRUD editing](CRUD_EDITING.md) for contracts and upgrade limits.
 
 Update 2026-11-01: category 1 introduces MANAGER (full access), explicit-grant ADMIN/OPERATOR, manager-only account management and access audit. Historical ADMIN-as-full-access descriptions below are superseded by [User access](USER_ACCESS.md). V38 and the sanitized fixture include the new audit table; runtime upgrade requires explicit initial-manager selection. Local Java/MySQL validation is blocked by missing Maven dependencies; see the linked implementation/upgrade notes.
 

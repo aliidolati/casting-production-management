@@ -45,6 +45,7 @@ public class RadiographyDefectService {
     private final PieceService pieceService;
     private final UserRepository userRepository;
     private final RadiographyDefectMapper defectMapper;
+    private final RadiographyWorkflowGate workflowGate;
 
     private String resolveDisplayName(String username) {
         return userRepository.findByUsername(username)
@@ -127,6 +128,8 @@ public class RadiographyDefectService {
         RadiographyDefect defect = radiographyDefectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("عیب رادیوگرافی با شناسه " + id + " پیدا نشد"));
 
+        workflowGate.assertReportEditable(defect.getPiece().getId());
+
         if (defect.getStatus() != DefectStatus.NEEDS_WELDING) {
             throw new IllegalStateException("فقط عیوب با وضعیت «نیاز به جوش» قابل تایید جوشکاری هستند");
         }
@@ -141,6 +144,8 @@ public class RadiographyDefectService {
     public void deleteDefect(UUID id) {
         RadiographyDefect defect = radiographyDefectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("عیب رادیوگرافی با شناسه " + id + " پیدا نشد"));
+        workflowGate.assertReportEditable(defect.getPiece().getId());
+
         if (defect.getParentDefect() != null) {
             throw new IllegalStateException("عیب دوم همراه عیب اول حذف می‌شود؛ زنجیره را ویرایش کنید");
         }
@@ -321,6 +326,7 @@ public class RadiographyDefectService {
     }
 
     private void assertPieceEditable(Piece piece) {
+        workflowGate.assertReportEditable(piece.getId());
         if (piece.getArchivedAt() != null) {
             throw new IllegalStateException("قطعه بایگانی‌شده قابل ویرایش نیست");
         }

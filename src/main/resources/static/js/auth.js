@@ -24,6 +24,7 @@ function isManager() {
 /** آیا کاربر حداقل یکی از دسترسی‌های عملیات دسته‌جمعی را دارد؟ */
 function canUseBulkSelection() {
     return (
+        hasPermission("ADVANCE_PIECE_STAGE") ||
         hasPermission("MOVE_PIECE_STAGE") ||
         hasPermission("UPDATE_RADIOGRAPHY_SUBSTAGE") ||
         hasPermission("UPDATE_HEAT_TREATMENT_SUBSTAGE") ||

@@ -1,5 +1,7 @@
 # Backend architecture
 
+Update 2026-11-01 (items 2–1/2–2 only): normal progression uses independent ADVANCE_PIECE_STAGE; forward skips require MANAGER or an explicitly permitted ADMIN, a reason and an atomic audit. Other category-2 permission splits are deferred. See [Stage movement access](STAGE_MOVEMENT_ACCESS.md) for legacy-route guards, upgrade grants, V39 and validation limits.
+
 Update 2026-11-01: category 1 introduces MANAGER (full access), explicit-grant ADMIN/OPERATOR, manager-only account management and access audit. Historical ADMIN-as-full-access descriptions below are superseded by [User access](USER_ACCESS.md). V38 and the sanitized fixture include the new audit table; runtime upgrade requires explicit initial-manager selection. Local Java/MySQL validation is blocked by missing Maven dependencies; see the linked implementation/upgrade notes.
 
 Update 2026-10-31: ScrapService records cycles through PieceService’s central stage boundary, including bulk/admin/trusted/tensile routes. ScrapController provides history, versioned reason editing and the VIEW_DASHBOARD scrap report. V37 is additive; existing workflow/archival guards remain. See [scrap](SCRAP.md).

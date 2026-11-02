@@ -12,6 +12,8 @@ public enum Permission {
     MANAGE_PROJECTS("مدیریت پروژه‌ها"),
     MANAGE_PIECE_DEFINITIONS("مدیریت تعریف قطعات"),
     MANAGE_PIECES("مدیریت قطعات"),
+    ADVANCE_PIECE_STAGE("پیشرفت عادی مرحله"),
+    SKIP_PIECE_STAGE("پرش مرحله (فقط ادمین)"),
     MOVE_PIECE_STAGE("جابه‌جایی بین مراحل"),
     UPDATE_RADIOGRAPHY_SUBSTAGE("زیرمرحله رادیوگرافی"),
     UPDATE_HEAT_TREATMENT_SUBSTAGE("زیرمرحله عملیات حرارتی"),
@@ -38,6 +40,7 @@ public enum Permission {
     CANCEL_MELT_PASSPORT("لغو شناسنامه ذوب"),
     CANCEL_WELDING_DISPATCH("لغو اعزام جوشکاری"),
     EDIT_HEAT_TREATMENT_BATCH("اصلاح سیکل محموله کوره"),
+    MANAGE_MELT_MATERIALS("مدیریت کاتالوگ مواد ذوب"),
     APPROVE_MELT_PASSPORT("تأیید شناسنامه ذوب");
 
     private final String label;

@@ -128,6 +128,13 @@ public class GlobalExceptionHandler {
                 .body(new ApiError(HttpStatus.NOT_FOUND.value(), "منبع موردنظر پیدا نشد"));
     }
 
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotSupported(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .headers(ex.getHeaders())
+                .body(new ApiError(405, "این عملیات برای مسیر انتخاب‌شده پشتیبانی نمی‌شود"));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(Exception ex) {
         log.error("خطای پیش‌بینی‌نشده در پردازش درخواست", ex);

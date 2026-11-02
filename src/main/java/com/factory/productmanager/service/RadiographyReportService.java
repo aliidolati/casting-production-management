@@ -85,6 +85,7 @@ public class RadiographyReportService {
             RadiographyTemplateRequest request,
             String username
     ) {
+        workflowGate.assertTemplateEditable(pieceDefinitionId);
         PieceDefinition definition = findDefinitionOrThrow(pieceDefinitionId);
         String name = request.getName().trim();
 
@@ -107,6 +108,7 @@ public class RadiographyReportService {
      */
     public RadiographyTemplateResponse updateTemplate(UUID templateId, RadiographyTemplateRequest request) {
         RadiographyReportTemplate template = findTemplateOrThrow(templateId);
+        workflowGate.assertTemplateEditable(template.getPieceDefinition().getId());
         long reportCount = reportRepository.countByTemplateId(templateId);
         String name = request.getName().trim();
         UUID definitionId = template.getPieceDefinition().getId();
@@ -190,6 +192,7 @@ public class RadiographyReportService {
     public void deleteTemplate(UUID templateId) {
         RadiographyReportTemplate template = findTemplateOrThrow(templateId);
 
+        workflowGate.assertTemplateEditable(template.getPieceDefinition().getId());
         long reportCount = reportRepository.countByTemplateId(templateId);
         if (reportCount > 0) {
             throw new IllegalStateException(
@@ -229,7 +232,8 @@ public class RadiographyReportService {
         Map<UUID, List<RadiographyDefect>> defectsByLine = defectsByReportLine(pieceId);
 
         List<RadiographyReport> reports = reportRepository.findByPieceIdOrderByCreatedAtAsc(piece.getId());
-        reports.forEach(this::syncMissingLines);
+        // GET must not append template lines while a report is awaiting a decision, including manager GETs.
+        if (!workflowGate.isPendingReview(pieceId)) reports.forEach(this::syncMissingLines);
         reportRepository.flush();
         return reports.stream()
                 .map(report -> toReportResponse(report, defectsByLine))
@@ -280,7 +284,7 @@ public class RadiographyReportService {
             line.setIqiReal(trimToNull(req.getIqiReal()));
             line.setResult(normalizeResult(req.getResult()));
         }
-        report.setStatus(resolveStatus(report, request.getStatus()));
+        report.setStatus(workflowGate.isPendingReview(pieceId) ? STATUS_PENDING_MANAGER_APPROVAL : resolveStatus(report, request.getStatus()));
 
         if (report.getId() != null) {
             report.setUpdatedAt(LocalDateTime.now());

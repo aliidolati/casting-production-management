@@ -1,6 +1,6 @@
 # User access — category 1
 
-Implemented scope: MANAGER / ADMIN / OPERATOR; explicit ADMIN grants; manager-only account/role/permission management; atomic name/role/grant edits; last-active-manager protection; append-only account-change history. The previously proposed categories 2–7 are not implemented here.
+Implemented scope: MANAGER / ADMIN / OPERATOR; explicit ADMIN grants; manager-only account/role/permission management; atomic name/role/grant edits; last-active-manager protection; append-only account-change history. The previously proposed categories 2–7 are not part of category 1. A later change implements only selected items 2–1/2–2; see [Stage movement access](STAGE_MOVEMENT_ACCESS.md).
 
 ## Role semantics
 

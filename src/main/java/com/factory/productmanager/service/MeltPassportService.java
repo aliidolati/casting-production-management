@@ -426,8 +426,11 @@ public class MeltPassportService {
         actor(username); return materials.findAllByOrderByNameAsc().stream().map(this::materialResponse).toList();
     }
 
+    private final RecordEditService recordEditService;
+
     public MeltMaterialResponse createMaterial(MeltMaterialRequest r, String username) {
-        actor(username);
+        User catalogActor=actor(username);
+        if(catalogActor.getRole()!=Role.MANAGER && !catalogActor.getPermissions().contains(Permission.MANAGE_MELT_MATERIALS)) throw new AccessDeniedException("مجوز مدیریت کاتالوگ مواد لازم است");
         String normalized = Normalizer.normalize(r.name(), Normalizer.Form.NFKC).replace('ي','ی').replace('ك','ک')
                 .replace('\u200c',' ').trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
         if (normalized.isBlank()) throw new IllegalArgumentException("نام ماده لازم است");
@@ -438,10 +441,7 @@ public class MeltPassportService {
     }
 
     public MeltMaterialResponse setMaterialActive(UUID id, boolean active, String username) {
-        User u = actor(username);
-        if (u.getRole() != Role.MANAGER) throw new AccessDeniedException("فقط مدیر فهرست مواد را غیرفعال می‌کند");
-        var material = materials.findById(id).orElseThrow(() -> new ResourceNotFoundException("ماده پیدا نشد"));
-        material.setActive(active); return materialResponse(material);
+        return recordEditService.activeMaterial(id,active,username);
     }
 
     private MeltMaterialResponse materialResponse(MeltMaterial m) { return new MeltMaterialResponse(m.getId(),m.getName(),m.getCategory(),m.isActive()); }

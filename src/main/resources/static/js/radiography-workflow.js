@@ -209,6 +209,9 @@ async function loadPieceRadiographyWorkflow(piece) {
     } catch (error) {
         return; // نمایش این بخش اختیاری است؛ خطا نباید پروفایل قطعه را مختل کند
     }
+    if (typeof syncRadiographyEditControls === "function") {
+        syncRadiographyEditControls(!state.workflow || !state.workflow.open || state.workflow.permissions.canEditReport);
+    }
     const live = document.getElementById("profile-radiography-workflow");
     if (!live || (!state.workflow && !state.canAssign)) {
         if (live) live.innerHTML = "";
@@ -381,6 +384,7 @@ async function openWorkflowReview(workflowId, ctx) {
 }
 
 async function rwManagerApprove(wf, ctx) {
+    if (!wf.permissions.canApprove) throw new Error("تأیید نهایی گزارش خودتان مجاز نیست؛ مدیر مستثناست");
     if (!wf.permissions.viewerHasSignature) {
         const go = await taskConfirm({
             title: "امضا ثبت نشده است",
@@ -551,7 +555,7 @@ async function openWorkflowDocument(workflowId, versionId, ctx = {}, wfPreloaded
                 ${
                     reviewing
                         ? `<button type="button" class="btn btn-danger" id="rw-doc-reject">رد گزارش</button>
-                           <button type="button" class="btn btn-primary" id="rw-doc-approve">تأیید نهایی</button>`
+                           ${wf.permissions.canApprove ? '<button type="button" class="btn btn-primary" id="rw-doc-approve">تأیید نهایی</button>' : '<p class="form-hint">تأیید نهایی گزارش خودتان باید توسط شخص دیگری انجام شود؛ مدیر مستثناست.</p>'}`
                         : ""
                 }
             </div>

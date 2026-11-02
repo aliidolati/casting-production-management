@@ -79,7 +79,8 @@ public final class RadiographyWorkflowDtos {
             boolean canReview,
             boolean canReassign,
             boolean canCancel,
-            boolean viewerHasSignature
+            boolean viewerHasSignature,
+            boolean canApprove
     ) {
     }
 
