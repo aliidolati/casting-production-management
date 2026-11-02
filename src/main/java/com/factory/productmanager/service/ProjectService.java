@@ -18,6 +18,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProjectService {
     private final ProjectRepository projectRepository;
+    private final CatalogDeletionService deletion;
 
     public ProjectResponse createProject(ProjectRequest request) {
         if (projectRepository.existsByCode(request.getCode())) {
@@ -61,10 +62,7 @@ public class ProjectService {
         return toResponse(saved);
     }
 
-    public void deleteProject(UUID id) {
-        Project project = findProjectOrThrow(id);
-        projectRepository.delete(project);
-    }
+    public void deleteProject(UUID id,String token) {deletion.delete(id,true,token);}
 
     @Transactional(readOnly = true)
     public Project findProjectOrThrow(UUID id) {

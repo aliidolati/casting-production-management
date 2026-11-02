@@ -803,6 +803,7 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `welding_map_marks` (
+  `drawing_revision_id` BINARY(16) NULL,
   `id` binary(16) NOT NULL,
   `created_at` datetime(6) NOT NULL,
   `created_by` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -901,4 +902,18 @@ CREATE TABLE IF NOT EXISTS record_edit_events (
  before_state LONGTEXT NOT NULL,
  after_state LONGTEXT NOT NULL,
  INDEX idx_record_edit_target (kind,target_id,occurred_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS drawing_revisions (
+ id BINARY(16) NOT NULL PRIMARY KEY,
+ definition_id BINARY(16) NOT NULL,
+ revision_number INT NOT NULL,
+ relative_path VARCHAR(255) NOT NULL,
+ original_name VARCHAR(255) NULL,
+ uploaded_at DATETIME(6) NULL,
+ captured_at DATETIME(6) NOT NULL,
+ uploaded_by VARCHAR(255) NULL,
+ source_revision_id BINARY(16) NULL,
+ UNIQUE KEY uk_drawing_revision_number(definition_id,revision_number),
+ CONSTRAINT fk_drawing_revision_definition FOREIGN KEY(definition_id) REFERENCES piece_definitions(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

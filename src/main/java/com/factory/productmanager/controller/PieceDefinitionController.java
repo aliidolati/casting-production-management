@@ -29,6 +29,8 @@ public class PieceDefinitionController {
 
     private final PieceDefinitionService pieceDefinitionService;
     private final PieceService pieceService;
+    private final com.factory.productmanager.service.CatalogDeletionService deletion;
+    private final com.factory.productmanager.service.DrawingHistoryService drawingHistory;
 
     @PostMapping
     @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_PIECE_DEFINITIONS')")
@@ -78,9 +80,9 @@ public class PieceDefinitionController {
     @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_PIECE_DEFINITIONS')")
     public ResponseEntity<PieceDefinitionResponse> uploadDrawing(
             @PathVariable UUID id,
-            @RequestParam("file") MultipartFile file
+            @RequestParam("file") MultipartFile file,Authentication authentication
     ) {
-        return ResponseEntity.ok(pieceDefinitionService.uploadDrawing(id, file));
+        return ResponseEntity.ok(pieceDefinitionService.uploadDrawing(id, file,authentication.getName()));
     }
 
     @GetMapping("/{id}/drawing")
@@ -88,21 +90,35 @@ public class PieceDefinitionController {
         Resource resource = pieceDefinitionService.loadDrawingResource(id);
         MediaType mediaType = pieceDefinitionService.drawingMediaType(id);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
+                .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
                 .contentType(mediaType)
                 .body(resource);
     }
 
+    @GetMapping("/{id}/drawing-revisions")
+    public com.factory.productmanager.model.dto.PageResponse<com.factory.productmanager.service.DrawingHistoryService.View> drawingRevisions(@PathVariable UUID id,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="25") int size){return drawingHistory.list(id,page,size);}
+    @GetMapping("/{id}/drawing-revisions/{revisionId}")
+    public ResponseEntity<Resource> revision(@PathVariable UUID id,@PathVariable UUID revisionId){return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL,"private, no-store").contentType(drawingHistory.mediaType(id,revisionId)).body(drawingHistory.resource(id,revisionId));}
+    @GetMapping("/{id}/drawing-current-id")
+    public java.util.Map<String,String> currentDrawingId(@PathVariable UUID id){UUID revision=drawingHistory.currentId(id);return java.util.Map.of("id",revision==null?"":revision.toString());}
+    @PostMapping("/{id}/drawing-revisions/{revisionId}/restore")
+    @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_PIECE_DEFINITIONS')")
+    public PieceDefinitionResponse restoreDrawing(@PathVariable UUID id,@PathVariable UUID revisionId,Authentication a){return pieceDefinitionService.restoreDrawing(id,revisionId,a.getName());}
+
     @DeleteMapping("/{id}/drawing")
     @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_PIECE_DEFINITIONS')")
-    public ResponseEntity<PieceDefinitionResponse> deleteDrawing(@PathVariable UUID id) {
-        return ResponseEntity.ok(pieceDefinitionService.deleteDrawing(id));
+    public ResponseEntity<PieceDefinitionResponse> deleteDrawing(@PathVariable UUID id,Authentication authentication) {
+        return ResponseEntity.ok(pieceDefinitionService.deleteDrawing(id,authentication.getName()));
     }
+
+    @GetMapping("/{id}/deletion-preview")
+    @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_PIECE_DEFINITIONS')")
+    public com.factory.productmanager.service.CatalogDeletionService.Preview deletionPreview(@PathVariable UUID id){return deletion.preview(id,false);}
 
     @DeleteMapping("/{id}")
     @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_PIECE_DEFINITIONS')")
-    public ResponseEntity<Void> deleteDefinition(@PathVariable UUID id) {
-        pieceDefinitionService.deleteDefinition(id);
+    public ResponseEntity<Void> deleteDefinition(@PathVariable UUID id,@RequestParam(required=false) String confirmationToken) {
+        pieceDefinitionService.deleteDefinition(id,confirmationToken);
         return ResponseEntity.noContent().build();
     }
 }

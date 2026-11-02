@@ -55,6 +55,8 @@ public class PieceDefinition {
     @OneToMany(mappedBy = "pieceDefinition", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<Piece> pieces = new ArrayList<>();
+    @OneToMany(mappedBy="definition",cascade=CascadeType.ALL,orphanRemoval=true)
+    private List<DrawingRevision> drawingRevisions = new ArrayList<>();
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

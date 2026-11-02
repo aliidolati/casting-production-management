@@ -54,7 +54,7 @@ public class DrawingStorageService {
         }
 
         String extension = extensionFor(contentType);
-        String relativePath = "drawings/" + definitionId + extension;
+        String relativePath = "drawings/" + definitionId + "-" + UUID.randomUUID() + extension;
         Path target = uploadRoot.resolve(relativePath).normalize();
 
         if (!target.startsWith(uploadRoot)) {
@@ -62,11 +62,16 @@ public class DrawingStorageService {
         }
 
         try (InputStream in = file.getInputStream()) {
-            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(in, target);
         } catch (IOException e) {
+            deleteIfExists(relativePath);
             throw new IllegalStateException("ذخیره فایل نقشه با خطا مواجه شد", e);
         }
 
+        if(org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive())
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization(){
+                @Override public void afterCompletion(int status){if(status!=STATUS_COMMITTED)deleteIfExists(relativePath);}
+            });
         return new StoredDrawing(relativePath, contentType);
     }
 

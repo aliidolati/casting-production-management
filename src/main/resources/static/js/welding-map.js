@@ -69,12 +69,17 @@ function attachWeldingMapIconEvents(piece) {
     });
 }
 
-async function openWeldingMapViewer(piece) {
+async function openWeldingMapViewer(piece, revisionId = undefined) {
     try {
-        const [blob, marks] = await Promise.all([
-            PieceDefinitionAPI.getDrawingBlob(piece.pieceDefinitionId),
-            WeldingMapMarkAPI.getByPiece(piece.id),
+        const current = await PieceDefinitionAPI.currentDrawingId(piece.pieceDefinitionId);
+        const selected = revisionId === undefined ? (current.id || null) : revisionId;
+        const [blob, allMarks, revisions] = await Promise.all([
+            selected ? PieceDefinitionAPI.revisionBlob(piece.pieceDefinitionId,selected) : PieceDefinitionAPI.getDrawingBlob(piece.pieceDefinitionId),
+            WeldingMapMarkAPI.getByPiece(piece.id), PieceDefinitionAPI.drawingRevisions(piece.pieceDefinitionId),
         ]);
+        const marks = marksForDrawingRevision(allMarks,selected);
+        WeldingMapState.revisionId=selected;
+        const revisionToolbar=drawingRevisionSelector(revisions,selected,'piece-drawing-revision');
 
         revokeWeldingMapImage();
         WeldingMapState.pieceId = piece.id;
@@ -83,12 +88,13 @@ async function openWeldingMapViewer(piece) {
         WeldingMapState.pendingPoint = null;
         WeldingMapState.imageObjectUrl = URL.createObjectURL(blob);
 
-        const canManage = hasPermission("MANAGE_WELDING_MAP");
+        const canManage = hasPermission("MANAGE_WELDING_MAP") && selected === (current.id || null);
 
         openModal(
             `نقشه جوشکاری — قطعه ${piece.pieceNumber}`,
             `
             <div class="welding-map-viewer">
+                ${revisionToolbar}
                 <p class="form-hint">${
                     canManage
                         ? "روی نقشه کلیک کنید تا محل جوش ثبت شود. روی نقاط موجود کلیک کنید تا جزئیات را ببینید."
@@ -106,6 +112,7 @@ async function openWeldingMapViewer(piece) {
 
         renderWeldingMapMarks();
         attachWeldingMapViewerEvents(canManage);
+        document.getElementById('piece-drawing-revision')?.addEventListener('change',e=>openWeldingMapViewer(piece,e.target.value||null));
     } catch (error) {
         showToast(error.message, "error");
     }
@@ -251,9 +258,11 @@ function showAddWeldingMarkForm(xPercent, yPercent) {
             const created = await WeldingMapMarkAPI.create(WeldingMapState.pieceId, {
                 xPercent,
                 yPercent,
+                drawingRevisionId: WeldingMapState.revisionId,
                 ...typePayload,
                 note: note || null,
             });
+            if(!WeldingMapState.revisionId){WeldingMapState.revisionId=created.drawingRevisionId;WeldingMapState.marks.forEach(m=>m.drawingRevisionId=created.drawingRevisionId);}
             WeldingMapState.marks.push(created);
             closeWeldingMapPopover();
             renderWeldingMapMarks();
@@ -466,13 +475,17 @@ async function openAggregateWeldingMapPicker() {
     }
 }
 
-async function openAggregateWeldingMapViewer(definitionId, definitionLabel, defectType) {
-    const [blob, marks] = await Promise.all([
-        PieceDefinitionAPI.getDrawingBlob(definitionId),
-        WeldingMapMarkAPI.getByDefinition(definitionId, defectType || null),
+async function openAggregateWeldingMapViewer(definitionId, definitionLabel, defectType = '', revisionId = undefined) {
+    const current=await PieceDefinitionAPI.currentDrawingId(definitionId);
+    const selected=revisionId===undefined?(current.id||null):revisionId;
+    const [blob, allMarks,revisions] = await Promise.all([
+        selected?PieceDefinitionAPI.revisionBlob(definitionId,selected):PieceDefinitionAPI.getDrawingBlob(definitionId),
+        WeldingMapMarkAPI.getByDefinition(definitionId, defectType || null),PieceDefinitionAPI.drawingRevisions(definitionId),
     ]);
+    const marks=marksForDrawingRevision(allMarks,selected);
 
     resetAggregateWeldingMapState();
+    AggregateWeldingMapState.revisionId = selected;
     AggregateWeldingMapState.definitionId = definitionId;
     AggregateWeldingMapState.definitionLabel = definitionLabel;
     AggregateWeldingMapState.defectTypeFilter = defectType || "";
@@ -486,6 +499,7 @@ async function openAggregateWeldingMapViewer(definitionId, definitionLabel, defe
         `نقشه جوش تجمیعی — ${definitionLabel}${filterLabel}`,
         `
         <div class="welding-map-viewer">
+            ${drawingRevisionSelector(revisions,selected,'aggregate-drawing-revision')}
             <div class="aggregate-welding-toolbar">
                 <span class="form-hint" id="agg-marks-count">${marks.length} نقطه جوش</span>
                 <div class="form-group" style="margin: 0; min-width: 160px;">
@@ -509,6 +523,7 @@ async function openAggregateWeldingMapViewer(definitionId, definitionLabel, defe
         { size: "xl" }
     );
 
+    document.getElementById('aggregate-drawing-revision')?.addEventListener('change',e=>openAggregateWeldingMapViewer(definitionId,definitionLabel,defectType,e.target.value||null));
     renderAggregateWeldingMapMarks();
 
     document.getElementById("agg-live-defect-filter").addEventListener("change", async (e) => {
@@ -516,9 +531,10 @@ async function openAggregateWeldingMapViewer(definitionId, definitionLabel, defe
         try {
             const nextMarks = await WeldingMapMarkAPI.getByDefinition(definitionId, nextFilter || null);
             AggregateWeldingMapState.defectTypeFilter = nextFilter;
-            AggregateWeldingMapState.allMarks = nextMarks;
-            AggregateWeldingMapState.marks = nextMarks;
-            document.getElementById("agg-marks-count").textContent = `${nextMarks.length} نقطه جوش`;
+            const visible=marksForDrawingRevision(nextMarks,AggregateWeldingMapState.revisionId);
+            AggregateWeldingMapState.allMarks = visible;
+            AggregateWeldingMapState.marks = visible;
+            document.getElementById("agg-marks-count").textContent = `${visible.length} نقطه جوش`;
             closeAggregateWeldingMapPopover();
             renderAggregateWeldingMapMarks();
         } catch (error) {

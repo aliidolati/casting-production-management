@@ -9,7 +9,8 @@ import java.util.Arrays;
 public class MysqlTestContextInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
     @Override public void initialize(ConfigurableApplicationContext context) {
         var profiles = Arrays.asList(context.getEnvironment().getActiveProfiles());
-        String schema = profiles.contains("scrap-mysql") ? "scrap_workflow_synthetic"
+        String schema = profiles.contains("drawings-mysql") ? "drawings_synthetic"
+                : profiles.contains("scrap-mysql") ? "scrap_workflow_synthetic"
                 : profiles.contains("melt-mysql") ? "melt_lookup_synthetic"
                 : profiles.contains("performance-mysql") ? "performance_synthetic"
                 : profiles.contains("mysql-schema") ? "schema_baseline_synthetic" : "cloud_business_synthetic";

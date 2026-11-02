@@ -23,6 +23,7 @@ public class ProjectController {
 
     private final ProjectService projectService;
     private final PieceService pieceService;
+    private final com.factory.productmanager.service.CatalogDeletionService deletion;
 
     // ساخت پروژه‌ی جدید یک عملیات ساختاری است و فقط باید در اختیار مدیر باشد
     @PostMapping
@@ -52,10 +53,14 @@ public class ProjectController {
         return ResponseEntity.ok(projectService.updateProject(id, request));
     }
 
+    @GetMapping("/{id}/deletion-preview")
+    @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_PROJECTS')")
+    public com.factory.productmanager.service.CatalogDeletionService.Preview deletionPreview(@PathVariable UUID id){return deletion.preview(id,true);}
+
     @DeleteMapping("/{id}")
     @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_PROJECTS')")
-    public ResponseEntity<Void> deleteProject(@PathVariable UUID id) {
-        projectService.deleteProject(id);
+    public ResponseEntity<Void> deleteProject(@PathVariable UUID id,@RequestParam(required=false) String confirmationToken) {
+        projectService.deleteProject(id,confirmationToken);
         return ResponseEntity.noContent().build();
     }
 

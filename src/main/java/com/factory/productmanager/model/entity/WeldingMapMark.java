@@ -47,6 +47,8 @@ public class WeldingMapMark {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name="drawing_revision_id") private UUID drawingRevisionId;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

@@ -77,15 +77,7 @@ function renderProjectsTable(projects) {
     tbody.querySelectorAll(".btn-delete-project").forEach((btn) => {
         btn.addEventListener("click", async (e) => {
             e.stopPropagation();
-            if (!confirm("آیا از حذف این پروژه مطمئن هستید؟")) return;
-
-            try {
-                await ProjectAPI.delete(btn.dataset.id);
-                showToast("پروژه با موفقیت حذف شد");
-                loadProjects();
-            } catch (error) {
-                showToast(error.message, "error");
-            }
+            await openCatalogDeletionPreview('projects',btn.dataset.id,loadProjects);
         });
     });
 
@@ -284,18 +276,16 @@ function renderDefinitionsTable(definitions) {
         });
     });
 
+    tbody.querySelectorAll('tr[data-definition-id]').forEach(row=>{
+        const cell=row.lastElementChild;if(!cell)return;
+        const button=document.createElement('button');button.type='button';button.className='btn btn-secondary btn-sm';button.textContent='نسخه‌های نقشه';
+        button.addEventListener('click',e=>{e.stopPropagation();openDrawingRevisionHistory(row.dataset.definitionId);});cell.appendChild(button);
+    });
+
     tbody.querySelectorAll(".btn-delete-definition").forEach((btn) => {
         btn.addEventListener("click", async (e) => {
             e.stopPropagation();
-            if (!confirm("آیا از حذف این تعریف قطعه مطمئن هستید؟")) return;
-
-            try {
-                await PieceDefinitionAPI.delete(btn.dataset.id);
-                showToast("تعریف قطعه با موفقیت حذف شد");
-                openProjectDetail(AppState.currentProjectId);
-            } catch (error) {
-                showToast(error.message, "error");
-            }
+            await openCatalogDeletionPreview('definitions',btn.dataset.id,()=>openProjectDetail(AppState.currentProjectId));
         });
     });
 
