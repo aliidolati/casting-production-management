@@ -78,7 +78,7 @@ function attachHeatTreatmentLogIconEvents(piece) {
 function syncDashboardFurnaceShortcut() {
     const btn = document.getElementById("btn-dashboard-furnaces");
     if (!btn) return;
-    btn.classList.toggle("hidden", !canManageHeatTreatmentLog());
+    btn.classList.toggle("hidden", !(canManageHeatTreatmentLog() || hasPermission("VIEW_DASHBOARD") || hasPermission("EDIT_HEAT_TREATMENT_BATCH")));
 }
 
 /* ===========================
@@ -122,7 +122,8 @@ async function openHeatTreatmentLogModal(piece) {
 
 async function openFurnaceDashboardModal() {
     if (!canManageHeatTreatmentLog()) {
-        showToast("شما اجازه‌ی ثبت عملیات حرارتی را ندارید", "error");
+        if(hasPermission('VIEW_DASHBOARD') || hasPermission('EDIT_HEAT_TREATMENT_BATCH')) return openHeatBatchArchive();
+        showToast("شما اجازه مشاهده محموله‌های کوره را ندارید", "error");
         return;
     }
 

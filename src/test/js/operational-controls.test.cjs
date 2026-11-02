@@ -15,3 +15,8 @@ test('batch preview shows every affected member and submits reviewed IDs with ve
 test('stale cycle cannot proceed to confirmation or submit an update',async()=>{
  const x=setup();await x.c.previewHeatBatchChange('batch',{treatmentDate:'2026-11-02'},1);assert.equal(x.html(),'');assert.equal(x.updates.length,0);
 });
+
+test('batch-only editors can reach the archive without per-piece heat-entry permission',async()=>{
+ let archiveOpened=false,hidden=true;const c={hasPermission:p=>p==='EDIT_HEAT_TREATMENT_BATCH',document:{addEventListener(){},getElementById:()=>({classList:{toggle:(name,value)=>{hidden=value;}}})},showToast:()=>{throw Error('unexpected rejection');},openHeatBatchArchive:async()=>{archiveOpened=true;}};
+ vm.createContext(c);vm.runInContext(fs.readFileSync('src/main/resources/static/js/heat-treatment-log.js','utf8'),c);c.syncDashboardFurnaceShortcut();assert.equal(hidden,false);await c.openFurnaceDashboardModal();assert.equal(archiveOpened,true);
+});
