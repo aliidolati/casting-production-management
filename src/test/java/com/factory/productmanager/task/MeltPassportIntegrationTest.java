@@ -31,7 +31,7 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         second = new Piece(); second.setPieceDefinition(first.getPieceDefinition()); second.setPieceNumber(2); second.setCurrentStage(PieceStage.CASTING);
         pieceRepository.saveAndFlush(first); pieceRepository.saveAndFlush(second);
         manager.getPermissions().addAll(Set.of(Permission.APPROVE_MELT_PASSPORT, Permission.VIEW_DASHBOARD)); userRepository.saveAndFlush(manager);
-        worker.getPermissions().add(Permission.MOVE_PIECE_STAGE); userRepository.saveAndFlush(worker);
+        worker.getPermissions().addAll(Set.of(Permission.MOVE_PIECE_STAGE,Permission.MANAGE_MELT_MATERIALS)); userRepository.saveAndFlush(worker);
     }
 
     MeltPassportRequest body(Piece... selected) {
@@ -209,7 +209,7 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         var m=pending(first); assertEquals(MeltPassportStatus.APPROVED,service.approve(m.id(),decision(m),admin.getUsername()).status());
     }
 
-    @Test void materialIdentitySnapshotsNormalizationUnitsAndReportDoNotMultiplyByPieces() {
+    @Test void materialIdentitySnapshotsNormalizationUnitsAndReportDoNotMultiplyByPieces() throws Exception {
         var material=service.createMaterial(new MeltMaterialRequest("  پودر   منگنز ","افزودنی"),worker.getUsername());
         var duplicate=service.createMaterial(new MeltMaterialRequest("پودر منگنز","دیگر"),worker.getUsername());
         assertEquals(material.id(),duplicate.id());
@@ -220,7 +220,7 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         r.setVersion(m.version()); m=service.update(m.id(),r,worker.getUsername());
         m=service.submit(m.id(),decision(m),worker.getUsername()); m=service.approve(m.id(),decision(m),admin.getUsername());
         service.setMaterialActive(material.id(),false,admin.getUsername());
-        var materialEntity=materials.findById(material.id()).orElseThrow();materialEntity.setName("نام جدید");materials.saveAndFlush(materialEntity);
+        call(patch("/api/melt-passports/materials/"+material.id()),admin,Map.of("name","نام جدید","category","دسته جدید")).andExpect(status().isNoContent());
         assertEquals("پودر   منگنز",service.get(m.id(),worker.getUsername()).materials().get(0).materialName());
         var f=new MeltPassportFilter();f.setPieceId(first.getId());f.setMaterialId(material.id());
         var totals=service.consumption(f,manager.getUsername());

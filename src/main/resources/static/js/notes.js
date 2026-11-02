@@ -17,6 +17,7 @@ function resetNotesState() {
    =========================== */
 
 function renderNotesSection(pieceId, notes) {
+    NotesState.notes = notes;
     const canManage = hasPermission("MANAGE_PIECE_NOTES");
     return `
         <div class="profile-notes">
@@ -53,7 +54,7 @@ function renderNotesList(notes) {
             <div class="note-meta">
                 ${n.createdBy ? `<span class="note-author">${escapeHtml(n.createdBy)}</span>` : ""}
                 <span class="note-time">${formatDateTime(n.createdAt)}</span>
-                ${n.canDelete ? `<button type="button" class="btn btn-danger btn-sm btn-delete-note" data-id="${n.id}">حذف</button>` : ""}
+                ${n.canDelete ? `<button type="button" class="btn btn-secondary btn-sm btn-edit-note" data-id="${n.id}">اصلاح</button><button type="button" class="btn btn-danger btn-sm btn-delete-note" data-id="${n.id}">حذف</button>` : ""}
             </div>
         </div>
     `
@@ -88,6 +89,10 @@ function attachNotesSectionEvents(pieceId) {
     }
 
     attachDeleteNoteEvents(pieceId);
+    document.querySelectorAll('.btn-edit-note').forEach(btn=>btn.addEventListener('click',()=>{
+        const note=NotesState.notes.find(n=>n.id===btn.dataset.id);
+        openRecordEdit('notes',note,[{key:'content',label:'متن یادداشت',required:true}],()=>openPieceProfile(pieceId));
+    }));
 
     const form = document.getElementById("form-add-note");
     if (form) {

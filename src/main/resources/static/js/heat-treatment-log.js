@@ -103,6 +103,7 @@ async function openHeatTreatmentLogModal(piece) {
         return;
     }
 
+    HeatLogState.records = records;
     HeatLogState.mode = "profile";
     HeatLogState.profilePiece = piece;
     HeatLogState.treatmentDateIso = null;
@@ -352,7 +353,7 @@ function renderHeatTreatmentCard(r) {
                 </div>
                 ${
                     r.canDelete
-                        ? `<button type="button" class="btn btn-danger btn-sm btn-delete-heat-log" data-id="${r.id}">حذف</button>`
+                        ? `<button type="button" class="btn btn-secondary btn-sm btn-edit-heat-log" data-id="${r.id}">اصلاح</button><button type="button" class="btn btn-danger btn-sm btn-delete-heat-log" data-id="${r.id}">حذف</button>`
                         : ""
                 }
             </div>
@@ -399,6 +400,12 @@ function attachHeatTreatmentLogPanelEvents(piece) {
     });
     document.getElementById("btn-heat-log-close")?.addEventListener("click", () => closeModal());
 
+    document.querySelectorAll('.btn-edit-heat-log').forEach(btn=>btn.addEventListener('click',()=>{
+        const record=HeatLogState.records.find(r=>r.id===btn.dataset.id);
+        const options=[{value:'',label:'بدون ارتباط'},...HeatLogState.dispositions.map(d=>({value:d.id,label:`تعیین‌تکلیف تست ${d.testIndex ?? ''}`}))];
+        if(record.tensileDispositionId&&!options.some(o=>o.value===record.tensileDispositionId))options.push({value:record.tensileDispositionId,label:'تعیین‌تکلیف فعلی'});
+        openRecordEdit('heat-treatments',record,[{key:'treatmentStage',label:'مرحله عملیات روی قطعه',max:50},{key:'testPlateLabel',label:'شماره پلیت',max:20},{key:'testPlateHardnessHb',label:'سختی HB',number:true},{key:'details',label:'توضیحات',max:10000},{key:'tensileDispositionId',label:'تعیین‌تکلیف مرتبط',options}],()=>openHeatTreatmentLogModal(piece));
+    }));
     document.querySelectorAll(".btn-delete-heat-log").forEach((btn) => {
         btn.addEventListener("click", async () => {
             if (!confirm("آیا از حذف این رکورد عملیات حرارتی مطمئن هستید؟")) return;

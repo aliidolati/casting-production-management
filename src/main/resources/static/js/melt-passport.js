@@ -295,7 +295,9 @@ function attachMeltEditEvents(state) {
     document.getElementById('melt-submit')?.addEventListener('click', () => runMeltAction(state, 'submit'));
     document.getElementById('melt-calculate').addEventListener('click', () => runMeltAction(state, 'calculate-magnesium'));
     document.getElementById('melt-add-material').addEventListener('click', () => addMeltMaterialRow(state));
+    document.getElementById('melt-new-material').hidden = !hasPermission('MANAGE_MELT_MATERIALS');
     document.getElementById('melt-new-material').addEventListener('click', () => {
+        if(!hasPermission('MANAGE_MELT_MATERIALS')) return;
         document.getElementById('melt-new-material-form').innerHTML = `<div class="melt-grid">${meltField('new-material-name', 'نام ماده جدید', '', 'text', 'maxlength="160"')}${meltField('new-material-category', 'دسته‌بندی', '', 'text', 'list="melt-categories" maxlength="100"')}<datalist id="melt-categories"><option value="جوانه‌زا"></option><option value="کاورال"></option><option value="سایر افزودنی‌ها"></option></datalist></div><button type="button" class="btn btn-secondary btn-sm" id="melt-save-material">ثبت ماده و افزودن ردیف</button>`;
         document.getElementById('melt-save-material').addEventListener('click', async e => {
             await withButtonLoader(e.currentTarget, async () => {
@@ -440,7 +442,7 @@ async function openMeltPassportRegister() {
             ${meltField('filter-ingot', 'نوع شمش (نام کامل)', '')}${meltField('filter-operator', 'اپراتور (نام کامل)', '')}
             ${meltField('filter-piece', 'شماره کامل قطعه', '', 'text', 'placeholder="498-2-54"')}
             <div class="form-group"><label for="melt-filter-material">ماده مصرفی</label><select id="melt-filter-material"><option value="">همه مواد</option></select></div>
-        </div><div class="form-actions"><button type="button" class="btn btn-primary" id="melt-filter-apply">اعمال فیلتر</button><button type="button" class="btn btn-secondary" id="melt-consumption">گزارش مصرف مواد</button>${isManager() ? '<button type="button" class="btn btn-secondary" id="melt-catalog-manage">مدیریت فهرست مواد</button>' : ''}</div>
+        </div><div class="form-actions"><button type="button" class="btn btn-primary" id="melt-filter-apply">اعمال فیلتر</button><button type="button" class="btn btn-secondary" id="melt-consumption">گزارش مصرف مواد</button>${hasPermission('MANAGE_MELT_MATERIALS') ? '<button type="button" class="btn btn-secondary" id="melt-catalog-manage">مدیریت فهرست مواد</button>' : ''}</div>
         <div id="melt-register-results" aria-live="polite"></div><div class="form-actions"><button type="button" class="btn btn-secondary" id="melt-page-prev">قبلی</button><span id="melt-page-label"></span><button type="button" class="btn btn-secondary" id="melt-page-next">بعدی</button></div><div id="melt-consumption-results"></div></div>`, { size: 'xl' });
     const root = document.querySelector('.melt-register');
     const error = e => { if (root.isConnected) meltShowError(e); };
@@ -487,8 +489,10 @@ async function openMeltPassportRegister() {
 
 async function openMeltMaterialCatalog() {
     try {
+        if(!hasPermission('MANAGE_MELT_MATERIALS')) throw Error('مجوز مدیریت کاتالوگ مواد لازم است');
         const rows = await MeltPassportAPI.materials();
-        openModal('فهرست مواد ذوب', `<p class="form-hint">غیرفعال‌کردن ماده، سوابق مصرف آن را تغییر نمی‌دهد.</p><table class="data-table"><thead><tr><th>ماده</th><th>دسته</th><th>وضعیت</th><th></th></tr></thead><tbody>${rows.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.category)}</td><td>${c.active ? 'فعال' : 'غیرفعال'}</td><td><button type="button" class="btn btn-secondary btn-sm" data-melt-toggle="${c.id}">${c.active ? 'غیرفعال کردن' : 'فعال کردن'}</button></td></tr>`).join('')}</tbody></table>`, { size: 'lg' });
+        openModal('فهرست مواد ذوب', `<p class="form-hint">غیرفعال‌کردن ماده، سوابق مصرف آن را تغییر نمی‌دهد.</p><table class="data-table"><thead><tr><th>ماده</th><th>دسته</th><th>وضعیت</th><th></th></tr></thead><tbody>${rows.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.category)}</td><td>${c.active ? 'فعال' : 'غیرفعال'}</td><td><button type="button" class="btn btn-secondary btn-sm" data-melt-edit="${c.id}">اصلاح</button><button type="button" class="btn btn-secondary btn-sm" data-melt-toggle="${c.id}">${c.active ? 'غیرفعال کردن' : 'فعال کردن'}</button></td></tr>`).join('')}</tbody></table>`, { size: 'lg' });
+        document.querySelectorAll('[data-melt-edit]').forEach(btn=>btn.addEventListener('click',()=>openRecordEdit('materials',rows.find(c=>c.id===btn.dataset.meltEdit),[{key:'name',label:'نام ماده',required:true,max:160},{key:'category',label:'دسته',required:true,max:100}],openMeltMaterialCatalog)));
         document.querySelectorAll('[data-melt-toggle]').forEach(btn => btn.addEventListener('click', async () => {
             try { const c = rows.find(x => x.id === btn.dataset.meltToggle); await MeltPassportAPI.setMaterialActive(c.id, !c.active); await openMeltMaterialCatalog(); }
             catch (e) { meltShowError(e); }

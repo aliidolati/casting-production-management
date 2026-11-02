@@ -1,5 +1,7 @@
 # Inspected local MySQL structure — 2026-10-30
 
+Update 2026-11-02: category 4 adds audited note, welding mark, per-piece heat-treatment and material-catalog corrections; catalog writes require MANAGE_MELT_MATERIALS. V40 adds record_edit_events (50 tables, 65 FKs in synthetic fixture). See [CRUD editing](CRUD_EDITING.md) for contracts and upgrade limits.
+
 Update 2026-11-01: category 1 introduces MANAGER (full access), explicit-grant ADMIN/OPERATOR, manager-only account management and access audit. Historical ADMIN-as-full-access descriptions below are superseded by [User access](USER_ACCESS.md). V38 and the sanitized fixture include the new audit table; runtime upgrade requires explicit initial-manager selection. Local Java/MySQL validation is blocked by missing Maven dependencies; see the linked implementation/upgrade notes.
 
 Update 2026-10-31: Feature extension (not a new production inspection): V37 adds two scrap tables and three FKs; the synthetic fixture totals 48 tables/65 FKs. Original inspected tables below are unchanged. See [scrap](SCRAP.md) for the new columns and lifecycle.

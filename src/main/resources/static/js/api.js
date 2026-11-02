@@ -11,6 +11,11 @@ const API_BASE_URL = `${window.location.origin}/api`;
 // کلید ذخیره‌ی توکن JWT در localStorage (auth.js هم از همین کلید استفاده می‌کند)
 const AUTH_TOKEN_KEY = "pm_auth_token";
 
+const RecordEditAPI = {
+    update: (kind, id, body) => apiRequest(`/${kind === 'materials' ? 'melt-passports/materials' : kind}/${encodeURIComponent(id)}`, 'PATCH', body),
+    history: (kind, id, page = 0) => apiRequest(`/record-edits/${kind}/${encodeURIComponent(id)}?page=${page}&size=10`),
+};
+
 const MeltPassportAPI = {
     assign: (id, assigneeId, version) => apiRequest(`/melt-passports/${encodeURIComponent(id)}/assignment`, 'POST', { assigneeId, version }),
     assignPiece: (id, assigneeId, version = null) => apiRequest(`/melt-passports/piece/${encodeURIComponent(id)}/assignment`, 'POST', { assigneeId, version }),
