@@ -62,7 +62,7 @@ function canManageRadiographyTemplates() {
 function canFillRadiographyReport() {
     // گزارشِ «در انتظار تأیید مدیر» قفل است (سرور هم همین را اعمال می‌کند)
     const locked = (RadiographyReportState.reports || []).some((r) => r.status === "PENDING_MANAGER_APPROVAL");
-    return hasPermission("MANAGE_RADIOGRAPHY_DEFECTS") && !locked;
+    return hasPermission("MANAGE_RADIOGRAPHY_DEFECTS") && (isManager() || !locked);
 }
 
 function rtMmToPx(mm) {

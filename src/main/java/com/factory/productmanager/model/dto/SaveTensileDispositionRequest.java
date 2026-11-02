@@ -17,6 +17,8 @@ import java.util.UUID;
 @Setter
 public class SaveTensileDispositionRequest {
     private ScrapRequest scrap;
+    /** Explicit operational decision; ordinary edits of existing decisions never move a piece. */
+    private Boolean applyStageMove;
     @NotNull(message = "تاریخ تعیین‌تکلیف نمی‌تواند خالی باشد")
     private LocalDate dispositionDate;
 

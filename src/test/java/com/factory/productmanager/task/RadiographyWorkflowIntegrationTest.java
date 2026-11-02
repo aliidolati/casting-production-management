@@ -365,12 +365,12 @@ class RadiographyWorkflowIntegrationTest extends TaskTestBase {
                 .andExpect(status().isBadRequest());
         call(delete("/api/tasks/" + taskId), admin).andExpect(status().isBadRequest());
 
-        // پس از تأیید مفسر، گزارش برای همه قفل است
+        // پس از تأیید مفسر، گزارش برای غیرمدیر قفل است
         uploadSignature(interpreter);
         act("/api/radiography/workflows/" + wf + "/interpreter-approve", interpreter, Map.of("confirmed", true))
                 .andExpect(status().isOk());
         saveReport(interpreter, "RT").andExpect(status().isBadRequest());
-        saveReport(admin, "RT").andExpect(status().isBadRequest());
+        saveReport(admin, "RT").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDING_MANAGER_APPROVAL"));
         // و تأیید دوباره‌ی مفسر (دوبار کلیک) رد می‌شود
         act("/api/radiography/workflows/" + wf + "/interpreter-approve", interpreter, Map.of("confirmed", true))
                 .andExpect(status().isBadRequest());
@@ -460,4 +460,84 @@ class RadiographyWorkflowIntegrationTest extends TaskTestBase {
         call(delete("/api/profile/signature"), interpreter).andExpect(status().isNoContent());
         call(get("/api/profile/signature"), interpreter).andExpect(jsonPath("$.present").value(false));
     }
+    private Map<String,Object> defectBody() {
+        return Map.of("course","C1","defectType","CR","status","NEEDS_WELDING");
+    }
+    private String createStandaloneDefect(User as) throws Exception {
+        return JsonPath.read(call(post("/api/pieces/"+piece.getId()+"/radiography-defects"),as,defectBody())
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(),"$.id");
+    }
+    @Test void allPendingReportAndDefectMutationsRejectNonManagersIncludingAdmin() throws Exception {
+        String wf=assign(reviewer,interpreter);
+        String defect=createStandaloneDefect(interpreter);
+        issue(wf);
+        User limitedAdmin=newUser("rt-admin-"+UUID.randomUUID(),Role.ADMIN,Set.of(Permission.MANAGE_RADIOGRAPHY_DEFECTS));
+        String reportId=JsonPath.read(call(get("/api/pieces/"+piece.getId()+"/radiography-reports"),admin)
+                .andReturn().getResponse().getContentAsString(),"$[0].id");
+        for(User as:List.of(interpreter,editorOnly,limitedAdmin)) {
+            saveReport(as,"RT").andExpect(status().isBadRequest());
+            call(post("/api/pieces/"+piece.getId()+"/radiography-defects"),as,defectBody()).andExpect(status().isBadRequest());
+            call(patch("/api/radiography-defects/"+defect),as,defectBody()).andExpect(status().isBadRequest());
+            call(delete("/api/radiography-defects/"+defect),as).andExpect(status().isBadRequest());
+            call(patch("/api/radiography-defects/"+defect+"/confirm-welding"),as).andExpect(status().isBadRequest());
+            call(delete("/api/radiography-reports/"+reportId),as).andExpect(status().isBadRequest());
+        }
+        call(get("/api/pieces/"+piece.getId()+"/radiography-defects"),admin)
+                .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].weldingConfirmed").value(false));
+        call(get("/api/radiography/workflows/"+wf),reviewer).andExpect(jsonPath("$.status").value("MANAGER_REVIEW"));
+    }
+    @Test void fullManagerMayEditPendingReportAndDefectsWithoutReopeningWorkflow() throws Exception {
+        String wf=assign(reviewer,interpreter);String defect=createStandaloneDefect(interpreter);issue(wf);
+        saveReport(admin,"RT").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDING_MANAGER_APPROVAL"));
+        call(patch("/api/radiography-defects/"+defect),admin,defectBody()).andExpect(status().isOk());
+        call(patch("/api/radiography-defects/"+defect+"/confirm-welding"),admin).andExpect(status().isOk());
+        call(delete("/api/radiography-defects/"+defect),admin).andExpect(status().isNoContent());
+        createStandaloneDefect(admin);
+        call(get("/api/radiography/workflows/"+wf),admin).andExpect(jsonPath("$.status").value("MANAGER_REVIEW"))
+                .andExpect(jsonPath("$.permissions.canEditReport").value(true));
+        call(get("/api/radiography/workflows/"+wf),interpreter).andExpect(jsonPath("$.permissions.canEditReport").value(false));
+    }
+    @Test void templateSideDoorAndReadSynchronizationCannotAlterPendingReportForNonManager() throws Exception {
+        String wf=assign(reviewer,interpreter);issue(wf);
+        User designer=newUser("rt-designer-"+UUID.randomUUID(),Role.ADMIN,Set.of(Permission.MANAGE_PIECE_DEFINITIONS));
+        var template=Map.of("name","Tpl","lines",List.of(Map.of("id",templateLineId,"courseCode","C1"),Map.of("courseCode","C2")));
+        call(put("/api/radiography-templates/"+templateId),designer,template).andExpect(status().isBadRequest());
+        call(post("/api/piece-definitions/"+piece.getPieceDefinition().getId()+"/radiography-templates"),designer,
+                Map.of("name","Another","lines",List.of(Map.of("courseCode","C3")))).andExpect(status().isBadRequest());
+        call(put("/api/radiography-templates/"+templateId),admin,template).andExpect(status().isOk());
+        call(get("/api/pieces/"+piece.getId()+"/radiography-reports"),interpreter).andExpect(jsonPath("$[0].lines.length()").value(1));
+        saveReport(admin,"RT").andExpect(status().isOk()).andExpect(jsonPath("$.lines.length()").value(2));
+    }
+    @Test void reportAndDefectEditingReopensForAssignedInterpreterAfterRejection() throws Exception {
+        String wf=assign(reviewer,interpreter);issue(wf);
+        act("/api/radiography/workflows/"+wf+"/manager-reject",reviewer,Map.of("reason","اصلاح لازم است"))
+                .andExpect(status().isOk());
+        saveReport(interpreter,"RT").andExpect(status().isOk());createStandaloneDefect(interpreter);
+        saveReport(editorOnly,"RT").andExpect(status().isForbidden());
+    }
+    private void rejectSamePersonFinalApproval(Role role) throws Exception {
+        interpreter.setRole(role);
+        interpreter.getPermissions().add(Permission.REVIEW_RADIOGRAPHY_REPORT);
+        userRepository.saveAndFlush(interpreter);
+        String wf=assign(interpreter,interpreter);issue(wf);
+        call(get("/api/radiography/workflows/"+wf),interpreter)
+                .andExpect(jsonPath("$.permissions.canReview").value(true))
+                .andExpect(jsonPath("$.permissions.canApprove").value(false));
+        act("/api/radiography/workflows/"+wf+"/manager-approve",interpreter,Map.of("confirmed",true)).andExpect(status().isForbidden());
+        call(get("/api/radiography/workflows/"+wf),admin).andExpect(jsonPath("$.approvals.length()").value(1));
+        var assigned=workflowRepository.findById(UUID.fromString(wf)).orElseThrow().getManagerTask().getAssignedTo();
+        assertThat(assigned.getId()).isNotEqualTo(interpreter.getId());
+        assertThat(reloadPiece().getRadiographySubStage()).isEqualTo(RadiographySubStage.INTERPRETATION);
+    }
+    @Test void interpreterWithReviewGrantCannotAlsoApproveOwnReport() throws Exception { rejectSamePersonFinalApproval(Role.OPERATOR); }
+    @Test void adminWithBothGrantsIsNotExemptFromTwoPersonApproval() throws Exception { rejectSamePersonFinalApproval(Role.ADMIN); }
+    @Test void fullManagerMaySignAsInterpreterAndFinalApproverUsingOwnIdentity() throws Exception {
+        String wf=assign(admin,admin);saveReport(admin,"RS").andExpect(status().isOk());uploadSignature(admin);
+        act("/api/radiography/workflows/"+wf+"/interpreter-approve",admin,Map.of("confirmed",true)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.permissions.canApprove").value(true));
+        act("/api/radiography/workflows/"+wf+"/manager-approve",admin,Map.of("confirmed",true)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.interpreterApproval.approverUsername").value(admin.getUsername()))
+                .andExpect(jsonPath("$.managerApproval.approverUsername").value(admin.getUsername()));
+    }
+
 }

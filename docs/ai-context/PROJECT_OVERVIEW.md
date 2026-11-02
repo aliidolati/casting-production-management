@@ -1,5 +1,7 @@
 # Project overview
 
+Update 2026-11-01 (selected 3–1/3–3/3–6): report/defect/template review locks and separate-person final RT approval now exempt only MANAGER. Historical tensile disposition edits are record-only unless an explicit current/latest-test movement is requested; no manager bypass. See [Quality workflow guards](QUALITY_WORKFLOW_GUARDS.md), which supersedes older guard/gap descriptions below.
+
 Update 2026-11-01: category 1 introduces MANAGER (full access), explicit-grant ADMIN/OPERATOR, manager-only account management and access audit. Historical ADMIN-as-full-access descriptions below are superseded by [User access](USER_ACCESS.md). V38 and the sanitized fixture include the new audit table; runtime upgrade requires explicit initial-manager selection. Local Java/MySQL validation is blocked by missing Maven dependencies; see the linked implementation/upgrade notes.
 
 Update 2026-10-30 (Cloud preparation): runtime datasource/JWT literals were externalized and the default bootstrap password was removed. The prior user-requested inline-key configuration described below is historical and superseded by this task. A real read-only local MySQL inspection/backup found 46 InnoDB tables and a single Flyway baseline at version 22. Reviewed record-free structural fixtures, isolated MySQL tests, Cloud setup and GitHub Actions are documented in [Cloud testing](CLOUD_TESTING.md) and [inspected schema inventory](MYSQL_SCHEMA_INVENTORY.md). No source database DDL/DML or runtime application startup was performed.

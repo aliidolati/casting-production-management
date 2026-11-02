@@ -60,7 +60,8 @@ public class TensileTestService {
      * وگرنه در وضعیت «در انتظار تعیین‌تکلیف» برای مسئول کشش می‌ماند.
      */
     public TensileTestResponse createTest(UUID pieceId, CreateTensileTestRequest request, String username) {
-        Piece piece = findPieceOrThrow(pieceId);
+        Piece piece = pieceRepository.lockById(pieceId)
+                .orElseThrow(() -> new ResourceNotFoundException("قطعه پیدا نشد"));
 
         if (piece.getCurrentStage() != PieceStage.TENSILE) {
             throw new IllegalStateException(
@@ -106,7 +107,7 @@ public class TensileTestService {
      * در انتظار بررسی باشد و چه مسئول کشش روی آن تصمیم گرفته باشد.
      */
     public TensileTestResponse updateTest(UUID tensileTestId, CreateTensileTestRequest request) {
-        TensileTest test = findTestOrThrow(tensileTestId);
+        TensileTest test = lockTestWithPiece(tensileTestId);
         List<TensileTestSample> samples = test.getSamples();
         List<TensileSampleDto> incoming = request.getSamples();
 
@@ -146,12 +147,22 @@ public class TensileTestService {
 
     /**
      * ثبت یا ویرایش تعیین‌تکلیف یک تست. وضعیت نهایی تست از «نتیجه بازرسی»
-     * گرفته می‌شود و «مرحله بعدی» قطعه را در خط تولید جابه‌جا می‌کند.
+     * گرفته می‌شود. اصلاح سابقه قطعه را جابه‌جا نمی‌کند؛ انتقال نیازمند تصمیم جاری و معتبر است.
      */
     public TensileTestResponse saveDisposition(UUID tensileTestId, SaveTensileDispositionRequest request, String username) {
-        TensileTest test = findTestOrThrow(tensileTestId);
+        TensileTest test = lockTestWithPiece(tensileTestId);
 
         TensileTestDisposition disposition = test.getDisposition();
+        boolean existingDecision = disposition != null;
+        Piece piece = test.getPiece();
+        var latest = tensileTestRepository.findLatestForUpdate(piece.getId(), org.springframework.data.domain.PageRequest.of(0, 1));
+        boolean eligibleMovement = piece.getCurrentStage() == PieceStage.TENSILE && piece.getArchivedAt() == null
+                && !latest.isEmpty() && latest.get(0).getId().equals(test.getId());
+        boolean movePiece = Boolean.TRUE.equals(request.getApplyStageMove())
+                || (request.getApplyStageMove() == null && !existingDecision && eligibleMovement);
+        if (Boolean.TRUE.equals(request.getApplyStageMove()) && !eligibleMovement) {
+            throw new IllegalStateException("اعمال انتقال فقط برای آخرین تست و قطعه فعال در مرحله کشش مجاز است؛ اصلاح تاریخی را بدون انتقال ذخیره کنید");
+        }
         if (disposition == null) {
             disposition = new TensileTestDisposition();
             disposition.setTensileTest(test);
@@ -177,7 +188,7 @@ public class TensileTestService {
         test.setReviewedBy(resolveDisplayName(username));
 
         TensileTest saved = tensileTestRepository.save(test);
-        applyTensileStageMove(saved.getPiece().getId(), request.getNextStage(), username, request.getScrap());
+        if (movePiece) applyTensileStageMove(saved.getPiece().getId(), request.getNextStage(), username, request.getScrap());
         return toResponse(saved);
     }
 
@@ -187,7 +198,7 @@ public class TensileTestService {
      * مانع اصلاح نیست، چون هنوز هیچ انسانی آن را امضا نکرده است.
      */
     public void deleteTest(UUID tensileTestId) {
-        TensileTest test = findTestOrThrow(tensileTestId);
+        TensileTest test = lockTestWithPiece(tensileTestId);
         if (!isDeletable(test)) {
             throw new IllegalStateException("تست کششی که تعیین‌تکلیف شده قابل حذف نیست");
         }
@@ -461,10 +472,16 @@ public class TensileTestService {
                 .orElseThrow(() -> new ResourceNotFoundException("قطعه‌ای با شناسه " + pieceId + " پیدا نشد"));
     }
 
-    private TensileTest findTestOrThrow(UUID tensileTestId) {
-        return tensileTestRepository.findById(tensileTestId)
-                .orElseThrow(() -> new ResourceNotFoundException("تست کششی با شناسه " + tensileTestId + " پیدا نشد"));
+    /** Consistent lock order: piece first, then tests. Creates use the same piece lock. */
+    private TensileTest lockTestWithPiece(UUID testId) {
+        UUID pieceId = tensileTestRepository.findPieceIdForTest(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("تست کششی پیدا نشد"));
+        pieceRepository.lockById(pieceId).orElseThrow(() -> new ResourceNotFoundException("قطعه پیدا نشد"));
+        return tensileTestRepository.findByIdForUpdate(testId)
+                .orElseThrow(() -> new ResourceNotFoundException("تست کششی پیدا نشد"));
     }
+
+
 
     private String resolveDisplayName(String username) {
         return userRepository.findByUsername(username)
