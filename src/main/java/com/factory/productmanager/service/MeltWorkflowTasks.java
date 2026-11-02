@@ -54,6 +54,12 @@ class MeltWorkflowTasks {
                 });
     }
 
+    void cancelled(MeltPassport m, User actor, String reason) {
+        var op=new OperationClock(clock);
+        for(var type:java.util.List.of(TaskType.MELT_PASSPORT_ENTRY,TaskType.MELT_PASSPORT_APPROVAL))
+            tasks.findByWorkflowIdAndTaskType(m.getId(),type).forEach(t->operations.cancel(t,actor,reason,op));
+    }
+
     void syncPiece(MeltPassport m) {
         for (var t : tasks.findByWorkflowIdAndTaskType(m.getId(), TaskType.MELT_PASSPORT_ENTRY)) {
             var p = m.getPieces().get(0).getPiece();

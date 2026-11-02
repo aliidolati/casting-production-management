@@ -1,5 +1,7 @@
 # Melt passports
 
+Update 2026-11-02: category 5 adds reasoned melt/welding cancellation, heat-batch archive/details, and previewed/audited shared-cycle corrections with separate permissions. See [Operational controls](OPERATIONAL_CONTROLS.md) for V41, compatibility and limits.
+
 ## New-passport assignment compatibility fix — 2026-10-30
 
 A new passport immediately creates MELT_PASSPORT_ENTRY. An older MySQL native ENUM or Hibernate-generated CHECK on tasks.task_type can reject that new code (1265/3819). The shared exception handler maps these integrity errors to the generic 409 "changed/conflicting information" message, so that message alone does not prove another person edited the passport. The original H2/Chrome run recreated a current schema and did not exercise this upgrade condition. This failure was reproduced on isolated MySQL 8.0.31; the user's deployed schema has not been queried, so its exact failing constraint remains unverified.

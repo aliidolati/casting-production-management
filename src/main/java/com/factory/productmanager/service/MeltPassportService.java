@@ -342,6 +342,25 @@ public class MeltPassportService {
         return response(m, u);
     }
 
+    public MeltPassportResponse cancel(UUID id, MeltDecisionRequest r, String username) {
+        User u=actor(username);
+        if(u.getRole()!=Role.MANAGER && !u.getPermissions().contains(Permission.CANCEL_MELT_PASSPORT)) throw new AccessDeniedException("مجوز لغو شناسنامه ذوب لازم است");
+        var m=lock(id,r.version());
+        if(m.getStatus()==MeltPassportStatus.APPROVED || m.getStatus()==MeltPassportStatus.CANCELLED) throw new IllegalStateException("شناسنامه تأییدشده یا لغوشده قابل لغو نیست");
+        if(blank(r.reason())) throw new IllegalArgumentException("دلیل لغو لازم است");
+        var locked=lockPieces(m.getPieces().stream().map(l->l.getPiece().getId()).toList());
+        locked.forEach(this::assertCasting);
+        for(var link:m.getPieces()) {
+            if(!link.getPiece().getId().equals(link.getActivePieceKey())) throw new IllegalStateException("ارتباط فعال قطعه تغییر کرده است");
+        }
+        String before=m.getStatus().name();
+        m.setStatus(MeltPassportStatus.CANCELLED);
+        m.getPieces().forEach(l->l.setActivePieceKey(null));
+        var e=event(m,"CANCELLED",u,r.reason().trim());e.setOldValues("{\"status\":\""+before+"\"}");e.setNewValues("{\"status\":\"CANCELLED\"}");
+        workflowTasks.cancelled(m,u,r.reason().trim());passports.flush();
+        return response(m,u);
+    }
+
     public MeltPassportResponse returnForCorrection(UUID id, MeltDecisionRequest r, String username) {
         User u = actor(username); requireReviewer(u);
         var m = lock(id, r.version()); requirePending(m);
@@ -439,7 +458,7 @@ public class MeltPassportService {
         Map<Key,Set<UUID>> meltIds = new HashMap<>();
         Map<Key,String> names = new HashMap<>();
         // No join to pieces: every consumption line is counted exactly once per melt.
-        for (var m : melts) for (var line : m.getMaterials()) {
+        for (var m : melts) if(m.getStatus()!=MeltPassportStatus.CANCELLED) for (var line : m.getMaterials()) {
             if (f.getMaterialId() != null && !f.getMaterialId().equals(line.getMaterial().getId())) continue;
             var key = new Key(line.getMaterial().getId(),line.getBaseUnit());
             if (line.getBaseQuantity() == null) continue;
@@ -468,6 +487,8 @@ public class MeltPassportService {
                 m.getCreatedAt(),m.getCreatedBy(),m.getUpdatedAt(),m.getUpdatedBy(),m.getSubmittedAt(),m.getSubmittedBy(),m.getApprovedAt(),m.getApprovedBy(),m.getReturnedAt(),m.getReturnedBy(),m.getCorrectionReason(),editable,
                 reviewer(u) && m.getStatus() == MeltPassportStatus.PENDING_APPROVAL,
                 u.getRole() == Role.MANAGER && m.getStatus() == MeltPassportStatus.APPROVED,
-                m.getAssignedOperatorId(), m.getAssignedOperatorName(), u.getRole() == Role.MANAGER && editable);
+                m.getAssignedOperatorId(), m.getAssignedOperatorName(), u.getRole() == Role.MANAGER && editable,
+                (u.getRole()==Role.MANAGER || u.getPermissions().contains(Permission.CANCEL_MELT_PASSPORT))
+                 && m.getStatus()!=MeltPassportStatus.APPROVED && m.getStatus()!=MeltPassportStatus.CANCELLED);
     }
 }

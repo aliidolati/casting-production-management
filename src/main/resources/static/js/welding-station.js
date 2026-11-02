@@ -46,6 +46,7 @@ function renderWeldingStationSection(piece, dispatches = []) {
 
     return `
         <div class="profile-welding-station">
+            ${openDispatch && hasPermission('CANCEL_WELDING_DISPATCH') ? '<button type="button" class="btn btn-danger" id="btn-cancel-welding-dispatch">لغو اعزام اشتباه</button>' : ''}
             <div class="profile-info-label">ایستگاه جوشکاری</div>
             ${
                 openDispatch
@@ -95,7 +96,7 @@ function renderWeldingDispatchHistory(history) {
             <span class="history-meta">
                 ${d.sentBy ? `<span class="history-user">${escapeHtml(d.sentBy)}</span>` : ""}
                 <span class="history-time">ارسال ${formatDateTime(d.sentAt)}</span>
-                ${d.completedAt ? `<span class="history-time">اتمام ${formatDateTime(d.completedAt)}${d.completedBy ? " — " + escapeHtml(d.completedBy) : ""}</span>` : ""}
+                ${d.cancelledAt ? `<span class="history-time">لغو ${formatDateTime(d.cancelledAt)} — ${escapeHtml(d.cancelledBy || '')} — ${escapeHtml(d.cancellationReason || '')}</span>` : d.completedAt ? `<span class="history-time">اتمام ${formatDateTime(d.completedAt)}${d.completedBy ? " — " + escapeHtml(d.completedBy) : ""}</span>` : ""}
             </span>
         </div>`
         )
@@ -231,6 +232,10 @@ function openSendToWeldingPopup(piece, defects, editDispatch = null) {
 }
 
 function attachWeldingStationEvents(piece, defects = [], dispatches = []) {
+    document.getElementById('btn-cancel-welding-dispatch')?.addEventListener('click',()=>{
+        const d=dispatches.find(x=>x.open);if(!d)return;
+        openOperationCancellation('لغو اعزام جوشکاری',true,async reason=>{await OperationAPI.cancelWelding(piece.id,d.id,reason,true);await openPieceProfile(piece.id);});
+    });
     const editBtn = document.getElementById("btn-edit-welding-defect");
     const editableDispatch = dispatches.find(dispatch => dispatch.open);
     if (editBtn && editableDispatch) {

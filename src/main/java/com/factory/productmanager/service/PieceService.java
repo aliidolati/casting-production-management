@@ -1450,7 +1450,7 @@ public class PieceService {
     }
 
     public PieceResponse sendToWeldingStation(UUID pieceId, SendToWeldingRequest request, String username) {
-        Piece piece = findPieceOrThrow(pieceId);
+        Piece piece = pieceRepository.lockById(pieceId).orElseThrow(()->new ResourceNotFoundException("قطعه پیدا نشد"));
         assertNotArchived(piece);
         meltPassportGate.assertDepartureAllowed(piece, PieceStage.WELDING);
         radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
@@ -1480,6 +1480,7 @@ public class PieceService {
         dispatch.setNotes(notes);
         dispatch.setSentBy(displayName);
         dispatch.setOriginStage(oldStage);
+        dispatch.setOriginProcessDate(piece.getProcessDate());
         dispatch.setOriginRadiographySubStage(piece.getRadiographySubStage());
         dispatch.setOriginHeatTreatmentSubStage(piece.getHeatTreatmentSubStage());
         dispatch.setOriginRoughMachiningSubStage(piece.getRoughMachiningSubStage());
@@ -1487,7 +1488,8 @@ public class PieceService {
 
         piece.setCurrentStage(PieceStage.WELDING);
         applyDefaultProcessDateOnMove(piece, oldStage);
-        Piece saved = pieceRepository.save(piece);
+        Piece saved = pieceRepository.saveAndFlush(piece);
+        dispatch.setDispatchPieceVersion(saved.getVersion());
 
         PieceStageHistory history = new PieceStageHistory();
         history.setPiece(saved);
@@ -1528,7 +1530,7 @@ public class PieceService {
     }
 
     public PieceResponse completeWeldingStation(UUID pieceId, CompleteWeldingRequest request, String username) {
-        Piece piece = findPieceOrThrow(pieceId);
+        Piece piece = pieceRepository.lockById(pieceId).orElseThrow(()->new ResourceNotFoundException("قطعه پیدا نشد"));
         assertNotArchived(piece);
         if (piece.getCurrentStage() != PieceStage.WELDING) {
             throw new IllegalStateException("فقط قطعات موجود در ایستگاه جوشکاری قابل اتمام هستند");
@@ -1592,6 +1594,29 @@ public class PieceService {
                 .toList();
     }
 
+    private final WeldingCancellationGuard weldingCancellationGuard;
+
+    public PieceResponse cancelWeldingDispatch(UUID pieceId,UUID dispatchId,CancelWeldingRequest request,String username) {
+        if(!permissionService.hasPermission(username,Permission.CANCEL_WELDING_DISPATCH)) throw new com.factory.productmanager.exception.ForbiddenOperationException("مجوز لغو اعزام لازم است");
+        Piece p=pieceRepository.lockById(pieceId).orElseThrow(()->new ResourceNotFoundException("قطعه پیدا نشد"));
+        assertNotArchived(p);radiographyWorkflowGate.assertPieceNotInWorkflow(pieceId);
+        var d=pieceWeldingDispatchRepository.findFirstByPieceIdAndCompletedAtIsNullOrderBySentAtDesc(pieceId)
+            .filter(x->x.getId().equals(dispatchId)).orElseThrow(()->new ResourceNotFoundException("اعزام باز پیدا نشد"));
+        if(!Boolean.TRUE.equals(request.noWorkConfirmed())||request.reason()==null||request.reason().isBlank())throw new IllegalArgumentException("تأیید انجام‌نشدن عملیات و دلیل لغو لازم است");
+        if(p.getCurrentStage()!=PieceStage.WELDING || d.getDispatchPieceVersion()==null || d.getDispatchPieceVersion()!=p.getVersion() || d.getOriginStage()==null)
+            throw new IllegalStateException("وضعیت قطعه تغییر کرده یا اطلاعات مبدأ کافی نیست؛ لغو خودکار مجاز نیست");
+        weldingCancellationGuard.assertNoLaterWork(d);
+        d.setCancelledAt(LocalDateTime.now());d.setCancelledBy(resolveDisplayName(username));d.setCancellationReason(request.reason().trim());
+        d.setCompletedAt(d.getCancelledAt());d.setCompletedBy(d.getCancelledBy());
+        // An undo restores the original cycle, unlike a new trusted move into CASTING.
+        // Keep melt membership and existing dated snapshots; never confirm defects.
+        p.setCurrentStage(d.getOriginStage());p.setRadiographySubStage(d.getOriginRadiographySubStage());
+        p.setHeatTreatmentSubStage(d.getOriginHeatTreatmentSubStage());p.setRoughMachiningSubStage(d.getOriginRoughMachiningSubStage());
+        var restored=new PieceStageHistory();restored.setPiece(p);restored.setStage(d.getOriginStage());restored.setChangedBy(resolveDisplayName(username));pieceStageHistoryRepository.save(restored);
+        p.setProcessDate(d.getOriginProcessDate());pieceRepository.saveAndFlush(p);
+        return toResponse(p);
+    }
+
     private PieceWeldingDispatchResponse toWeldingDispatchResponse(UUID pieceId, PieceWeldingDispatch d) {
         List<UUID> defectIds = new ArrayList<>();
         List<String> defectLabels = new ArrayList<>();
@@ -1620,7 +1645,7 @@ public class PieceService {
                 d.getOriginStage(),
                 d.getOriginRadiographySubStage(),
                 d.getOriginHeatTreatmentSubStage(),
-                d.getOriginRoughMachiningSubStage()
+                d.getOriginRoughMachiningSubStage(),d.getCancelledAt(),d.getCancelledBy(),d.getCancellationReason()
         );
     }
 

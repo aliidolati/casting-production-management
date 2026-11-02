@@ -22,6 +22,10 @@ public interface PieceHeatTreatmentRepository extends JpaRepository<PieceHeatTre
         """)
     List<PieceHeatTreatment> findWithPieceByBatchIdOrderByCreatedAtAsc(@Param("batchId") UUID batchId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM PieceHeatTreatment r JOIN FETCH r.piece WHERE r.batch.id=:batchId ORDER BY r.id")
+    List<PieceHeatTreatment> lockMembers(@Param("batchId") UUID batchId);
+
     long countByBatchId(UUID batchId);
 
     boolean existsByBatchIdAndPieceId(UUID batchId, UUID pieceId);

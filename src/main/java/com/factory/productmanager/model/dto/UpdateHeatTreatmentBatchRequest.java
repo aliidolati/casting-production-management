@@ -14,6 +14,9 @@ import java.time.LocalDate;
 public class UpdateHeatTreatmentBatchRequest {
     @NotNull(message = "تاریخ عملیات نمی‌تواند خالی باشد")
     private LocalDate treatmentDate;
+    @NotNull private Long version;
+    @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max=2000) private String reason;
+    @NotNull private java.util.Set<java.util.UUID> confirmedPieceIds;
 
     private BigDecimal temperatureC;
 

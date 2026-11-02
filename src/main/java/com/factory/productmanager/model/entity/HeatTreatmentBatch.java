@@ -32,6 +32,9 @@ public class HeatTreatmentBatch {
     @Column(updatable = false, nullable = false)
     private UUID id;
 
+    @Version @Column(nullable=false,columnDefinition="bigint not null default 0")
+    private long version;
+
     /** شناسه‌ی محموله که کاربر وارد می‌کند، مثلاً «HT-1404-012» */
     @Column(name = "batch_code", nullable = false, length = 50)
     private String batchCode;

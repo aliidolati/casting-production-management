@@ -271,6 +271,10 @@ public class PieceController {
         return ResponseEntity.ok(pieceService.updateWeldingDispatch(id, dispatchId, request));
     }
 
+    @PostMapping("/{id}/welding-dispatches/{dispatchId}/cancel")
+    @PreAuthorize("@permissionChecker.has(authentication, 'CANCEL_WELDING_DISPATCH')")
+    public ResponseEntity<PieceResponse> cancelWelding(@PathVariable UUID id,@PathVariable UUID dispatchId,@Valid @RequestBody CancelWeldingRequest request,Authentication a){return ResponseEntity.ok(pieceService.cancelWeldingDispatch(id,dispatchId,request,a.getName()));}
+
     @PostMapping("/{id}/welding-station/complete")
     @PreAuthorize("@permissionChecker.has(authentication, 'MOVE_PIECE_STAGE')")
     public ResponseEntity<PieceResponse> completeWeldingStation(
