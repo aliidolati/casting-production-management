@@ -25,6 +25,8 @@ public class PieceDefinitionService {
     private final PieceDefinitionRepository pieceDefinitionRepository;
     private final ProjectService projectService;
     private final DrawingStorageService drawingStorageService;
+    private final DrawingHistoryService drawingHistory;
+    private final CatalogDeletionService deletion;
 
     public PieceDefinitionResponse createPieceDefinition(PieceDefinitionRequest request) {
         Project project = projectService.findProjectOrThrow(request.getProjectId());
@@ -96,16 +98,8 @@ public class PieceDefinitionService {
         return toResponse(saved);
     }
 
-    public PieceDefinitionResponse uploadDrawing(UUID id, MultipartFile file) {
-        PieceDefinition definition = findDefinitionOrThrow(id);
-
-        // اگر قبلاً فایلی با پسوند دیگر بوده، آن را پاک می‌کنیم تا orphan نماند
-        drawingStorageService.deleteIfExists(definition.getDrawingImagePath());
-
-        DrawingStorageService.StoredDrawing stored = drawingStorageService.storeDefinitionDrawing(id, file);
-        definition.setDrawingImagePath(stored.relativePath());
-        return toResponse(pieceDefinitionRepository.save(definition));
-    }
+    public PieceDefinitionResponse uploadDrawing(UUID id, MultipartFile file,String username) {return toResponse(drawingHistory.upload(id,file,username));}
+    public PieceDefinitionResponse restoreDrawing(UUID id,UUID revision,String username){return toResponse(drawingHistory.restore(id,revision,username));}
 
     @Transactional(readOnly = true)
     public Resource loadDrawingResource(UUID id) {
@@ -119,18 +113,9 @@ public class PieceDefinitionService {
         return drawingStorageService.mediaTypeFor(definition.getDrawingImagePath());
     }
 
-    public PieceDefinitionResponse deleteDrawing(UUID id) {
-        PieceDefinition definition = findDefinitionOrThrow(id);
-        drawingStorageService.deleteIfExists(definition.getDrawingImagePath());
-        definition.setDrawingImagePath(null);
-        return toResponse(pieceDefinitionRepository.save(definition));
-    }
+    public PieceDefinitionResponse deleteDrawing(UUID id,String username){return toResponse(drawingHistory.removeCurrent(id,username));}
 
-    public void deleteDefinition(UUID id) {
-        PieceDefinition definition = findDefinitionOrThrow(id);
-        drawingStorageService.deleteIfExists(definition.getDrawingImagePath());
-        pieceDefinitionRepository.delete(definition);
-    }
+    public void deleteDefinition(UUID id,String token) {deletion.delete(id,false,token);}
 
     @Transactional(readOnly = true)
     public PieceDefinition findDefinitionOrThrow(UUID id) {

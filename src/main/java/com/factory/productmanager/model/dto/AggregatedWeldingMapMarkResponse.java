@@ -16,6 +16,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AggregatedWeldingMapMarkResponse {
+    private UUID drawingRevisionId;
     private UUID id;
     private UUID pieceId;
     private Integer pieceNumber;

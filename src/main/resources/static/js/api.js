@@ -143,14 +143,14 @@ async function apiUpload(endpoint, formData, method = "POST") {
 }
 
 /** دریافت باینری (مثلاً تصویر نقشه) به‌صورت Blob با JWT */
-async function apiBlob(endpoint) {
+async function apiBlob(endpoint, cache = "default") {
     const headers = {};
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
     if (token) {
         headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, { headers });
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, { headers, cache });
 
     if (response.status === 401) {
         window.dispatchEvent(new CustomEvent("auth:unauthorized"));
@@ -180,7 +180,8 @@ const ProjectAPI = {
     getById: (id) => apiRequest(`/projects/${id}`),
     create: (data) => apiRequest("/projects", "POST", data),
     update: (id, data) => apiRequest(`/projects/${id}`, "PUT", data),
-    delete: (id) => apiRequest(`/projects/${id}`, "DELETE"),
+    deletionPreview: id => apiRequest(`/projects/${id}/deletion-preview`),
+    delete: (id, token) => apiRequest(`/projects/${id}?confirmationToken=${encodeURIComponent(token)}`, "DELETE"),
     archivePieces: (id) => apiRequest(`/projects/${id}/archive-pieces`, "POST"),
 };
 
@@ -193,7 +194,8 @@ const PieceDefinitionAPI = {
     getById: (id) => apiRequest(`/piece-definitions/${id}`),
     create: (data) => apiRequest("/piece-definitions", "POST", data),
     update: (id, data) => apiRequest(`/piece-definitions/${id}`, "PUT", data),
-    delete: (id) => apiRequest(`/piece-definitions/${id}`, "DELETE"),
+    deletionPreview: id => apiRequest(`/piece-definitions/${id}/deletion-preview`),
+    delete: (id, token) => apiRequest(`/piece-definitions/${id}?confirmationToken=${encodeURIComponent(token)}`, "DELETE"),
     archivePieces: (id) => apiRequest(`/piece-definitions/${id}/archive-pieces`, "POST"),
     getStatusReport: (id) => apiRequest(`/piece-definitions/${id}/status-report`),
     uploadDrawing: (id, file) => {
@@ -201,7 +203,11 @@ const PieceDefinitionAPI = {
         formData.append("file", file);
         return apiUpload(`/piece-definitions/${id}/drawing`, formData);
     },
-    getDrawingBlob: (id) => apiBlob(`/piece-definitions/${id}/drawing`),
+    getDrawingBlob: (id) => apiBlob(`/piece-definitions/${id}/drawing`, "no-store"),
+    drawingRevisions: (id,page=0) => apiRequest(`/piece-definitions/${id}/drawing-revisions?page=${page}&size=100`),
+    currentDrawingId: id => apiRequest(`/piece-definitions/${id}/drawing-current-id`),
+    revisionBlob: (id,revision) => apiBlob(`/piece-definitions/${id}/drawing-revisions/${revision}`),
+    restoreDrawing: (id,revision) => apiRequest(`/piece-definitions/${id}/drawing-revisions/${revision}/restore`,'POST'),
     deleteDrawing: (id) => apiRequest(`/piece-definitions/${id}/drawing`, "DELETE"),
 };
 

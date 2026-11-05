@@ -35,3 +35,20 @@ jobs:
         run: bash scripts/test-backend.sh mysql
       # Raw application/test logs can contain synthetic credentials or snapshots.
       # Keep summaries in the job log; never upload backups, uploads or full target/.
+
+  drawing-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --prefix target/browser-tools --no-audit --no-fund playwright@1.56.1
+          target/browser-tools/node_modules/.bin/playwright install --with-deps chromium
+      - name: Drawing and deletion browser smoke test
+        run: NODE_PATH="$PWD/target/browser-tools/node_modules" bash mvnw -B -ntp -Ddrawing.browser.enabled=true -Dtest=DrawingBrowserSmokeTest test

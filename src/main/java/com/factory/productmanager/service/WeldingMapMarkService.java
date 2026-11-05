@@ -26,6 +26,7 @@ public class WeldingMapMarkService {
     private final PieceService pieceService;
     private final PieceDefinitionService pieceDefinitionService;
     private final UserRepository userRepository;
+    private final DrawingHistoryService drawings;
 
     public WeldingMapMarkResponse createMark(UUID pieceId, WeldingMapMarkRequest request, String username) {
         Piece piece = pieceService.findPieceOrThrow(pieceId);
@@ -33,6 +34,7 @@ public class WeldingMapMarkService {
             throw new IllegalStateException("قطعه بایگانی‌شده قابل ویرایش نیست");
         }
 
+        drawings.lock(piece.getPieceDefinition().getId());
         String drawingPath = piece.getPieceDefinition().getDrawingImagePath();
         if (drawingPath == null || drawingPath.isBlank()) {
             throw new IllegalStateException("برای این قطعه هنوز نقشه دو‌بعدی ثبت نشده است");
@@ -40,6 +42,11 @@ public class WeldingMapMarkService {
 
         WeldingMapMark mark = new WeldingMapMark();
         mark.setPiece(piece);
+        UUID known=drawings.currentId(piece.getPieceDefinition().getId());
+        if(known!=null&&request.getDrawingRevisionId()==null)throw new IllegalStateException("نسخه نقشه را دوباره بارگیری کنید");
+        var current=drawings.ensureCurrent(piece.getPieceDefinition());
+        if(request.getDrawingRevisionId()!=null&&!request.getDrawingRevisionId().equals(current.getId()))throw new IllegalStateException("نسخه نقشه تغییر کرده است؛ نقشه جاری را دوباره باز کنید");
+        mark.setDrawingRevisionId(current.getId());
         mark.setXPercent(request.getXPercent());
         mark.setYPercent(request.getYPercent());
         String storedType = DefectTypes.requireStoredType(request.getDefectType(), request.getDefectTypeCustom());
@@ -70,11 +77,6 @@ public class WeldingMapMarkService {
     public List<AggregatedWeldingMapMarkResponse> getMarksByDefinition(UUID definitionId, String defectType) {
         PieceDefinition definition = pieceDefinitionService.findDefinitionOrThrow(definitionId);
 
-        String drawingPath = definition.getDrawingImagePath();
-        if (drawingPath == null || drawingPath.isBlank()) {
-            throw new IllegalStateException("برای این تعریف قطعه هنوز نقشه دو‌بعدی ثبت نشده است");
-        }
-
         String filter = defectType != null && !defectType.isBlank() ? defectType.trim() : null;
 
         return weldingMapMarkRepository.findByPieceDefinitionId(definitionId)
@@ -98,7 +100,7 @@ public class WeldingMapMarkService {
 
     private WeldingMapMarkResponse toResponse(WeldingMapMark mark) {
         return new WeldingMapMarkResponse(
-                mark.getId(),
+                mark.getDrawingRevisionId(),mark.getId(),
                 mark.getXPercent(),
                 mark.getYPercent(),
                 mark.getDefectType(),
@@ -110,7 +112,7 @@ public class WeldingMapMarkService {
 
     private AggregatedWeldingMapMarkResponse toAggregatedResponse(WeldingMapMark mark) {
         return new AggregatedWeldingMapMarkResponse(
-                mark.getId(),
+                mark.getDrawingRevisionId(),mark.getId(),
                 mark.getPiece().getId(),
                 mark.getPiece().getPieceNumber(),
                 mark.getXPercent(),

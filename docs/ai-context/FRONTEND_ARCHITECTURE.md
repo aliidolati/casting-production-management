@@ -1,5 +1,7 @@
 # Frontend architecture
 
+Update 2026-11-02 (8–3/8–4): immutable drawing revisions with version-bound welding marks and project/definition deletion previews. V42 / fixture: 53 tables, 67 FKs. See [Drawing history and deletion preview](DRAWING_HISTORY_AND_DELETE_PREVIEW.md).
+
 Update 2026-11-02: category 5 adds reasoned melt/welding cancellation, heat-batch archive/details, and previewed/audited shared-cycle corrections with separate permissions. See [Operational controls](OPERATIONAL_CONTROLS.md) for V41, compatibility and limits.
 
 Update 2026-11-01 (items 2–1/2–2 only): normal progression uses independent ADVANCE_PIECE_STAGE; forward skips require MANAGER or an explicitly permitted ADMIN, a reason and an atomic audit. Other category-2 permission splits are deferred. See [Stage movement access](STAGE_MOVEMENT_ACCESS.md) for legacy-route guards, upgrade grants, V39 and validation limits.

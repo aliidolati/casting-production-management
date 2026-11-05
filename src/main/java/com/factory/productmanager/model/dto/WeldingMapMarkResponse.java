@@ -13,6 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WeldingMapMarkResponse {
+    private UUID drawingRevisionId;
     private UUID id;
     private Double xPercent;
     private Double yPercent;

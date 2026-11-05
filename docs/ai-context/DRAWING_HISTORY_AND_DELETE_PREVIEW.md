@@ -1,0 +1,25 @@
+# Selected 8–3 / 8–4: drawing history and deletion impact
+
+Only the approved drawing versioning and project/definition deletion preview are implemented. Project closing and definition deactivation are excluded.
+
+## Immutable drawing history
+
+Every successful upload uses a UUID filename, creates a monotonically numbered DrawingRevision under a definition write lock, and keeps old files. Metadata contains original filename, upload time/actor, capture time and optional restored-from revision. A first write captures a legacy drawing using its existing path; uploader/upload time stay unknown, and existing unbound welding marks are linked to that captured revision. GET never backfills data. Version history is paginated (max100) and revision downloads verify definition ownership. Restore creates a new current revision referencing the old immutable file; it does not rewrite old metadata. Removing the current drawing only clears the active path and preserves history/files. Existing current-drawing GET remains available with no-store caching.
+
+New mark creation is serialized with drawing replacement and pins the drawingRevisionId. Stale revision requests are rejected; clients must reload when a known current revision exists but their request omits it. Legacy first writes can capture/bind the initial current file. Per-piece and aggregate maps filter marks by selected revision; historical marks are never overlaid on a replacement drawing. Historical-version viewing does not offer new mark creation. Existing correction/deletion grants for marks remain unchanged. A restored copy is a new revision, so marks attached to the original remain on that original, not automatically moved to the restored revision.
+
+New files are removed on transaction rollback (including storage-copy failure); old files are never deleted before a successful database commit. Revision restore reuses the retained immutable path. The version browser supports paging, viewing/downloading old files, version-specific aggregate marks and restoring with MANAGE_PIECE_DEFINITIONS. Metadata and images retain existing authenticated read access. No permissions or roles are renamed or implicitly granted.
+
+## Deletion preview
+
+GET /api/projects/{id}/deletion-preview and /api/piece-definitions/{id}/deletion-preview use their existing management permissions. They report definition/piece counts (including archived pieces), current drawings/revisions, production history, notes, welding marks/dispatches, defects, tensile tests, scrap/skip records and blocking dependencies: RT templates/reports/workflows, heat logs, melt memberships, recorded process dates and tasks. Existing FK restrictions are exposed rather than bypassed; a blocker disables confirmation. The database remains the final check for additional constraints.
+
+DELETE routes now require confirmationToken from the preview. Dependency IDs and current drawing paths form a deterministic SHA-256 fingerprint; it is a stale-preview check, not an authorization credential. The final request locks the target and current dependency rows, compares the fingerprint, and returns 409 if dependencies changed or block deletion. Missing preview token is 400. Server management authorization remains required. Old DELETE clients must use the preview and pass its token.
+
+Successful deletion retains the existing hard-delete/cascade meaning. Drawing revisions cascade with their definition; unique current/historical paths are cleaned only after commit. A failed delete/rollback cannot remove drawing files. File deletion after commit is best effort: filesystem failures may leave unreferenced files for operational cleanup. No project closing, archival redesign, forced cascade of restricted workflow records or history-voiding feature is introduced.
+
+## Schema and validation
+
+V42__drawing_revision_history.sql creates drawing_revisions (one definition FK) and conditionally adds nullable scalar welding_map_marks.drawing_revision_id. No legacy upload author/time/version is invented by SQL. The synthetic fixture is 53 tables / 67 FKs, and JPA/fixture/migration agree. Reconcile additive V42 using the existing deployment schema procedure; Flyway remains disabled and the historical chain is incomplete. Legacy files must remain present in the configured upload directory. No default or production datasource has been started or modified.
+
+Regressions exercise immutable replacement/download/restore, invalid upload, clearing current, ownership, rollback file cleanup, legacy capture/mark binding, stale mark rejection, preview permissions/counts/staleness, task blockers, successful post-commit cleanup and repeated/preserving MySQL migration. Drawing tests use a dedicated H2 database/upload directory and an owned isolated MySQL schema so deliberately committed file/transaction fixtures cannot contaminate other tests. Node regressions exercise version filtering and escaped/blocked/token-bound deletion confirmation. Full backend CI and browser limits must be reported before merge.

@@ -1,5 +1,7 @@
 # Project overview
 
+Update 2026-11-02 (8–3/8–4): immutable drawing revisions with version-bound welding marks and project/definition deletion previews. V42 / fixture: 53 tables, 67 FKs. See [Drawing history and deletion preview](DRAWING_HISTORY_AND_DELETE_PREVIEW.md).
+
 Integration 2026-11-02: approved categories 2–4 now combine with category 5; fixture totals are 52 tables / 66 FKs. See [Integrated release](INTEGRATED_RELEASE.md) for scope and upgrade requirements.
 
 Update 2026-11-02: category 5 adds reasoned melt/welding cancellation, heat-batch archive/details, and previewed/audited shared-cycle corrections with separate permissions. See [Operational controls](OPERATIONAL_CONTROLS.md) for V41, compatibility and limits.

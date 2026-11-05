@@ -97,6 +97,7 @@ function openModal(title, bodyHtml, options = {}) {
 }
 
 function closeModal() {
+    if(typeof revokeDrawingRevisionPreview === "function")revokeDrawingRevisionPreview();
     if (typeof resetWeldingMapState === "function") {
         resetWeldingMapState();
     }

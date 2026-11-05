@@ -14,6 +14,7 @@ public class WeldingMapMarkRequest {
     @DecimalMin(value = "0.0", message = "مختصات افقی باید بین ۰ و ۱ باشد")
     @DecimalMax(value = "1.0", message = "مختصات افقی باید بین ۰ و ۱ باشد")
     private Double xPercent;
+    private java.util.UUID drawingRevisionId;
 
     @NotNull(message = "مختصات عمودی الزامی است")
     @DecimalMin(value = "0.0", message = "مختصات عمودی باید بین ۰ و ۱ باشد")
