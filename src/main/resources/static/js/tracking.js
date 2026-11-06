@@ -63,6 +63,7 @@ const TrackingState = {
     totalPages: 0,
     loadSeq: 0,
     activeFilter: "all", // "all" یا یکی از کلیدهای STAGE_DEFINITIONS
+    includeArchived: false,
     searchQuery: "", // عبارت جستجوی متنی
     searchDebounceTimer: null, // تایمر برای debounce جستجو
     pieceNameQuery: "",
@@ -80,6 +81,7 @@ const TrackingState = {
 function trackingListParams() {
     const params = {
         q: TrackingState.searchQuery,
+        includeArchived: TrackingState.includeArchived,
         pieceName: TrackingState.pieceNameQuery,
         projectCode: TrackingState.projectCodeQuery,
         dateFrom: TrackingState.dateFrom,
@@ -107,6 +109,7 @@ function trackingListParams() {
 function trackingSummaryParams() {
     return {
         q: TrackingState.searchQuery,
+        includeArchived: TrackingState.includeArchived,
         pieceName: TrackingState.pieceNameQuery,
         projectCode: TrackingState.projectCodeQuery,
         dateFrom: TrackingState.dateFrom,
@@ -189,7 +192,7 @@ function renderTrackingMetrics() {
         <div class="metric card-tilt">
             <div class="metric-label">کل قطعات</div>
             <div class="metric-value">${total.toLocaleString("fa-IR")}</div>
-            <div class="metric-sub">بدون بایگانی‌شده‌ها</div>
+            <div class="metric-sub">${TrackingState.includeArchived ? "با احتساب بایگانی‌شده‌ها" : "بدون بایگانی‌شده‌ها"}</div>
         </div>
         <div class="metric card-tilt">
             <div class="metric-label">در جریان تولید</div>
@@ -445,7 +448,7 @@ function renderTrackingTable() {
     const showBulk = canUseBulkSelection();
 
     // انتخاب‌های قبلی که دیگر در نتیجه‌ی فیلتر فعلی نیستند حذف می‌شوند تا انتخاب همیشه معتبر بماند
-    const visibleIds = new Set(filtered.map((p) => p.id));
+    const visibleIds = new Set(filtered.filter((p) => !p.archivedAt).map((p) => p.id));
     TrackingState.selectedPieceIds = new Set(
         [...TrackingState.selectedPieceIds].filter((id) => visibleIds.has(id))
     );
@@ -455,7 +458,7 @@ function renderTrackingTable() {
     const tbody = document.getElementById("tracking-table-body");
 
     if (TrackingState.activeFilter === "all") {
-        titleEl.textContent = "همه قطعات در جریان تولید";
+        titleEl.textContent = TrackingState.includeArchived ? "همه قطعات با احتساب بایگانی‌شده‌ها" : "همه قطعات در جریان تولید";
     } else {
         const stage = STAGE_DEFINITIONS.find((s) => s.key === TrackingState.activeFilter);
         titleEl.textContent = `قطعات در مرحله: ${stage.label}`;
@@ -474,8 +477,8 @@ function renderTrackingTable() {
     tbody.innerHTML = filtered
         .map(
             (p) => `
-        <tr data-piece-id="${p.id}">
-            ${showBulk ? `<td class="checkbox-cell"><input type="checkbox" class="row-select-checkbox" data-id="${p.id}" ${TrackingState.selectedPieceIds.has(p.id) ? "checked" : ""} /></td>` : ""}
+        <tr data-piece-id="${p.id}" class="${p.archivedAt ? "archived-piece-row" : ""}">
+            ${showBulk ? `<td class="checkbox-cell"><input type="checkbox" class="row-select-checkbox" data-id="${p.id}" ${TrackingState.selectedPieceIds.has(p.id) ? "checked" : ""} ${p.archivedAt ? 'disabled aria-label="قطعه بایگانی‌شده"' : ""} /></td>` : ""}
             <td>${p.pieceNumber}</td>
             <td>${escapeHtml(p.pieceName)}</td>
             <td><span class="code-num">${escapeHtml(p.projectCode)}</span></td>
@@ -499,6 +502,7 @@ function renderTrackingTable() {
                         ? `<span class="substage-badge ${roughMachiningSubStageBadgeClass()}">${ROUGH_MACHINING_SUBSTAGE_LABELS[p.roughMachiningSubStage || "DEBURRING"]}</span>`
                         : ""
                 }
+                ${p.archivedAt ? '<span class="substage-badge">بایگانی‌شده</span>' : ""}
                 ${renderTensileTrackingInfo(p)}
             </td>
             <td class="process-date-cell">${renderProcessDateCell(p)}</td>
@@ -569,6 +573,16 @@ function renderTrackingPagination() {
     }
 }
 
+function setupTrackingArchiveListener() {
+    const checkbox = document.getElementById("tracking-advanced-search");
+    if (!checkbox) return;
+    checkbox.checked = TrackingState.includeArchived;
+    checkbox.addEventListener("change", () => {
+        TrackingState.includeArchived = checkbox.checked;
+        loadTracking({ resetPage: true });
+    });
+}
+
 function setupTrackingPaginationListeners() {
     document.getElementById("btn-tracking-prev")?.addEventListener("click", () => {
         if (TrackingState.page <= 0) return;
@@ -587,9 +601,11 @@ function setupTrackingPaginationListeners() {
 }
 
 function updateSelectAllCheckboxState(visiblePieces) {
+    visiblePieces = visiblePieces.filter((p) => !p.archivedAt);
     const selectAllCheckbox = document.getElementById("select-all-checkbox");
     if (!selectAllCheckbox) return;
 
+    selectAllCheckbox.disabled = visiblePieces.length === 0;
     const selectedCount = visiblePieces.filter((p) => TrackingState.selectedPieceIds.has(p.id)).length;
     selectAllCheckbox.checked = visiblePieces.length > 0 && selectedCount === visiblePieces.length;
     selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < visiblePieces.length;
@@ -600,7 +616,7 @@ function updateSelectAllCheckboxState(visiblePieces) {
    =========================== */
 
 function getSelectedPieces() {
-    return TrackingState.pieces.filter((p) => TrackingState.selectedPieceIds.has(p.id));
+    return TrackingState.pieces.filter((p) => !p.archivedAt && TrackingState.selectedPieceIds.has(p.id));
 }
 
 function renderBulkActionsBar() {
@@ -728,7 +744,7 @@ function setupBulkActionsListeners() {
     const clearBtn = document.getElementById("btn-bulk-clear-selection");
 
     selectAllCheckbox.addEventListener("change", (e) => {
-        const filtered = getFilteredPieces();
+        const filtered = getFilteredPieces().filter((p) => !p.archivedAt);
         if (e.target.checked) {
             filtered.forEach((p) => TrackingState.selectedPieceIds.add(p.id));
         } else {
@@ -899,7 +915,7 @@ function canEditProcessDate() {
 }
 
 function renderProcessDateCell(piece) {
-    if (!canEditProcessDate()) {
+    if (piece.archivedAt || !canEditProcessDate()) {
         return piece.processDate ? isoToJalaliString(piece.processDate) : "—";
     }
     return `<input type="text" class="process-date-input" data-piece-id="${piece.id}" placeholder="انتخاب تاریخ" />`;
@@ -1621,6 +1637,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupBulkActionsListeners();
     setupTrackingSortListeners();
     setupTrackingPaginationListeners();
+    setupTrackingArchiveListener();
 });
 
 

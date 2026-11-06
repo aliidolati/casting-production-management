@@ -350,7 +350,8 @@ public class PieceController {
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false) String sortDir,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "false") boolean includeArchived
     ) {
         return ResponseEntity.ok(pieceService.listTrackingPieces(
                 q,
@@ -365,7 +366,8 @@ public class PieceController {
                 sortBy,
                 sortDir,
                 page,
-                size
+                size,
+                includeArchived
         ));
     }
 
@@ -375,9 +377,10 @@ public class PieceController {
             @RequestParam(required = false) String pieceName,
             @RequestParam(required = false) String projectCode,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateTo,
+            @RequestParam(defaultValue = "false") boolean includeArchived
     ) {
-        return ResponseEntity.ok(pieceService.getTrackingSummary(q, pieceName, projectCode, dateFrom, dateTo));
+        return ResponseEntity.ok(pieceService.getTrackingSummary(q, pieceName, projectCode, dateFrom, dateTo, includeArchived));
     }
     @PatchMapping("/{id}/description")
     @PreAuthorize("@permissionChecker.has(authentication, 'MANAGE_PIECES')")

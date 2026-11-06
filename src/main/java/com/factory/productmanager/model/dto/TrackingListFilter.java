@@ -24,4 +24,5 @@ public class TrackingListFilter {
     private final String sortBy;
     private final String sortDir;
     private final boolean includeStageAndSubstage;
+    private final boolean includeArchived;
 }

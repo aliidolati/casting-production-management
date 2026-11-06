@@ -173,12 +173,20 @@ public class DashboardService {
                 metricTo,
                 projectId
         );
-        // نرخ اسقاط = قطعات اسقاط‌شدهٔ فعلی / کل قطعات (با همان فیلتر پروژه)
         long scrappedCount = stageCounts.getOrDefault(PieceStage.SCRAPPED, 0L);
         long finishedInPeriod = deliveredInPeriod + scrappedCount;
-        Double scrapRatePercent = totalPieces == 0
+        // نرخ اسقاط شامل بایگانی‌هاست؛ قطعات شروع‌نشده فقط از مخرج حذف می‌شوند.
+        long allScrappedCount = 0;
+        long startedPiecesCount = 0;
+        for (Object[] row : pieceRepository.countGroupByCurrentStageIncludingArchived(projectId)) {
+            PieceStage stage = (PieceStage) row[0];
+            long count = (Long) row[1];
+            if (stage != PieceStage.NOT_STARTED) startedPiecesCount += count;
+            if (stage == PieceStage.SCRAPPED) allScrappedCount = count;
+        }
+        Double scrapRatePercent = startedPiecesCount == 0
                 ? null
-                : round1(100.0 * scrappedCount / totalPieces);
+                : round1(100.0 * allScrappedCount / startedPiecesCount);
 
         Double avgCycleTimeDays = computeAvgCycleTimeDays(metricFrom, metricTo, projectId);
 

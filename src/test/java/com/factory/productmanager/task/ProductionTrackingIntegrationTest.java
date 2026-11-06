@@ -57,7 +57,7 @@ class ProductionTrackingIntegrationTest extends TaskTestBase {
     private PageResponse<PieceResponse> tracking(String q, String name, String project, PieceStage stage,
                                                 LocalDate from, LocalDate to, int page, int size) {
         return pieceService.listTrackingPieces(q, name, project, stage, from, to,
-                null, null, null, "pieceNumber", "asc", page, size);
+                null, null, null, "pieceNumber", "asc", page, size, false);
     }
 
     @Test
@@ -132,6 +132,101 @@ class ProductionTrackingIntegrationTest extends TaskTestBase {
         call(get("/api/dashboard/overview"), admin)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.scrappedInPeriod").value(2));
+    }
+
+    @Test
+    void advancedSearchIncludesArchivesInListSummaryAndPaginationWithoutChangingOtherFilters() throws Exception {
+        Piece archived = addPiece(8, PieceStage.RADIOGRAPHY);
+        archived.setRadiographySubStage(RadiographySubStage.VT);
+        archived.setArchivedAt(LocalDateTime.now());
+        pieceRepository.saveAndFlush(archived);
+        for (String include : List.of("false", "true")) {
+            int total = include.equals("true") ? 6 : 5;
+            call(get("/api/pieces/tracking").param("projectCode", code).param("includeArchived", include)
+                            .param("sortBy", "pieceNumber").param("sortDir", "asc").param("size", "2"), worker)
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(total))
+                    .andExpect(jsonPath("$.totalPages").value(3))
+                    .andExpect(jsonPath("$.items[0].pieceNumber").value(include.equals("true") ? 8 : 9));
+            call(get("/api/pieces/tracking/summary").param("projectCode", code).param("includeArchived", include), worker)
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(total))
+                    .andExpect(jsonPath("$.stageCounts.RADIOGRAPHY").value(include.equals("true") ? 1 : 0));
+        }
+        call(get("/api/pieces/tracking/summary").param("projectCode", code), worker)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalCount").value(5));
+        call(get("/api/pieces/tracking").param("projectCode", code).param("includeArchived", "true")
+                        .param("sortBy", "pieceNumber").param("sortDir", "asc").param("size", "2").param("page", "2"), worker)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].pieceNumber").value(109))
+                .andExpect(jsonPath("$.items[1].pieceNumber").value(219));
+        call(get("/api/pieces/tracking").param("q", "۸").param("projectCode", code)
+                        .param("pieceName", "hous").param("stage", "RADIOGRAPHY").param("radiographySubStage", "VT")
+                        .param("dateFrom", LocalDate.now().toString()).param("dateTo", LocalDate.now().toString())
+                        .param("includeArchived", "true"), worker)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.items[0].archivedAt").isNotEmpty());
+        for (String[] filter : List.of(new String[]{"projectCode", "ABSENT"}, new String[]{"pieceName", "ABSENT"},
+                new String[]{"radiographySubStage", "SHOT"}, new String[]{"dateFrom", LocalDate.now().plusDays(1).toString()})) {
+            call(get("/api/pieces/tracking").param("q", "8").param("includeArchived", "true")
+                            .param(filter[0], filter[1]), worker)
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
+        }
+        assertNotNull(pieceRepository.findById(archived.getId()).orElseThrow().getArchivedAt());
+    }
+
+    @Test
+    void scrapRateIncludesArchivedScrapAndDeliveredPiecesAndExcludesAllNotStartedPieces() throws Exception {
+        // Other suites can leave synthetic rows in the shared H2 context. Account for that
+        // baseline only in the unfiltered assertion; the project-scoped expectations stay exact.
+        var baseline = pieceRepository.findAll();
+        long previousStarted = baseline.stream().filter(p -> p.getCurrentStage() != PieceStage.NOT_STARTED).count();
+        long previousScrapped = baseline.stream().filter(p -> p.getCurrentStage() == PieceStage.SCRAPPED).count();
+        addPiece(2, PieceStage.SCRAPPED);
+        Piece archivedScrap = addPiece(3, PieceStage.SCRAPPED);
+        archivedScrap.setArchivedAt(LocalDateTime.now());
+        Piece archivedDelivered = addPiece(4, PieceStage.DELIVERED);
+        archivedDelivered.setArchivedAt(LocalDateTime.now());
+        addPiece(5, PieceStage.NOT_STARTED);
+        Piece archivedNotStarted = addPiece(6, PieceStage.NOT_STARTED);
+        archivedNotStarted.setArchivedAt(LocalDateTime.now());
+        Piece other = newPiece("OTHER-" + UUID.randomUUID(), "Other", 1);
+        other.setCurrentStage(PieceStage.SCRAPPED);
+        other.setArchivedAt(LocalDateTime.now());
+        pieceRepository.flush();
+        // Five casting + one active scrap + one archived scrap + one archived delivery = eight started.
+        for (boolean historicalPeriod : List.of(false, true)) {
+            var request = get("/api/dashboard/overview").param("projectId", definition.getProject().getId().toString());
+            if (historicalPeriod) request.param("dateFrom", "2000-01-01").param("dateTo", "2000-01-02");
+            call(request, admin).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.scrapRatePercent").value(25.0))
+                    .andExpect(jsonPath("$.scrappedInPeriod").value(1))
+                    .andExpect(jsonPath("$.totalPieces").value(7));
+        }
+        call(get("/api/dashboard/overview"), admin).andExpect(status().isOk())
+                .andExpect(jsonPath("$.scrapRatePercent").value(
+                        Math.round(1000.0 * (previousScrapped + 3) / (previousStarted + 4)) / 10.0));
+    }
+
+    @Test
+    void scrapRateHandlesZeroDenominatorZeroScrapAndAllArchivedScrap() throws Exception {
+        Piece piece = newPiece("EDGE-" + UUID.randomUUID(), "Edge", 1);
+        piece.setCurrentStage(PieceStage.NOT_STARTED);
+        pieceRepository.flush();
+        String projectId = piece.getPieceDefinition().getProject().getId().toString();
+        for (boolean archived : List.of(false, true)) {
+            piece.setArchivedAt(archived ? LocalDateTime.now() : null);
+            pieceRepository.flush();
+            call(get("/api/dashboard/overview").param("projectId", projectId), admin)
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.scrapRatePercent").isEmpty());
+        }
+        piece.setCurrentStage(PieceStage.DELIVERED);
+        pieceRepository.flush();
+        call(get("/api/dashboard/overview").param("projectId", projectId), admin)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.scrapRatePercent").value(0.0));
+        piece.setCurrentStage(PieceStage.SCRAPPED);
+        pieceRepository.flush();
+        call(get("/api/dashboard/overview").param("projectId", projectId), admin)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.scrapRatePercent").value(100.0));
+        call(get("/api/dashboard/overview").param("projectId", UUID.randomUUID().toString()), admin)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.scrapRatePercent").isEmpty());
     }
 
     private Piece tensilePiece() {
