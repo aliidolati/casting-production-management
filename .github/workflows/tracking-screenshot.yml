@@ -25,6 +25,14 @@ jobs:
           s = s.replace("['tokens.css', 'style.css']", "['fonts.css', 'tokens.css', 'style.css']")
           s = s.replace("['jalali.js', 'api.js'", "['theme-definitions.js', 'theme-manager.js', 'jalali.js', 'api.js'")
           s = s.replace("await page.screenshot({ path:", "await page.evaluate(() => document.fonts.ready);\n            await page.screenshot({ path:")
+          s = s.replace("currentStage: 'CASTING' }", "currentStage: 'CASTING', currentStageEnteredAt: '2026-11-06T10:00:00' }")
+          s = s.replace("archivedAt: '2026-01-01T00:00:00'", "currentStageEnteredAt: '2026-11-05T10:00:00', archivedAt: '2026-01-01T00:00:00'")
+          s = s.replace("for (const width of [1440, 390]) {", """await page.evaluate(() => {
+                      TrackingState.selectedPieceIds.clear(); renderTrackingTable();
+                      document.getElementById('nav-btn-dashboard').classList.remove('active');
+                      document.getElementById('nav-btn-tracking').classList.add('active');
+                  });
+                  for (const width of [1440, 390]) {""")
           p.write_text(s)
           PY
           NODE_PATH="$PWD/target/browser-tools/node_modules" node src/test/js/tracking-archive.browser.cjs
