@@ -13,7 +13,7 @@ jobs:
       - name: Install browser
         run: |
           npm install --prefix target/browser-tools --no-audit --no-fund playwright@1.56.1
-          target/browser-tools/node_modules/.bin/playwright install --with-deps chromium
+          google-chrome --version
       - name: Capture actual tracking UI with synthetic data
         run: |
           python3 - <<'PY'
@@ -35,7 +35,7 @@ jobs:
                   for (const width of [1440, 390]) {""")
           p.write_text(s)
           PY
-          NODE_PATH="$PWD/target/browser-tools/node_modules" node src/test/js/tracking-archive.browser.cjs
+          CHROME_BIN=/usr/bin/google-chrome NODE_PATH="$PWD/target/browser-tools/node_modules" node src/test/js/tracking-archive.browser.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: tracking-screenshots
