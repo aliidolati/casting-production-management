@@ -30,7 +30,7 @@ jobs:
           s = s.replace("for (const width of [1440, 390]) {", """await page.evaluate(() => {
                       TrackingState.selectedPieceIds.clear(); renderTrackingTable();
                       document.getElementById('nav-btn-dashboard').classList.remove('active');
-                      document.getElementById('nav-btn-tracking').classList.add('active');
+                      document.querySelector('[data-section=tracking]').classList.add('active');
                   });
                   for (const width of [1440, 390]) {""")
           p.write_text(s)
