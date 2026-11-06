@@ -174,6 +174,11 @@ class ProductionTrackingIntegrationTest extends TaskTestBase {
 
     @Test
     void scrapRateIncludesArchivedScrapAndDeliveredPiecesAndExcludesAllNotStartedPieces() throws Exception {
+        // Other suites can leave synthetic rows in the shared H2 context. Account for that
+        // baseline only in the unfiltered assertion; the project-scoped expectations stay exact.
+        var baseline = pieceRepository.findAll();
+        long previousStarted = baseline.stream().filter(p -> p.getCurrentStage() != PieceStage.NOT_STARTED).count();
+        long previousScrapped = baseline.stream().filter(p -> p.getCurrentStage() == PieceStage.SCRAPPED).count();
         addPiece(2, PieceStage.SCRAPPED);
         Piece archivedScrap = addPiece(3, PieceStage.SCRAPPED);
         archivedScrap.setArchivedAt(LocalDateTime.now());
@@ -196,7 +201,8 @@ class ProductionTrackingIntegrationTest extends TaskTestBase {
                     .andExpect(jsonPath("$.totalPieces").value(7));
         }
         call(get("/api/dashboard/overview"), admin).andExpect(status().isOk())
-                .andExpect(jsonPath("$.scrapRatePercent").value(33.3));
+                .andExpect(jsonPath("$.scrapRatePercent").value(
+                        Math.round(1000.0 * (previousScrapped + 3) / (previousStarted + 4)) / 10.0));
     }
 
     @Test
