@@ -1,0 +1,35 @@
+name: Tracking screenshot
+on:
+  push:
+    branches: [codex/tracking-screenshot]
+permissions:
+  contents: read
+jobs:
+  screenshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install browser
+        run: |
+          npm install --prefix target/browser-tools --no-audit --no-fund playwright@1.56.1
+          target/browser-tools/node_modules/.bin/playwright install --with-deps chromium
+      - name: Capture actual tracking UI with synthetic data
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/test/js/tracking-archive.browser.cjs')
+          s = p.read_text()
+          s = s.replace("if (!url.pathname.startsWith('/api/')) return route.fulfill({ contentType: 'text/html', body: html });", """if (url.pathname.startsWith('/fonts/') || url.pathname.startsWith('/img/')) return route.fulfill({ path: path.join(root, url.pathname.slice(1)) });
+                      if (!url.pathname.startsWith('/api/')) return route.fulfill({ contentType: 'text/html', body: html });""")
+          s = s.replace("['tokens.css', 'style.css']", "['fonts.css', 'tokens.css', 'style.css']")
+          s = s.replace("['jalali.js', 'api.js'", "['theme-definitions.js', 'theme-manager.js', 'jalali.js', 'api.js'")
+          s = s.replace("await page.screenshot({ path:", "await page.evaluate(() => document.fonts.ready);\n            await page.screenshot({ path:")
+          p.write_text(s)
+          PY
+          NODE_PATH="$PWD/target/browser-tools/node_modules" node src/test/js/tracking-archive.browser.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tracking-screenshots
+          path: target/tracking-archive-browser/*.png
+          retention-days: 7
