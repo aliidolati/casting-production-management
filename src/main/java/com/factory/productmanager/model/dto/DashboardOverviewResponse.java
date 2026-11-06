@@ -41,7 +41,7 @@ public class DashboardOverviewResponse {
     /** میانگین روز از اولین حرکت مرحله تا READY؛ فقط قطعات آماده‌تحویل در بازهٔ مرتبط */
     private Double avgCycleTimeDays;
 
-    /** اسقاط فعلی / کل قطعات (با فیلتر پروژه در صورت انتخاب) */
+    /** اسقاط فعلی / کل قطعات به‌جز شروع‌نشده؛ شامل بایگانی‌ها و با فیلتر پروژه */
     private Double scrapRatePercent;
     /** تعداد قطعاتی که الان در وضعیت اسقاط هستند (همان محدودهٔ فیلتر پروژه) */
     private long scrappedInPeriod;

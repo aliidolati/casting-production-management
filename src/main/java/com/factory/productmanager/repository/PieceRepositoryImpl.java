@@ -82,7 +82,9 @@ public class PieceRepositoryImpl implements PieceRepositoryCustom {
         Join<PieceDefinition, Project> project = definition.join("project", JoinType.INNER);
 
         List<Predicate> predicates = new ArrayList<>();
-        predicates.add(cb.isNull(piece.get("archivedAt")));
+        if (!filter.isIncludeArchived()) {
+            predicates.add(cb.isNull(piece.get("archivedAt")));
+        }
 
         if (filter.isIncludeStageAndSubstage() && filter.getStage() != null) {
             predicates.add(cb.equal(piece.get("currentStage"), filter.getStage()));

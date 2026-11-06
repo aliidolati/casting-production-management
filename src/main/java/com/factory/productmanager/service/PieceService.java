@@ -1290,7 +1290,8 @@ public class PieceService {
             String sortBy,
             String sortDir,
             int page,
-            int size
+            int size,
+            boolean includeArchived
     ) {
         int safeSize = Math.min(100, Math.max(1, size));
         int safePage = Math.max(0, page);
@@ -1306,7 +1307,8 @@ public class PieceService {
                 roughMachiningSubStage,
                 sortBy,
                 sortDir,
-                true
+                true,
+                includeArchived
         );
         var idPage = pieceRepository.findTrackingPieceIds(
                 filter,
@@ -1336,10 +1338,11 @@ public class PieceService {
             String pieceName,
             String projectCode,
             LocalDate dateFrom,
-            LocalDate dateTo
+            LocalDate dateTo,
+            boolean includeArchived
     ) {
         TrackingListFilter filter = trackingFilter(
-                keyword, pieceName, projectCode, null, dateFrom, dateTo, null, null, null, null, null, false
+                keyword, pieceName, projectCode, null, dateFrom, dateTo, null, null, null, null, null, false, includeArchived
         );
         Map<PieceStage, Long> stageCounts = new EnumMap<>(PieceStage.class);
         for (PieceStage stage : PieceStage.values()) {
@@ -1377,7 +1380,8 @@ public class PieceService {
             RoughMachiningSubStage roughMachiningSubStage,
             String sortBy,
             String sortDir,
-            boolean includeStageAndSubstage
+            boolean includeStageAndSubstage,
+            boolean includeArchived
     ) {
         return TrackingListFilter.builder()
                 .keyword(keyword == null || keyword.isBlank() ? null : keyword.trim())
@@ -1392,6 +1396,7 @@ public class PieceService {
                 .sortBy(sortBy)
                 .sortDir(sortDir)
                 .includeStageAndSubstage(includeStageAndSubstage)
+                .includeArchived(includeArchived)
                 .build();
     }
 

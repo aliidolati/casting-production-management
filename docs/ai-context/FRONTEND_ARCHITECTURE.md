@@ -1,5 +1,7 @@
 # Frontend architecture
 
+Update 2026-11-06: the tracking list header has an opt-in «جست و جوی پیشرفته» checkbox. Both tracking list and summary send `includeArchived` (default false); enabled results include active and archived pieces under the existing filters, sorting and pagination. Toggling resets pagination and selection. Archived rows are labeled, excluded from bulk selection, and show read-only process dates. The dashboard scrap percentage includes archives and excludes NOT_STARTED from its denominator; other dashboard counts keep their existing scope. No schema change.
+
 Update 2026-11-02 (8–3/8–4): immutable drawing revisions with version-bound welding marks and project/definition deletion previews. V42 / fixture: 53 tables, 67 FKs. See [Drawing history and deletion preview](DRAWING_HISTORY_AND_DELETE_PREVIEW.md).
 
 Update 2026-11-02: category 5 adds reasoned melt/welding cancellation, heat-batch archive/details, and previewed/audited shared-cycle corrections with separate permissions. See [Operational controls](OPERATIONAL_CONTROLS.md) for V41, compatibility and limits.

@@ -123,6 +123,15 @@ public interface PieceRepository extends JpaRepository<Piece, UUID>, PieceReposi
         """)
     List<Object[]> countGroupByCurrentStageForProject(@Param("projectId") UUID projectId);
 
+    /** Current stage totals including archived pieces, for the lifetime scrap ratio. */
+    @Query("""
+        SELECT p.currentStage, COUNT(p)
+        FROM Piece p
+        WHERE (:projectId IS NULL OR p.pieceDefinition.project.id = :projectId)
+        GROUP BY p.currentStage
+        """)
+    List<Object[]> countGroupByCurrentStageIncludingArchived(@Param("projectId") UUID projectId);
+
     long countByPieceDefinition_Project_Id(UUID projectId);
 
     @Query("""

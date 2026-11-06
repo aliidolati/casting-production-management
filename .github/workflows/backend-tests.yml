@@ -50,5 +50,9 @@ jobs:
         run: |
           npm install --prefix target/browser-tools --no-audit --no-fund playwright@1.56.1
           target/browser-tools/node_modules/.bin/playwright install --with-deps chromium
+      - name: JavaScript regressions and tracking archive browser smoke
+        run: |
+          node --test src/test/js/*.test.cjs
+          NODE_PATH="$PWD/target/browser-tools/node_modules" node src/test/js/tracking-archive.browser.cjs
       - name: Drawing and deletion browser smoke test
         run: NODE_PATH="$PWD/target/browser-tools/node_modules" bash mvnw -B -ntp -Ddrawing.browser.enabled=true -Dtest=DrawingBrowserSmokeTest test

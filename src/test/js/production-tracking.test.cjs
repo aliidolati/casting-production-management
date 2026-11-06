@@ -67,7 +67,7 @@ test("tracking requests retain all filters and pagination alongside numeric inpu
     });`);
     const params = JSON.parse(JSON.stringify(run("trackingListParams()")));
     assert.deepEqual(params, {
-        q: " ۹ ", pieceName: "housing", projectCode: "PR-9", stage: "RADIOGRAPHY", radiographySubStage: "VT",
+        q: " ۹ ", includeArchived: false, pieceName: "housing", projectCode: "PR-9", stage: "RADIOGRAPHY", radiographySubStage: "VT",
         dateFrom: "2026-01-01", dateTo: "2026-01-31", sortBy: "pieceNumber", sortDir: "asc", page: 2, size: 20,
     });
     const summary = JSON.parse(JSON.stringify(run("trackingSummaryParams()")));
@@ -163,4 +163,51 @@ test("missing process dates keep deterministic flow order and actor selection in
     const a = run("decorateProductionFlow(fixturePiece, fixtureHistory, [], [], []).steps.map(s => s.id)");
     const b = run("buildProductionFlowSteps(fixturePiece, []).map(s => s.id)");
     assert.deepEqual(Array.from(a), Array.from(b));
+});
+
+
+test("archive toggle reloads list and summary while preserving search filters", async () => {
+    const { context, element, run } = browserContext();
+    const requests = [];
+    context.PieceAPI = {
+        listTracking: async params => { requests.push(['list', { ...params }]); return { items: [], totalElements: 0 }; },
+        getTrackingSummary: async params => { requests.push(['summary', { ...params }]); return { totalCount: 0 }; },
+    };
+    context.showTableLoader = () => {};
+    context.canUseBulkSelection = () => false;
+    context.renderTrackingTable = () => {};
+    context.renderTrackingMetrics = () => {};
+    context.renderStageCards = () => {};
+    context.showToast = message => assert.fail(message);
+    run('TrackingState.page = 3; TrackingState.selectedPieceIds.add("old"); TrackingState.searchQuery = "9"; TrackingState.activeFilter = "SCRAPPED"; setupTrackingArchiveListener();');
+    const checkbox = element('tracking-advanced-search');
+    assert.equal(checkbox.checked, false);
+    for (const checked of [true, false]) {
+        checkbox.checked = checked;
+        checkbox.listeners.change();
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(run('TrackingState.page'), 0);
+        assert.equal(run('TrackingState.selectedPieceIds.size'), 0);
+        assert.equal(requests.at(-2)[1].includeArchived, checked);
+        assert.equal(requests.at(-1)[1].includeArchived, checked);
+        assert.equal(requests.at(-2)[1].q, '9');
+        assert.equal(requests.at(-2)[1].stage, 'SCRAPPED');
+    }
+});
+
+test("archived rows cannot join bulk selection or expose editable process dates", () => {
+    const { context, element, run } = browserContext();
+    context.hasPermission = () => true;
+    context.fixturePieces = [{ id: 'active' }, { id: 'archived', archivedAt: '2026-01-01T00:00:00' }];
+    run('TrackingState.pieces = fixturePieces; setupBulkActionsListeners();');
+    context.renderTrackingTable = () => {};
+    element('select-all-checkbox').listeners.change({ target: { checked: true } });
+    assert.deepEqual(Array.from(run('[...TrackingState.selectedPieceIds]')), ['active']);
+    run('updateSelectAllCheckboxState(fixturePieces)');
+    assert.equal(element('select-all-checkbox').checked, true);
+    run('updateSelectAllCheckboxState([fixturePieces[1]])');
+    assert.equal(element('select-all-checkbox').disabled, true);
+    assert.equal(element('select-all-checkbox').checked, false);
+    assert.equal(run('renderProcessDateCell(fixturePieces[1])'), '—');
+    assert.match(run('renderProcessDateCell(fixturePieces[0])'), /process-date-input/);
 });
