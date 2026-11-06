@@ -68,7 +68,8 @@ const { chromium } = require('playwright');
             await page.screenshot({ path: path.join(output, `tracking-${width}.png`), fullPage: true });
         }
         await checkbox.uncheck();
-        await page.waitForFunction(() => !document.querySelector('.archived-piece-row'));
+        await page.waitForFunction(() => document.querySelector('#tracking-table-body tr[data-piece-id=active]')
+            && !document.querySelector('.archived-piece-row'));
         assert.equal(await page.locator('#tracking-table-body tr[data-piece-id]').count(), 1);
         assert.match(await page.locator('#tracking-metrics').innerText(), /بدون بایگانی/);
         for (const suffix of ['/tracking', '/tracking/summary']) {
