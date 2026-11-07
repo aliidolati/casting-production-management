@@ -337,7 +337,7 @@ public class PieceController {
     }
 
     @GetMapping("/tracking")
-    public ResponseEntity<PageResponse<PieceResponse>> listTrackingPieces(
+    public ResponseEntity<TrackingPageResponse> listTrackingPieces(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) PieceStage stage,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dateFrom,

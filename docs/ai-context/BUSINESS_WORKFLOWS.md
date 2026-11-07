@@ -1,5 +1,7 @@
 # Business workflows
 
+Update 2026-11-07: Piece definitions have optional per-piece radiography shot and interpretation hours (nonnegative, up to two decimal places). Tracking sums the matching definition duration once per piece across every page, honoring the search, project, piece name, current stage/substage and date filters. The backlog includes archived pieces independently of the list checkbox and includes pieces awaiting manager approval while they remain in INTERPRETATION. Missing hours contribute nothing. VT and other stages have no backlog field.
+
 Update 2026-11-02 (8–3/8–4): immutable drawing revisions with version-bound welding marks and project/definition deletion previews. V42 / fixture: 53 tables, 67 FKs. See [Drawing history and deletion preview](DRAWING_HISTORY_AND_DELETE_PREVIEW.md).
 
 Update 2026-11-02: category 5 adds reasoned melt/welding cancellation, heat-batch archive/details, and previewed/audited shared-cycle corrections with separate permissions. See [Operational controls](OPERATIONAL_CONTROLS.md) for V41, compatibility and limits.

@@ -35,6 +35,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -1277,7 +1278,7 @@ public class PieceService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<PieceResponse> listTrackingPieces(
+    public TrackingPageResponse listTrackingPieces(
             String keyword,
             String pieceName,
             String projectCode,
@@ -1329,7 +1330,15 @@ public class PieceService {
         int totalPages = idPage.getTotalElements() == 0
                 ? 0
                 : (int) Math.ceil(idPage.getTotalElements() / (double) safeSize);
-        return new PageResponse<>(items, idPage.getTotalElements(), safePage, safeSize, totalPages);
+        BigDecimal radiographyBacklogHours = null;
+        if (stage == PieceStage.RADIOGRAPHY
+                && (radiographySubStage == RadiographySubStage.SHOT || radiographySubStage == RadiographySubStage.INTERPRETATION)) {
+            radiographyBacklogHours = pieceRepository.sumTrackingRadiographyHours(filter.toBuilder()
+                    .includeArchived(true)
+                    .build());
+        }
+        return new TrackingPageResponse(items, idPage.getTotalElements(), safePage, safeSize, totalPages,
+                radiographyBacklogHours);
     }
 
     @Transactional(readOnly = true)

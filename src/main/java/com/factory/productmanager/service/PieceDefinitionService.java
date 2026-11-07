@@ -50,6 +50,8 @@ public class PieceDefinitionService {
         definition.setMinYs(request.getMinYs());
         definition.setMinEl(request.getMinEl());
         definition.setMinHb(request.getMinHb());
+        definition.setRadiographyShotHours(request.getRadiographyShotHours());
+        definition.setRadiographyInterpretationHours(request.getRadiographyInterpretationHours());
 
         PieceDefinition saved = pieceDefinitionRepository.save(definition);
         return toResponse(saved);
@@ -93,6 +95,12 @@ public class PieceDefinitionService {
         definition.setMinYs(request.getMinYs());
         definition.setMinEl(request.getMinEl());
         definition.setMinHb(request.getMinHb());
+        if (request.isRadiographyShotHoursSpecified()) {
+            definition.setRadiographyShotHours(request.getRadiographyShotHours());
+        }
+        if (request.isRadiographyInterpretationHoursSpecified()) {
+            definition.setRadiographyInterpretationHours(request.getRadiographyInterpretationHours());
+        }
 
         PieceDefinition saved = pieceDefinitionRepository.save(definition);
         return toResponse(saved);
@@ -139,7 +147,9 @@ public class PieceDefinitionService {
                 definition.getMinUts(),
                 definition.getMinYs(),
                 definition.getMinEl(),
-                definition.getMinHb()
+                definition.getMinHb(),
+                definition.getRadiographyShotHours(),
+                definition.getRadiographyInterpretationHours()
         );
     }
 }

@@ -61,6 +61,7 @@ const TrackingState = {
     pageSize: 50,
     total: 0,
     totalPages: 0,
+    radiographyBacklogHours: null,
     loadSeq: 0,
     activeFilter: "all", // "all" یا یکی از کلیدهای STAGE_DEFINITIONS
     includeArchived: false,
@@ -124,6 +125,7 @@ function applyTrackingPageResult(data) {
     TrackingState.page = data.page ?? 0;
     TrackingState.pageSize = data.size || TrackingState.pageSize;
     TrackingState.totalPages = data.totalPages ?? 0;
+    TrackingState.radiographyBacklogHours = data.radiographyBacklogHours ?? null;
 }
 
 /* ===========================
@@ -136,6 +138,8 @@ async function loadTracking(options = {}) {
     if (options.clearSelection !== false) TrackingState.selectedPieceIds.clear();
 
     const seq = ++TrackingState.loadSeq;
+    const backlog = document.getElementById("tracking-radiography-backlog");
+    backlog.hidden = true;
     const tbody = document.getElementById("tracking-table-body");
     showTableLoader(tbody, canUseBulkSelection() ? 7 : 6);
     try {
@@ -168,6 +172,12 @@ async function loadTracking(options = {}) {
         if (includeSummary) {
             renderTrackingMetrics();
             renderStageCards();
+        }
+        const hours = TrackingState.radiographyBacklogHours;
+        if (hours !== null) {
+            const label = TrackingState.radiographySubStageFilter === "SHOT" ? "انباشتگی شوت" : "انباشتگی تفسیر";
+            backlog.textContent = `${label} · ${hours.toLocaleString("fa-IR", { maximumFractionDigits: 2 })} ساعت`;
+            backlog.hidden = false;
         }
         renderTrackingTable();
     } catch (error) {

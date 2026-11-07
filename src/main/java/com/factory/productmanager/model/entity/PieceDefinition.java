@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
+@DynamicUpdate
 @Table(
         name = "piece_definitions",
         uniqueConstraints = @UniqueConstraint(
@@ -51,6 +53,11 @@ public class PieceDefinition {
     private BigDecimal minEl;
     @Column(name = "min_hb", precision = 10, scale = 2)
     private BigDecimal minHb;
+
+    @Column(name = "radiography_shot_hours", precision = 10, scale = 2)
+    private BigDecimal radiographyShotHours;
+    @Column(name = "radiography_interpretation_hours", precision = 10, scale = 2)
+    private BigDecimal radiographyInterpretationHours;
 
     @OneToMany(mappedBy = "pieceDefinition", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference

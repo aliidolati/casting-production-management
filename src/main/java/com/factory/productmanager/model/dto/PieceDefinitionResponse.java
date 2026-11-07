@@ -26,4 +26,6 @@ public class PieceDefinitionResponse {
     private BigDecimal minYs;
     private BigDecimal minEl;
     private BigDecimal minHb;
+    private BigDecimal radiographyShotHours;
+    private BigDecimal radiographyInterpretationHours;
 }

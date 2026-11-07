@@ -258,6 +258,8 @@ CREATE TABLE `piece_definitions` (
   `min_hb` decimal(10,2) DEFAULT NULL,
   `min_uts` decimal(10,2) DEFAULT NULL,
   `min_ys` decimal(10,2) DEFAULT NULL,
+  `radiography_shot_hours` decimal(10,2) DEFAULT NULL,
+  `radiography_interpretation_hours` decimal(10,2) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_project_row_num` (`project_id`,`row_num`),
   CONSTRAINT `FKf57w0h6el32rskmlolq83tdjk` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`)

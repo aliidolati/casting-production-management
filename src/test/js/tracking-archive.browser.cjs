@@ -24,14 +24,23 @@ const { chromium } = require('playwright');
             const archived = url.searchParams.get('includeArchived') === 'true';
             const items = [{ id: 'active', pieceNumber: 9, pieceName: 'قطعه آزمایشی', projectCode: 'SYNTHETIC', currentStage: 'CASTING' }];
             if (archived) items.push({ id: 'archived', pieceNumber: 19, pieceName: 'قطعه بایگانی', projectCode: 'SYNTHETIC', currentStage: 'SCRAPPED', archivedAt: '2026-01-01T00:00:00' });
+            const subStage = url.searchParams.get('radiographySubStage');
+            if (url.searchParams.get('stage') === 'RADIOGRAPHY') {
+                items.length = 0;
+                items.push({
+                    id: 'radiography', pieceNumber: 20, pieceName: 'قطعه آزمایشی', projectCode: 'SYNTHETIC',
+                    currentStage: 'RADIOGRAPHY', radiographySubStage: subStage || 'SHOT',
+                });
+            }
+            const hours = { SHOT: 2.5, INTERPRETATION: 0 }[subStage];
             const body = url.pathname.endsWith('/summary')
                 ? { totalCount: items.length, inProgressCount: 1, stageCounts: { CASTING: 1, SCRAPPED: archived ? 1 : 0 } }
-                : { items, totalElements: items.length, page: 0, size: 50, totalPages: 1 };
+                : { items, totalElements: items.length, page: 0, size: 50, totalPages: 1, radiographyBacklogHours: hours };
             await route.fulfill({ json: body });
         });
         await page.goto('http://tracking.test/');
         for (const css of ['tokens.css', 'style.css']) await page.addStyleTag({ path: path.join(root, 'css', css) });
-        for (const js of ['jalali.js', 'api.js', 'app.js', 'auth.js', 'radiography.js', 'heat-treatment.js', 'rough-machining.js', 'tracking.js']) {
+        for (const js of ['jalali.js', 'persian-datepicker.js', 'api.js', 'app.js', 'auth.js', 'radiography.js', 'heat-treatment.js', 'rough-machining.js', 'tracking.js']) {
             await page.addScriptTag({ path: path.join(root, 'js', js) });
         }
         await page.evaluate(async () => {
@@ -42,6 +51,7 @@ const { chromium } = require('playwright');
             document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
             document.getElementById('tracking-section').classList.add('active');
             setupTrackingArchiveListener(); setupBulkActionsListeners(); setupSearchListeners();
+            setupAdvancedFilterListeners();
             await loadTracking();
         });
         const checkbox = page.getByRole('checkbox', { name: 'جست و جوی پیشرفته', exact: true });
@@ -76,7 +86,27 @@ const { chromium } = require('playwright');
             const matching = requests.filter(url => url.pathname.endsWith(suffix));
             assert.deepEqual(matching.map(url => url.searchParams.get('includeArchived')), ['false', 'true', 'false']);
         }
+        const filters = page.locator('#tracking-section .advanced-filters');
+        const backlog = filters.locator('#filter-radiography-substage + #tracking-radiography-backlog');
+        const subStage = page.locator('#filter-radiography-substage');
+        await page.locator('.stage-card[data-filter=RADIOGRAPHY]').click();
+        assert.equal(await backlog.isVisible(), false);
+        await subStage.selectOption('SHOT');
+        await backlog.waitFor();
+        assert.equal(await backlog.innerText(), 'انباشتگی شوت · ۲٫۵ ساعت');
+        for (const width of [1440, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
+            const bounds = await backlog.boundingBox();
+            assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width);
+            assert.equal(await filters.evaluate(el => el.scrollWidth <= el.clientWidth), true);
+            await filters.screenshot({ path: path.join(output, `tracking-rt-filters-${width}.png`) });
+        }
+        await subStage.selectOption('INTERPRETATION');
+        await page.getByText('انباشتگی تفسیر · ۰ ساعت', { exact: true }).waitFor();
+        await subStage.selectOption('VT');
+        await page.locator('tr[data-piece-id=radiography]').waitFor();
+        assert.equal(await backlog.isVisible(), false);
         assert.deepEqual(errors, []);
-        console.log('Tracking archive browser smoke passed: keyboard toggle, list/summary HTTP params, bulk exclusion, read-only dates, desktop/mobile header.');
+        console.log('Tracking archive browser smoke passed: keyboard toggle, list/summary HTTP params, bulk exclusion, read-only dates, desktop/mobile header and selected radiography backlog.');
     } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

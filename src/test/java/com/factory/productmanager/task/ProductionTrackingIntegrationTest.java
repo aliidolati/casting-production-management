@@ -1,7 +1,7 @@
 package com.factory.productmanager.task;
 
-import com.factory.productmanager.model.dto.PageResponse;
 import com.factory.productmanager.model.dto.PieceResponse;
+import com.factory.productmanager.model.dto.TrackingPageResponse;
 import com.factory.productmanager.model.entity.*;
 import com.factory.productmanager.service.PieceService;
 import com.factory.productmanager.repository.*;
@@ -10,15 +10,20 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /** Read-only tracking regressions against synthetic H2 fixtures. */
@@ -54,7 +59,7 @@ class ProductionTrackingIntegrationTest extends TaskTestBase {
         return pieceRepository.saveAndFlush(piece);
     }
 
-    private PageResponse<PieceResponse> tracking(String q, String name, String project, PieceStage stage,
+    private TrackingPageResponse tracking(String q, String name, String project, PieceStage stage,
                                                 LocalDate from, LocalDate to, int page, int size) {
         return pieceService.listTrackingPieces(q, name, project, stage, from, to,
                 null, null, null, "pieceNumber", "asc", page, size, false);
@@ -170,6 +175,106 @@ class ProductionTrackingIntegrationTest extends TaskTestBase {
                     .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
         }
         assertNotNull(pieceRepository.findById(archived.getId()).orElseThrow().getArchivedAt());
+    }
+
+    @Test
+    void definitionDurationsCanBeSavedUpdatedAndClearedWithoutBreakingOlderClients() throws Exception {
+        var body = new HashMap<String, Object>(Map.of(
+                "projectId", definition.getProject().getId(),
+                "rowNum", 2,
+                "pieceName", "Synthetic RT row",
+                "radiographyShotHours", 1.25,
+                "radiographyInterpretationHours", 0.5
+        ));
+        call(post("/api/piece-definitions"), worker, body).andExpect(status().isForbidden());
+        String created = call(post("/api/piece-definitions"), admin, body)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.radiographyShotHours").value(1.25))
+                .andExpect(jsonPath("$.radiographyInterpretationHours").value(0.5))
+                .andReturn().getResponse().getContentAsString();
+        String createdId = com.jayway.jsonpath.JsonPath.read(created, "$.id");
+        String url = "/api/piece-definitions/" + createdId;
+        body.remove("projectId");
+        body.remove("radiographyShotHours");
+        body.remove("radiographyInterpretationHours");
+        call(put(url), admin, body).andExpect(status().isOk())
+                .andExpect(jsonPath("$.radiographyShotHours").value(1.25))
+                .andExpect(jsonPath("$.radiographyInterpretationHours").value(0.5));
+
+        body.put("radiographyShotHours", -1);
+        call(put(url), admin, body).andExpect(status().isBadRequest());
+        body.put("radiographyShotHours", 1.234);
+        call(put(url), admin, body).andExpect(status().isBadRequest());
+        body.put("radiographyShotHours", null);
+        body.put("radiographyInterpretationHours", 0.75);
+        call(put(url), admin, body).andExpect(status().isOk());
+        em.flush();
+        em.clear();
+        call(get(url), worker).andExpect(status().isOk())
+                .andExpect(jsonPath("$.radiographyShotHours").isEmpty())
+                .andExpect(jsonPath("$.radiographyInterpretationHours").value(0.75));
+    }
+
+    @Test
+    void radiographyBacklogUsesFilteredPiecesAcrossPagesIncludingArchivesAndManagerReview() throws Exception {
+        definition.setRadiographyShotHours(new BigDecimal("1.25"));
+        definition.setRadiographyInterpretationHours(new BigDecimal("0.75"));
+        PieceDefinition otherRow = new PieceDefinition();
+        otherRow.setProject(definition.getProject());
+        otherRow.setRowNum(2);
+        otherRow.setPieceName("Synthetic RT without times");
+        definitionRepository.save(otherRow);
+
+        Piece shot = addPiece(11, PieceStage.RADIOGRAPHY);
+        shot.setRadiographySubStage(RadiographySubStage.SHOT);
+        Piece archived = addPiece(12, PieceStage.RADIOGRAPHY);
+        archived.setRadiographySubStage(RadiographySubStage.SHOT);
+        archived.setArchivedAt(LocalDateTime.now());
+        Piece missingTime = addPiece(13, PieceStage.RADIOGRAPHY);
+        missingTime.setPieceDefinition(otherRow);
+        missingTime.setRadiographySubStage(RadiographySubStage.SHOT);
+        Piece waiting = addPiece(14, PieceStage.RADIOGRAPHY);
+        waiting.setRadiographySubStage(RadiographySubStage.INTERPRETATION);
+        var workflow = new RadiographyWorkflow();
+        workflow.setPiece(waiting);
+        workflow.setInterpreter(worker);
+        workflow.setAssignedBy(admin);
+        workflow.setAssignedAt(LocalDateTime.now());
+        workflow.setStatus(RadiographyWorkflowStatus.MANAGER_REVIEW);
+        workflow.setOpenKey(waiting.getId().toString());
+        em.persist(workflow);
+        em.flush();
+
+        for (String page : List.of("0", "1")) {
+            call(radiographyTracking("SHOT").param("page", page).param("size", "1"), worker)
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.totalElements").value(2))
+                    .andExpect(jsonPath("$.items.length()").value(1))
+                    .andExpect(jsonPath("$.radiographyBacklogHours").value(2.5));
+        }
+        call(radiographyTracking("SHOT").param("includeArchived", "true"), worker)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(3))
+                .andExpect(jsonPath("$.radiographyBacklogHours").value(2.5));
+        call(radiographyTracking("SHOT").param("q", "11").param("pieceName", "Housing")
+                        .param("dateFrom", LocalDate.now().toString()).param("dateTo", LocalDate.now().toString()), worker)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.radiographyBacklogHours").value(1.25));
+        call(radiographyTracking("SHOT").param("q", "13"), worker)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.radiographyBacklogHours").value(0));
+        call(radiographyTracking("SHOT").param("dateFrom", LocalDate.now().plusDays(1).toString()), worker)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.radiographyBacklogHours").value(0));
+        call(radiographyTracking("INTERPRETATION"), worker).andExpect(status().isOk())
+                .andExpect(jsonPath("$.radiographyBacklogHours").value(0.75));
+        call(radiographyTracking("VT"), worker).andExpect(status().isOk())
+                .andExpect(jsonPath("$.radiographyBacklogHours").doesNotHaveJsonPath());
+    }
+
+    private MockHttpServletRequestBuilder radiographyTracking(String subStage) {
+        return get("/api/pieces/tracking").param("projectCode", code).param("stage", "RADIOGRAPHY")
+                .param("radiographySubStage", subStage);
     }
 
     @Test
