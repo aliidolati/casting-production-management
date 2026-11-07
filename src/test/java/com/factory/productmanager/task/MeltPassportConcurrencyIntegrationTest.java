@@ -134,7 +134,8 @@ class MeltPassportConcurrencyIntegrationTest {
     }
     @Test void failedCorrectionRollsBackNewMembershipAndPieceMovement() {
         var pending = pending();
-        var approved = service.approve(pending.id(),new MeltDecisionRequest(pending.version(),null),reviewer);
+        service.approve(pending.id(),new MeltDecisionRequest(pending.version(),null),reviewer);
+        var approved = service.get(pending.id(),administrator);
         UUID addedId = new TransactionTemplate(txManager).execute(tx -> {
             var added = new Piece();
             added.setPieceDefinition(pieces.findById(ids.get(0)).orElseThrow().getPieceDefinition());

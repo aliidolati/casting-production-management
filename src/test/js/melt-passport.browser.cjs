@@ -5,11 +5,16 @@ const { chromium } = require('playwright');
 const fs = require('node:fs');
 
 (async () => {
-    const browser = await chromium.launch({ channel: 'chrome', headless: true });
+    const launchOptions = process.env.MELT_CHROME
+        ? { executablePath: process.env.MELT_CHROME, headless: true }
+        : { channel: 'chrome', headless: true };
+    const browsers = [];
     const errors = [];
     const output = path.resolve(__dirname, '../../../target/melt-browser');
     fs.mkdirSync(output, { recursive: true });
     async function session(username) {
+        const browser = await chromium.launch(launchOptions);
+        browsers.push(browser);
         const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
         const page = await context.newPage();
         page.on('pageerror', e => errors.push(e.message));
@@ -201,7 +206,10 @@ const fs = require('node:fs');
         await openPiece(admin,'SMOKE-MELT-1-1');await admin.locator('#btn-melt-passport-icon').click();
         const initialApproved=await admin.evaluate(id=>MeltPassportAPI.get(id),originalPassportId);
         await admin.locator('#melt-start-correction').click();
-        assert.equal(await admin.locator('#melt-piece-search').count(),0);assert.equal(await admin.locator('[data-melt-remove-piece]').count(),0);assert.equal(await admin.locator('#melt-submit').count(),0);
+        await admin.locator('#melt-piece-search').waitFor({state:'visible'});
+        assert.equal(await admin.locator('[data-melt-remove-piece]').count(),0);
+        assert.equal(await admin.locator('#melt-added-stage').isVisible(),false);
+        assert.equal(await admin.locator('#melt-submit').count(),0);
         await admin.locator('#melt-notes').fill('تغییر لغوشده');await admin.locator('#melt-cancel-correction').click();
         assert.equal(await admin.locator('#melt-notes').inputValue(),initialApproved.notes);
         await admin.locator('#melt-start-correction').click();
@@ -271,5 +279,5 @@ const fs = require('node:fs');
         await operator.screenshot({path:path.join(output,'clock-legacy.png')});
         assert.deepEqual(errors, []);
         console.log('Melt browser smoke passed: LTR magnesium layout and keyboard order at desktop/mobile widths; admin-only approved correction, cancel, atomic calculation, escaped before/after history, optional reason and old-cycle correction; existing dashboard/profile/draft/review/consumption scenarios; no JavaScript page errors.');
-    } finally { await browser.close(); }
+    } finally { await Promise.all(browsers.map(browser => browser.close())); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
