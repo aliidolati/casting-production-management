@@ -4121,6 +4121,13 @@ select.stage-select {
     box-shadow: var(--shadow-border);
 }
 
+.tracking-radiography-backlog {
+    padding: 8px 12px;
+    border-radius: 12px;
+    background-color: var(--color-primary-bg);
+    color: var(--color-primary);
+}
+
 .filter-field {
     display: flex;
     flex-direction: column;

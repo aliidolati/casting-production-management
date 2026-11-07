@@ -213,17 +213,8 @@ function renderDefinitionsTable(definitions) {
         return;
     }
 
-    // آستانه‌های کشش برای فرم ویرایش لازم‌اند ولی در جدول نمایش داده نمی‌شوند،
-    // پس به‌جای شلوغ‌کردن data-attributeها اینجا نگه داشته می‌شوند
-    DefinitionThresholdCache.clear();
-    definitions.forEach((d) =>
-        DefinitionThresholdCache.set(d.id, {
-            minUts: d.minUts,
-            minYs: d.minYs,
-            minEl: d.minEl,
-            minHb: d.minHb,
-        })
-    );
+    DefinitionEditCache.clear();
+    definitions.forEach((definition) => DefinitionEditCache.set(definition.id, definition));
 
     tbody.innerHTML = definitions
         .map(
@@ -271,7 +262,7 @@ function renderDefinitionsTable(definitions) {
                 btn.dataset.rowNum,
                 btn.dataset.pieceName,
                 btn.dataset.hasDrawing === "1",
-                DefinitionThresholdCache.get(btn.dataset.id) || {}
+                DefinitionEditCache.get(btn.dataset.id) || {}
             );
         });
     });
@@ -310,7 +301,7 @@ function renderDefinitionsTable(definitions) {
    حداقل پارامترهای تاییدی تست کشش
    =========================== */
 
-const DefinitionThresholdCache = new Map();
+const DefinitionEditCache = new Map();
 
 const TENSILE_THRESHOLD_FIELDS = [
     { key: "minUts", label: "حداقل UTS" },
@@ -358,7 +349,35 @@ function readTensileThresholdFields(prefix) {
    ویرایش تعریف قطعه (مودال)
    =========================== */
 
-async function openEditDefinitionModal(id, rowNum, pieceName, hasDrawing, thresholds = {}) {
+const RADIOGRAPHY_DURATION_FIELDS = [
+    { key: "radiographyShotHours", label: "زمان شوت (ساعت)" },
+    { key: "radiographyInterpretationHours", label: "زمان تفسیر (ساعت)" },
+];
+
+function renderRadiographyDurationFields(prefix, values = {}) {
+    const inputs = RADIOGRAPHY_DURATION_FIELDS.map(({ key, label }) => `
+        <div class="form-group tensile-threshold-field">
+            <label for="input-${prefix}-${key}">${label}</label>
+            <input type="number" step="0.01" min="0" max="99999999.99"
+                id="input-${prefix}-${key}" value="${escapeHtml(values[key])}" />
+        </div>`).join("");
+
+    return `
+        <fieldset class="tensile-threshold-fieldset">
+            <legend>زمان استاندارد رادیوگرافی</legend>
+            <p class="form-hint">اختیاری، به ساعت برای هر قطعه از این ردیف.</p>
+            <div class="tensile-threshold-grid">${inputs}</div>
+        </fieldset>`;
+}
+
+function readRadiographyDurationFields(prefix) {
+    return Object.fromEntries(RADIOGRAPHY_DURATION_FIELDS.map(({ key }) => {
+        const input = document.getElementById(`input-${prefix}-${key}`);
+        return [key, input.value === "" ? null : input.valueAsNumber];
+    }));
+}
+
+async function openEditDefinitionModal(id, rowNum, pieceName, hasDrawing, values = {}) {
     let templates = [];
     try {
         templates = await RadiographyReportAPI.getTemplates(id);
@@ -379,7 +398,8 @@ async function openEditDefinitionModal(id, rowNum, pieceName, hasDrawing, thresh
                 <label for="input-edit-piece-name">نام قطعه</label>
                 <input type="text" id="input-edit-piece-name" value="${escapeHtml(pieceName)}" required />
             </div>
-            ${renderTensileThresholdFields("edit", thresholds)}
+            ${renderTensileThresholdFields("edit", values)}
+            ${renderRadiographyDurationFields("edit", values)}
             ${renderRadiographyTemplateBuilder({ existingTemplates: templates, allowAdd: true })}
             <div class="form-group">
                 <label for="input-edit-drawing">نقشه دو‌بعدی قطعه ${hasDrawing ? "(اختیاری — برای جایگزینی)" : "(اختیاری)"}</label>
@@ -418,7 +438,12 @@ async function openEditDefinitionModal(id, rowNum, pieceName, hasDrawing, thresh
         }
 
         try {
-            await PieceDefinitionAPI.update(id, { rowNum: newRowNum, pieceName: newPieceName, ...editThresholds });
+            await PieceDefinitionAPI.update(id, {
+                rowNum: newRowNum,
+                pieceName: newPieceName,
+                ...editThresholds,
+                ...readRadiographyDurationFields("edit"),
+            });
             if (drawingFile) {
                 await PieceDefinitionAPI.uploadDrawing(id, drawingFile);
             }
@@ -461,6 +486,7 @@ document.getElementById("btn-add-definition").addEventListener("click", () => {
                 <input type="text" id="input-piece-name" placeholder="مثلاً AA" required />
             </div>
             ${renderTensileThresholdFields("add")}
+            ${renderRadiographyDurationFields("add")}
             ${renderRadiographyTemplateBuilder({ allowAdd: true })}
             <div class="form-group">
                 <label for="input-drawing">نقشه دو‌بعدی قطعه</label>
@@ -510,6 +536,7 @@ document.getElementById("btn-add-definition").addEventListener("click", () => {
                 rowNum,
                 pieceName,
                 ...addThresholds,
+                ...readRadiographyDurationFields("add"),
             });
             await PieceDefinitionAPI.uploadDrawing(created.id, drawingFile);
             await saveNewTemplateIfFilled(created.id);

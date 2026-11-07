@@ -27,6 +27,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +45,7 @@ public class PieceRepositoryImpl implements PieceRepositoryCustom {
         CriteriaQuery<UUID> query = cb.createQuery(UUID.class);
         Root<Piece> piece = query.from(Piece.class);
         query.select(piece.get("id"));
-        query.where(buildPredicates(cb, query, piece, filter).toArray(Predicate[]::new));
+        query.where(buildPredicates(cb, query, piece, piece.join("pieceDefinition"), filter).toArray(Predicate[]::new));
         query.orderBy(buildOrders(cb, query, piece, filter));
 
         TypedQuery<UUID> typed = entityManager.createQuery(query);
@@ -55,7 +56,7 @@ public class PieceRepositoryImpl implements PieceRepositoryCustom {
         CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
         Root<Piece> countRoot = countQuery.from(Piece.class);
         countQuery.select(cb.count(countRoot));
-        countQuery.where(buildPredicates(cb, countQuery, countRoot, filter).toArray(Predicate[]::new));
+        countQuery.where(buildPredicates(cb, countQuery, countRoot, countRoot.join("pieceDefinition"), filter).toArray(Predicate[]::new));
         long total = entityManager.createQuery(countQuery).getSingleResult();
 
         return new PageImpl<>(ids, pageable, total);
@@ -67,18 +68,34 @@ public class PieceRepositoryImpl implements PieceRepositoryCustom {
         CriteriaQuery<Object[]> query = cb.createQuery(Object[].class);
         Root<Piece> piece = query.from(Piece.class);
         query.multiselect(piece.get("currentStage"), cb.count(piece));
-        query.where(buildPredicates(cb, query, piece, filter).toArray(Predicate[]::new));
+        query.where(buildPredicates(cb, query, piece, piece.join("pieceDefinition"), filter).toArray(Predicate[]::new));
         query.groupBy(piece.get("currentStage"));
         return entityManager.createQuery(query).getResultList();
+    }
+
+    @Override
+    public BigDecimal sumTrackingRadiographyHours(TrackingListFilter filter) {
+        String hoursField = switch (filter.getRadiographySubStage()) {
+            case SHOT -> "radiographyShotHours";
+            case INTERPRETATION -> "radiographyInterpretationHours";
+            case VT -> throw new IllegalArgumentException("VT has no radiography backlog duration");
+        };
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<BigDecimal> query = cb.createQuery(BigDecimal.class);
+        Root<Piece> piece = query.from(Piece.class);
+        Join<Piece, PieceDefinition> definition = piece.join("pieceDefinition");
+        query.select(cb.coalesce(cb.sum(definition.<BigDecimal>get(hoursField)), BigDecimal.ZERO));
+        query.where(buildPredicates(cb, query, piece, definition, filter).toArray(Predicate[]::new));
+        return entityManager.createQuery(query).getSingleResult();
     }
 
     private List<Predicate> buildPredicates(
             CriteriaBuilder cb,
             CriteriaQuery<?> query,
             Root<Piece> piece,
+            Join<Piece, PieceDefinition> definition,
             TrackingListFilter filter
     ) {
-        Join<Piece, PieceDefinition> definition = piece.join("pieceDefinition", JoinType.INNER);
         Join<PieceDefinition, Project> project = definition.join("project", JoinType.INNER);
 
         List<Predicate> predicates = new ArrayList<>();

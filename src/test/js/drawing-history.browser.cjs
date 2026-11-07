@@ -35,6 +35,38 @@ const { chromium } = require('playwright');
         const row = page.locator('tr[data-definition-id="' + DRAW_DEFINITION + '"]');
         const history = () => row.getByRole('button', { name: 'نسخه‌های نقشه' }).click();
         await openProject();
+        await page.locator('#btn-add-definition').click();
+        const create = page.locator('#form-add-definition');
+        await create.locator('#input-row-num').fill('2');
+        await create.locator('#input-piece-name').fill('Synthetic RT duration');
+        await create.getByLabel('زمان شوت (ساعت)', { exact: true }).fill('1.25');
+        await create.getByLabel('زمان تفسیر (ساعت)', { exact: true }).fill('0.75');
+        await create.locator('#input-drawing').setInputFiles({
+            name: 'synthetic.png',
+            mimeType: 'image/png',
+            buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+X2L8AAAAASUVORK5CYII=', 'base64'),
+        });
+        await create.getByRole('button', { name: 'ذخیره', exact: true }).click();
+        const durationRow = page.getByRole('row').filter({ hasText: 'Synthetic RT duration' });
+        const openDurationEdit = () => durationRow.locator('.btn-edit-definition').click();
+        await openDurationEdit();
+        const edit = page.locator('#form-edit-definition');
+        const shotHours = edit.getByLabel('زمان شوت (ساعت)', { exact: true });
+        const interpretationHours = edit.getByLabel('زمان تفسیر (ساعت)', { exact: true });
+        await shotHours.waitFor();
+        assert.equal(Number(await shotHours.inputValue()), 1.25);
+        assert.equal(Number(await interpretationHours.inputValue()), 0.75);
+        await shotHours.fill('');
+        await interpretationHours.fill('1.5');
+        await edit.getByRole('button', { name: 'ذخیره', exact: true }).click();
+        await edit.waitFor({ state: 'detached' });
+        await openProject();
+        await openDurationEdit();
+        await interpretationHours.waitFor();
+        assert.equal(await shotHours.inputValue(), '');
+        assert.equal(Number(await interpretationHours.inputValue()), 1.5);
+        await page.locator('#modal-close').click();
+
         await history();
         await page.locator('[data-drawing-view="' + first + '"]').click();
         const image = page.locator('#modal-body img[alt="نقشه قطعه"]');
