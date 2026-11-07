@@ -27,6 +27,13 @@ public class PerformanceService {
     private final Clock clock;
 
     @Transactional(readOnly = true)
+    public Employee employee(UUID userId, String username) {
+        access.requireVisible(lookup.actor(username), userId);
+        var user = users.findById(userId).orElseThrow(this::notFound);
+        return new Employee(user.getUsername(), user.getFullName());
+    }
+
+    @Transactional(readOnly = true)
     public PageResponse<PeriodSummary> list(UUID userId, String username, int page, int size) {
         visibleUser(userId, username);
         return PageResponse.from(periods.findByUserIdOrderByCreatedAtDescIdDesc(userId, paging(page, size)), this::summary);
@@ -90,12 +97,11 @@ public class PerformanceService {
     public Period add(UUID userId, UUID periodId, CriterionWrite request, String username) {
         User actor = lockUser(userId, username);
         var p = lockPeriod(userId, periodId, request.version());
-        requireReason(p, request.reason(), false);
-        if (request.score() != null && request.score().compareTo(request.maximumScore()) != 0)
-            throw new IllegalArgumentException("امتیاز اولیه باید برابر سقف امتیاز باشد");
+        BigDecimal score = request.score() == null ? request.maximumScore() : request.score();
+        requireReason(p, request.reason(), score.compareTo(request.maximumScore()) != 0);
         BigDecimal before = total(p);
         var c = new PerformanceCriterion(); c.setPeriod(p); c.setCreatedAt(now());
-        assign(c, request, request.maximumScore());
+        assign(c, request, score);
         criteria.saveAndFlush(c);
         touch(p);
         record(p, actor, "CRITERION_ADDED", c.getId(), request.reason(), null, criterion(c), before, total(p));
@@ -107,11 +113,27 @@ public class PerformanceService {
         var p = lockPeriod(userId, periodId, request.version());
         var c = ownedCriterion(p, criterionId);
         if (request.score() == null) throw new IllegalArgumentException("نمرهٔ فعلی را وارد کنید");
-        if (request.score().compareTo(request.maximumScore()) > 0) throw new IllegalArgumentException("نمره نمی‌تواند از سقف بیشتر باشد");
         requireReason(p, request.reason(), c.getScore().compareTo(request.score()) != 0);
         var old = criterion(c); BigDecimal before = total(p);
         assign(c, request, request.score());
         criteria.flush(); touch(p);
+        record(p, actor, "CRITERION_UPDATED", c.getId(), request.reason(), old, criterion(c), before, total(p));
+        return response(p, actor);
+    }
+
+    public Period updateScore(UUID userId, UUID periodId, UUID criterionId, ScoreWrite request, String username) {
+        User actor = lookup.actor(username);
+        access.requireScoreEditor(actor, userId);
+        lockTargetUser(userId);
+        var p = lockPeriod(userId, periodId, request.version());
+        var c = ownedCriterion(p, criterionId);
+        if (c.getScore().compareTo(request.score()) == 0) return response(p, actor);
+        requireReason(p, request.reason(), true);
+        var old = criterion(c);
+        BigDecimal before = total(p);
+        c.setScore(request.score().setScale(2, java.math.RoundingMode.UNNECESSARY));
+        criteria.flush();
+        touch(p);
         record(p, actor, "CRITERION_UPDATED", c.getId(), request.reason(), old, criterion(c), before, total(p));
         return response(p, actor);
     }
@@ -134,8 +156,11 @@ public class PerformanceService {
     }
     private User lockUser(UUID id, String username) {
         User actor = lookup.actor(username); access.requireManage(actor, id);
-        users.lockForPerformance(id).orElseThrow(this::notFound);
+        lockTargetUser(id);
         return actor;
+    }
+    private void lockTargetUser(UUID id) {
+        users.lockForPerformance(id).orElseThrow(this::notFound);
     }
     private PerformancePeriod lockPeriod(UUID userId, UUID periodId, Long version) {
         var p = periods.lockOwned(periodId, userId).orElseThrow(this::notFound);
@@ -178,7 +203,7 @@ public class PerformanceService {
         var rows = active(p); var result = PerformanceCalculator.calculate(rows);
         return new Period(p.getId(), p.getTitle(), status(p), p.getVersion(), p.getCreatedAt(), p.getClosedAt(), p.getUpdatedAt(),
                 rows.stream().map(this::criterion).toList(), result.weightedScore(), result.weightedMaximum(), result.efficiency(),
-                access.canManage(actor), access.canManage(actor) && p.getClosedAt() == null);
+                access.canManage(actor), access.canEditScores(actor), access.canManage(actor) && p.getClosedAt() == null);
     }
     private void record(PerformancePeriod p, User actor, String action, UUID criterionId, String reason,
                         Object oldValues, Object newValues, BigDecimal oldEfficiency, BigDecimal newEfficiency) {

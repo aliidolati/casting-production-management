@@ -27,10 +27,12 @@ class PerformanceMigrationMysqlTest {
         try (var connection = com.factory.productmanager.support.IsolatedMysql.connect("performance_ddl_synthetic")) {
             com.factory.productmanager.support.IsolatedMysql.assertOwned(connection,"performance_ddl_synthetic");
             apply(connection); apply(connection);
+            apply(connection, "V44__performance_bonus_efficiency.sql");
             try (var ignored = configuration("validate", true).buildSessionFactory()) { /* Checks MySQL types against all four mappings. */ }
-            // The migration is also safe after Hibernate-created tables.
+            // Both migrations also work after the current Hibernate mappings are applied.
             try (var ignored = configuration("update", true).buildSessionFactory()) { }
             apply(connection);
+            apply(connection, "V44__performance_bonus_efficiency.sql");
             connection.setAutoCommit(false);
             try (var s = connection.createStatement()) {
                 s.executeUpdate("INSERT INTO users(id,username,password,role,disabled,created_at) VALUES (UUID_TO_BIN(UUID()),CONCAT('ddl_',UUID()),'synthetic','OPERATOR',0,NOW(6))");
@@ -42,6 +44,17 @@ class PerformanceMigrationMysqlTest {
                     try (var close = connection.prepareStatement("UPDATE performance_periods SET open_user_key=NULL,closed_at=NOW(6) WHERE user_id=?")) { close.setBytes(1,userId); close.executeUpdate(); }
                     assertEquals(1, insert.executeUpdate());
                 }
+                assertEquals(1, s.executeUpdate("""
+                        INSERT INTO performance_events
+                            (id, action, actor_id, actor_username, occurred_at, period_id, old_efficiency, new_efficiency)
+                        SELECT UUID_TO_BIN(UUID()), 'CRITERION_UPDATED', user_id, 'synthetic', NOW(6), id, 0.8500, 999999999999.0000
+                        FROM performance_periods WHERE open_user_key IS NOT NULL LIMIT 1
+                        """));
+                try (var scores = s.executeQuery("SELECT old_efficiency, new_efficiency FROM performance_events WHERE actor_username='synthetic'")) {
+                    assertTrue(scores.next());
+                    assertEquals(new java.math.BigDecimal("0.8500"), scores.getBigDecimal(1));
+                    assertEquals(new java.math.BigDecimal("999999999999.0000"), scores.getBigDecimal(2));
+                }
                 try (var delete = connection.prepareStatement("DELETE FROM users WHERE id=?")) {
                     delete.setBytes(1, userId); assertEquals(1451, assertThrows(SQLException.class, delete::executeUpdate).getErrorCode());
                 }
@@ -49,7 +62,11 @@ class PerformanceMigrationMysqlTest {
         }
     }
     private void apply(Connection connection) throws Exception {
-        var sql = Files.readString(Path.of("src/main/resources/db/migration/V31__employee_performance.sql"));
+        apply(connection, "V31__employee_performance.sql");
+    }
+
+    private void apply(Connection connection, String migration) throws Exception {
+        var sql = Files.readString(Path.of("src/main/resources/db/migration", migration));
         sql = sql.replaceAll("(?m)^--.*$", "");
         for (String statement : sql.split(";")) if (!statement.isBlank()) {
             try (var s = connection.createStatement()) { s.execute(statement); }

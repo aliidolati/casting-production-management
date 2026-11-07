@@ -30,6 +30,13 @@ public class MeltPassportBrowserFixture {
                 if(username.endsWith("admin")) u.setRole(Role.MANAGER);
                 users.save(u);
             }
+            var assigner = new User();
+            assigner.setUsername("melt-ui-assigner");
+            assigner.setPassword(encoder.encode("Synthetic-Melt-Only1"));
+            assigner.setFullName("تخصیص‌دهنده آزمایشی");
+            assigner.setRole(Role.OPERATOR);
+            assigner.setPermissions(new HashSet<>(Set.of(Permission.ASSIGN_MELT_OPERATOR)));
+            users.save(assigner);
             var project=new Project();project.setCode("SMOKE-MELT");project.setName("پروژه ساختگی آزمون ذوب");context.getBean(ProjectRepository.class).save(project);
             var def=new PieceDefinition();def.setProject(project);def.setRowNum(1);def.setPieceName("بدنه آزمایشی");context.getBean(PieceDefinitionRepository.class).save(def);
             for(int n=1;n<=4;n++){var p=new Piece();p.setPieceDefinition(def);p.setPieceNumber(n);p.setCurrentStage(n==4?PieceStage.ROUGH_MACHINING:PieceStage.CASTING);context.getBean(PieceRepository.class).save(p);}

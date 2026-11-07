@@ -25,6 +25,7 @@ const RecordEditAPI = {
 };
 
 const MeltPassportAPI = {
+    assignees: () => apiRequest('/melt-passports/assignees'),
     assign: (id, assigneeId, version) => apiRequest(`/melt-passports/${encodeURIComponent(id)}/assignment`, 'POST', { assigneeId, version }),
     assignPiece: (id, assigneeId, version = null) => apiRequest(`/melt-passports/piece/${encodeURIComponent(id)}/assignment`, 'POST', { assigneeId, version }),
     today: () => apiRequest('/melt-passports/today'),
@@ -443,6 +444,7 @@ const AuthAPI = {
 
 const UserAPI = {
     getAll: () => apiRequest("/users"),
+    directory: () => apiRequest("/users/directory"),
     create: (data) => apiRequest("/users", "POST", data),
     delete: (id) => apiRequest(`/users/${id}`, "DELETE"),
     changeMyPassword: (data) => apiRequest("/users/me/password", "PATCH", data),
@@ -456,6 +458,7 @@ const UserAPI = {
 };
 
 const PerformanceAPI = {
+    employee: (userId) => apiRequest(`/users/${encodeURIComponent(userId)}/performance`),
     list: (userId, params = {}) => apiRequest(`/users/${userId}/performance/periods${taskQueryString(params)}`),
     get: (userId, periodId) => apiRequest(`/users/${userId}/performance/periods/${periodId}`),
     events: (userId, periodId, params = {}) => apiRequest(`/users/${userId}/performance/periods/${periodId}/events${taskQueryString(params)}`),
@@ -463,6 +466,7 @@ const PerformanceAPI = {
     next: (userId, periodId, data) => apiRequest(`/users/${userId}/performance/periods/${periodId}/next`, "POST", data),
     add: (userId, periodId, data) => apiRequest(`/users/${userId}/performance/periods/${periodId}/criteria`, "POST", data),
     update: (userId, periodId, criterionId, data) => apiRequest(`/users/${userId}/performance/periods/${periodId}/criteria/${criterionId}`, "PATCH", data),
+    updateScore: (userId, periodId, criterionId, data) => apiRequest(`/users/${userId}/performance/periods/${periodId}/criteria/${criterionId}/score`, "PATCH", data),
     delete: (userId, periodId, criterionId, data) => apiRequest(`/users/${userId}/performance/periods/${periodId}/criteria/${criterionId}`, "DELETE", data),
 };
 

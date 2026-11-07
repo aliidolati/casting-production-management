@@ -94,7 +94,7 @@ class MeltWorkflowIntegrationTest extends TaskTestBase {
         call(post("/api/melt-passports/"+m.id()+"/approve"),outsider,decision(m)).andExpect(status().isForbidden());
     }
 
-    @Test void onlyAdminAssignsAndOnlyAssignedOperatorEditsCalculatesOrSubmits() throws Exception {
+    @Test void actorsWithoutAssignmentOrEditRightsCannotModifyDraft() throws Exception {
         var m = assigned();
         call(post("/api/melt-passports/"+m.id()+"/assignment"),worker,new MeltAssignmentRequest(otherWorker.getId(),m.version())).andExpect(status().isForbidden());
         var r = new MeltPassportRequest(); r.setVersion(m.version()); r.setPieceIds(List.of(first.getId()));
@@ -103,6 +103,55 @@ class MeltWorkflowIntegrationTest extends TaskTestBase {
         call(post("/api/melt-passports/"+m.id()+"/submit"),otherWorker,decision(m)).andExpect(status().isForbidden());
         call(post("/api/melt-passports/"+m.id()+"/assignment"),admin,new MeltAssignmentRequest(disabledWorker.getId(),m.version())).andExpect(status().isBadRequest());
         call(post("/api/melt-passports/"+m.id()+"/assignment"),admin,new MeltAssignmentRequest(outsider.getId(),m.version())).andExpect(status().isBadRequest());
+    }
+
+    @Test void delegatedAssignerCanUseBothRoutesWithoutTaskManagementOrDraftEditRights() throws Exception {
+        var assigner = newUser("melt-assignment-" + UUID.randomUUID(), Role.OPERATOR, Set.of(Permission.ASSIGN_MELT_OPERATOR));
+        String base = "/api/melt-passports";
+        call(get(base + "/assignees"), worker).andExpect(status().isForbidden());
+        call(get("/api/tasks/assignees"), assigner).andExpect(status().isForbidden());
+        call(get(base + "/assignees"), assigner).andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + worker.getId() + "')]").isNotEmpty())
+                .andExpect(jsonPath("$[?(@.id == '" + disabledWorker.getId() + "')]").isEmpty());
+        call(post(base + "/piece/" + first.getId() + "/assignment"), assigner, new MeltAssignmentRequest(worker.getId(), null))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.assignable").value(true))
+                .andExpect(jsonPath("$.editable").value(false)).andExpect(jsonPath("$.assignedOperatorId").value(worker.getId().toString()));
+        var m = service.forPiece(first.getId(), assigner.getUsername()).get(0);
+        var body = new MeltPassportRequest();
+        body.setVersion(m.version()); body.setPieceIds(List.of(first.getId()));
+        call(put(base + "/" + m.id()), assigner, body).andExpect(status().isForbidden());
+        call(post(base + "/" + m.id() + "/assignment"), assigner, new MeltAssignmentRequest(otherWorker.getId(), m.version()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.assignedOperatorId").value(otherWorker.getId().toString()))
+                .andExpect(jsonPath("$.events[?(@.action == 'OPERATOR_ASSIGNED' && @.actorId == '" + assigner.getId() + "')]").isNotEmpty());
+        assertEquals(otherWorker.getId(), task(m, TaskType.MELT_PASSPORT_ENTRY).getAssignedTo().getId());
+    }
+
+    @Test void reviewerMayEditAndResubmitOnlyAfterReturnWithoutTakingTheAssignment() throws Exception {
+        var m = fill(assigned(), first);
+        var request = new MeltPassportRequest();
+        request.setVersion(m.version()); request.setPieceIds(List.of(first.getId()));
+        call(put("/api/melt-passports/" + m.id()), outsider, request).andExpect(status().isForbidden());
+        m = service.submit(m.id(), decision(m), worker.getUsername());
+        request.setVersion(m.version());
+        call(put("/api/melt-passports/" + m.id()), outsider, request).andExpect(status().isForbidden());
+
+        m = service.returnForCorrection(m.id(), new MeltDecisionRequest(m.version(), "اصلاح بچ"), outsider.getUsername());
+        assertTrue(m.editable());
+        request.setVersion(m.version());
+        request.setMeltDate(m.meltDate()); request.setFurnaceNumber(BigDecimal.valueOf(m.furnaceNumber())); request.setIngotType(m.ingotType());
+        request.setPrimaryWeight(m.primaryWeight()); request.setRecycledWeight(m.recycledWeight());
+        request.setInjectionOperator(m.injectionOperator());
+        request.setChecks(m.checks());
+        request.setPrimaryBatch("BATCH-REVISED");
+        call(put("/api/melt-passports/" + m.id()), outsider, request).andExpect(status().isOk())
+                .andExpect(jsonPath("$.primaryBatch").value("BATCH-REVISED"))
+                .andExpect(jsonPath("$.events[?(@.action == 'UPDATED' && @.actorId == '" + outsider.getId() + "')]").isNotEmpty());
+        m = service.get(m.id(), outsider.getUsername());
+        call(post("/api/melt-passports/" + m.id() + "/submit"), outsider, decision(m)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING_APPROVAL"))
+                .andExpect(jsonPath("$.assignedOperatorId").value(worker.getId().toString()));
+        assertEquals(PieceStage.CASTING, first.getCurrentStage());
+        assertEquals(worker.getId(), task(m, TaskType.MELT_PASSPORT_ENTRY).getAssignedTo().getId());
     }
 
     @Test void workflowTasksCannotBeCompletedOrReassignedThroughGenericEndpoints() throws Exception {

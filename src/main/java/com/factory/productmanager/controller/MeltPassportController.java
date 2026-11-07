@@ -17,6 +17,11 @@ public class MeltPassportController {
     private final MeltPassportService service;
     private final Clock clock;
 
+    @GetMapping("/assignees")
+    public List<UserRefResponse> assignees(Authentication a) {
+        return service.assignees(a.getName());
+    }
+
     @PostMapping("/{id}/assignment")
     public MeltPassportResponse assign(@PathVariable UUID id, @Valid @RequestBody MeltAssignmentRequest r, Authentication a) {
         return service.assign(id, r, a.getName());

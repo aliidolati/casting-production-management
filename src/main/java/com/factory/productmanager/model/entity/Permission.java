@@ -9,6 +9,8 @@ import lombok.Getter;
 @Getter
 public enum Permission {
     VIEW_DASHBOARD("مشاهده داشبورد"),
+    VIEW_USERS("مشاهده فهرست کاربران"),
+    EDIT_PERFORMANCE_SCORES("ویرایش نمرات ارزیابی کاربران"),
     MANAGE_PROJECTS("مدیریت پروژه‌ها"),
     MANAGE_PIECE_DEFINITIONS("مدیریت تعریف قطعات"),
     MANAGE_PIECES("مدیریت قطعات"),
@@ -41,6 +43,7 @@ public enum Permission {
     CANCEL_WELDING_DISPATCH("لغو اعزام جوشکاری"),
     EDIT_HEAT_TREATMENT_BATCH("اصلاح سیکل محموله کوره"),
     MANAGE_MELT_MATERIALS("مدیریت کاتالوگ مواد ذوب"),
+    ASSIGN_MELT_OPERATOR("تخصیص اپراتور ذوب"),
     APPROVE_MELT_PASSPORT("تأیید شناسنامه ذوب");
 
     private final String label;

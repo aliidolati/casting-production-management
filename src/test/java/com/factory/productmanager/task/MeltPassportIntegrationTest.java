@@ -169,7 +169,7 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         var m=pending(first);
         call(post("/api/melt-passports/"+m.id()+"/return"),manager,new MeltDecisionRequest(m.version(),"  ")).andExpect(status().isBadRequest());
         m=service.returnForCorrection(m.id(),new MeltDecisionRequest(m.version(),"شماره بچ اصلاح شود"),manager.getUsername());
-        assertFalse(m.editable()); // Reviewer returns it to the assigned operator; review permission does not grant editing.
+        assertTrue(m.editable()); // A returned passport can also be edited by the reviewer.
         assertTrue(service.get(m.id(),worker.getUsername()).editable());
         assertEquals("شماره بچ اصلاح شود",m.correctionReason()); assertNotNull(m.returnedAt()); assertEquals(manager.getFullName(),m.returnedBy());
         var r=complete(first); r.setVersion(m.version()); r.setPrimaryBatch("NEW-BATCH");

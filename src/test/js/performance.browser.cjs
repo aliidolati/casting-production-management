@@ -4,11 +4,16 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 
 (async () => {
-    const browser = await chromium.launch({ channel: 'chrome', headless: true });
+    const browsers = [];
+    const launchOptions = process.env.PERFORMANCE_CHROME
+        ? { executablePath: process.env.PERFORMANCE_CHROME, headless: true }
+        : { channel: 'chrome', headless: true };
     const output = path.resolve(__dirname, '../../../target/performance-browser');
     fs.mkdirSync(output, { recursive: true });
     const errors = [];
-    async function login(username) {
+    async function login(username, navigateToProfile = true) {
+        const browser = await chromium.launch(launchOptions);
+        browsers.push(browser);
         const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
         const page = await context.newPage();
         page.on('pageerror', e => errors.push(e.message));
@@ -17,7 +22,7 @@ const { chromium } = require('playwright');
         await page.locator('#input-login-password').fill(process.env.PERFORMANCE_PASSWORD);
         await page.locator('#form-login button[type=submit]').click();
         await page.locator('#app-shell').waitFor({ state: 'visible' });
-        await page.evaluate(id => { location.hash = `#/profile/${id}`; }, process.env.PERFORMANCE_WORKER_ID);
+        if (navigateToProfile) await page.evaluate(id => { location.hash = `#/profile/${id}`; }, process.env.PERFORMANCE_WORKER_ID);
         return { page, context };
     }
     async function criterion(page, title, maximum, weight) {
@@ -53,11 +58,9 @@ const { chromium } = require('playwright');
         const oldId = await page.locator('#performance-period').inputValue();
         await page.screenshot({ path: path.join(output, 'desktop.png'), fullPage: true });
 
-        await page.locator('[data-performance-edit]').first().click();
-        await page.locator('#performance-maximum').fill('30');
-        await page.locator('#performance-criterion-form button[type=submit]').click();
-        assert.match(await page.locator('#performance-form-error').innerText(), /نمره نمی‌تواند/);
-        await page.locator('#performance-cancel').click();
+        await grade(page, '110', 'امتیاز بالاتر از سقف پایه');
+        assert.equal(await efficiency(page), '۱٫۹');
+        await grade(page, '40', 'بازگرداندن نمره برای آزمون بستن دوره');
         await page.locator('#performance-next').click();
         await page.locator('#performance-period-title').fill('آبان ۱۴۰۵');
         await page.locator('#performance-period-form button[type=submit]').click();
@@ -115,7 +118,21 @@ const { chromium } = require('playwright');
         const manager = await login(process.env.PERFORMANCE_MANAGER);
         await manager.page.locator('.profile-name').waitFor();
         assert.equal(await manager.page.locator('#profile-performance').count(), 0);
+        const grader = (await login(process.env.PERFORMANCE_GRADER, false)).page;
+        await grader.locator('#nav-btn-users').click();
+        assert.equal(await grader.locator('#btn-add-user').isVisible(), false);
+        assert.equal(await grader.locator('.btn-edit-account, .btn-reset-password, .btn-delete-user').count(), 0);
+        await grader.locator(`#users-table-body a[href="#/profile/${process.env.PERFORMANCE_WORKER_ID}"]`).click();
+        await grader.locator('#performance-efficiency').waitFor();
+        assert.equal(await grader.locator('#profile-tasks-region, #performance-add, #performance-next, [data-performance-delete]').count(), 0);
+        await grader.locator('[data-performance-edit]').first().click();
+        assert.equal(await grader.locator('#performance-maximum, #performance-weight').count(), 0);
+        await grader.locator('#performance-score').fill('55');
+        await grader.locator('#performance-reason').fill('امتیاز تشویقی ادمین');
+        await grader.locator('#performance-criterion-form button[type=submit]').click();
+        await grader.locator('#performance-criterion-form').waitFor({ state: 'detached' });
+        assert.equal(await efficiency(grader), '۱٫۱');
         assert.deepEqual(errors, []);
         console.log('Performance desktop/mobile, grades, rollover, closed correction, audit, escaping, visibility and navigation smoke passed.');
-    } finally { await browser.close(); }
+    } finally { await Promise.all(browsers.map(browser => browser.close())); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

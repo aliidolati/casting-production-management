@@ -1,5 +1,6 @@
 package com.factory.productmanager.repository;
 
+import com.factory.productmanager.model.dto.UserDirectoryResponse;
 import com.factory.productmanager.model.dto.UserRefResponse;
 import com.factory.productmanager.model.entity.Permission;
 import com.factory.productmanager.model.entity.User;
@@ -21,6 +22,14 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> lockForPerformance(@Param("id") UUID id);
 
     Optional<User> findByUsername(String username);
+
+    @Query("""
+            SELECT new com.factory.productmanager.model.dto.UserDirectoryResponse(
+                u.id, u.username, u.fullName, u.role, u.createdAt, not u.disabled)
+            FROM User u
+            ORDER BY LOWER(u.username)
+            """)
+    List<UserDirectoryResponse> findDirectory();
 
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.username = :username")

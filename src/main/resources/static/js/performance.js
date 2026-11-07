@@ -69,13 +69,13 @@ function renderPerformance(s) {
         ${s.periods.totalPages > 1 ? `<div class="performance-toolbar"><span>صفحهٔ دوره‌ها: ${performanceNumber(s.page + 1)} از ${performanceNumber(s.periods.totalPages)}</span><div><button type="button" class="btn btn-secondary btn-sm" id="performance-period-prev" ${s.page === 0 ? "disabled" : ""}>جدیدتر</button> <button type="button" class="btn btn-secondary btn-sm" id="performance-period-next" ${s.page + 1 >= s.periods.totalPages ? "disabled" : ""}>قدیمی‌تر</button></div></div>` : ""}
         ${p ? `
             <div class="performance-summary">
-                <div><span>راندمان ${p.status === "OPEN" ? "جاری" : "نهایی"}</span><strong id="performance-efficiency">${performanceNumber(p.efficiency, 4)}</strong><small>بین صفر و یک · نمرهٔ اولیهٔ معیارها کامل است</small></div>
-                <div><span>امتیاز وزنی کسب‌شده / سقف وزنی</span><bdi>${performanceNumber(p.weightedScore, 4)} / ${performanceNumber(p.weightedMaximum, 4)}</bdi><small>مجموع (نمره × ضریب) ÷ مجموع (سقف × ضریب)</small></div>
+                <div><span>راندمان ${p.status === "OPEN" ? "جاری" : "نهایی"}</span><strong id="performance-efficiency">${performanceNumber(p.efficiency, 4)}</strong><small>نمرهٔ تشویقی می‌تواند راندمان را از ۱ بیشتر کند</small></div>
+                <div><span>امتیاز وزنی کسب‌شده / سقف وزنی پایه</span><bdi>${performanceNumber(p.weightedScore, 4)} / ${performanceNumber(p.weightedMaximum, 4)}</bdi><small>مجموع (نمره × ضریب) ÷ مجموع (سقف × ضریب)</small></div>
             </div>
             <p class="task-muted">شروع: ${escapeHtml(taskFormatDateTime(p.createdAt))}${p.closedAt ? ` · پایان: ${escapeHtml(taskFormatDateTime(p.closedAt))}` : ""}</p>
-            ${p.status === "CLOSED" && p.canManage ? `<p class="performance-notice">این دوره بسته شده است. اصلاح با ثبت دلیل انجام می‌شود و دورهٔ جاری را تغییر نمی‌دهد.</p>` : ""}
-            ${p.criteria.length ? `<div class="table-wrap"><table class="data-table performance-table"><thead><tr><th>عنوان و توضیحات</th><th>سقف امتیاز</th><th>ضریب</th><th>نمره</th>${p.canManage ? "<th>عملیات</th>" : ""}</tr></thead><tbody>${p.criteria.map(c => `
-                <tr><td><strong>${escapeHtml(c.title)}</strong>${c.description ? `<p class="performance-description">${escapeHtml(c.description)}</p>` : ""}</td><td>${performanceNumber(c.maximumScore)}</td><td>${performanceNumber(c.weight)}</td><td>${performanceNumber(c.score)}</td>${p.canManage ? `<td><div class="performance-row-actions"><button type="button" class="btn btn-secondary btn-sm" data-performance-edit="${escapeHtml(c.id)}">ویرایش</button><button type="button" class="btn btn-danger btn-sm" data-performance-delete="${escapeHtml(c.id)}">حذف</button></div></td>` : ""}</tr>`).join("")}</tbody></table></div>` : `<p class="task-muted">معیاری تعریف نشده</p>`}
+            ${p.status === "CLOSED" && p.canEditScores ? `<p class="performance-notice">این دوره بسته شده است. اصلاح با ثبت دلیل انجام می‌شود و دورهٔ جاری را تغییر نمی‌دهد.</p>` : ""}
+            ${p.criteria.length ? `<div class="table-wrap"><table class="data-table performance-table"><thead><tr><th>عنوان و توضیحات</th><th>سقف پایه</th><th>ضریب</th><th>نمره</th>${p.canEditScores ? "<th>عملیات</th>" : ""}</tr></thead><tbody>${p.criteria.map(c => `
+                <tr><td><strong>${escapeHtml(c.title)}</strong>${c.description ? `<p class="performance-description">${escapeHtml(c.description)}</p>` : ""}</td><td>${performanceNumber(c.maximumScore)}</td><td>${performanceNumber(c.weight)}</td><td>${performanceNumber(c.score)}</td>${p.canEditScores ? `<td><div class="performance-row-actions"><button type="button" class="btn btn-secondary btn-sm" data-performance-edit="${escapeHtml(c.id)}">${p.canManage ? "ویرایش" : "ویرایش نمره"}</button>${p.canManage ? `<button type="button" class="btn btn-danger btn-sm" data-performance-delete="${escapeHtml(c.id)}">حذف</button>` : ""}</div></td>` : ""}</tr>`).join("")}</tbody></table></div>` : `<p class="task-muted">معیاری تعریف نشده</p>`}
             <div class="performance-toolbar performance-actions"><div>${p.canManage ? `<button type="button" class="btn btn-primary btn-sm" id="performance-add">افزودن معیار</button>` : ""} ${p.canStartNext ? `<button type="button" class="btn btn-secondary btn-sm" id="performance-next">بستن دوره و شروع دورهٔ جدید</button>` : ""}</div><button type="button" class="btn btn-secondary btn-sm" id="performance-history">${s.showHistory ? "بستن تاریخچهٔ تغییرات" : "تاریخچهٔ تغییرات"}</button></div>
             <div id="performance-history-region"></div>` : `
             <p class="task-muted">هنوز دورهٔ ارزیابی ثبت نشده است.</p>${isManager() ? `<button type="button" class="btn btn-primary" id="performance-create">شروع نخستین دوره</button>` : ""}`}`;
@@ -107,25 +107,45 @@ function performancePeriodForm(s, p) {
 }
 
 function performanceCriterionForm(s, p, c) {
-    const numeric = (id, label, value, min) => `<div class="form-group"><label for="${id}">${label}</label><input type="number" inputmode="decimal" id="${id}" min="${min}" max="9999999999.99" step="0.01" required value="${escapeHtml(String(value ?? ""))}"></div>`;
-    openModal(c ? "ویرایش معیار و نمره" : "افزودن معیار", `<form id="performance-criterion-form">
+    const scoreOnly = c && !p.canManage;
+    const numeric = (id, label, value, min, required = true) => `<div class="form-group"><label for="${id}">${label}</label><input type="number" inputmode="decimal" id="${id}" min="${min}" max="9999999999.99" step="0.01" ${required ? "required" : ""} value="${escapeHtml(String(value ?? ""))}"></div>`;
+    const title = scoreOnly ? "ویرایش نمره" : c ? "ویرایش معیار و نمره" : "افزودن معیار";
+    openModal(title, `<form id="performance-criterion-form">
+        ${scoreOnly ? `<p><strong>${escapeHtml(c.title)}</strong> · سقف پایه ${performanceNumber(c.maximumScore)}</p>` : `
         <div class="form-group"><label for="performance-title">عنوان معیار</label><input id="performance-title" maxlength="200" required value="${escapeHtml(c?.title || "")}"></div>
-        <div class="form-group"><label for="performance-description">توضیحات معیار</label><textarea id="performance-description" maxlength="2000" rows="3">${escapeHtml(c?.description || "")}</textarea></div>
-        <div class="performance-form-grid">${numeric("performance-maximum", "سقف امتیاز", c?.maximumScore, "0.01")}${numeric("performance-weight", "ضریب", c?.weight ?? 1, "0.01")}${c ? numeric("performance-score", "نمرهٔ فعلی", c.score, "0") : ""}</div>
-        ${!c ? `<p class="task-muted">امتیاز اولیه برابر سقف امتیاز خواهد بود.</p>` : ""}
-        <div class="form-group"><label for="performance-reason">دلیل تغییر ${p.status === "CLOSED" ? "(الزامی برای اصلاح دورهٔ بسته)" : "(هنگام تغییر نمره الزامی است)"}</label><textarea id="performance-reason" maxlength="2000" rows="2" ${p.status === "CLOSED" ? "required" : ""}></textarea></div>
+        <div class="form-group"><label for="performance-description">توضیحات معیار</label><textarea id="performance-description" maxlength="2000" rows="3">${escapeHtml(c?.description || "")}</textarea></div>`}
+        <div class="performance-form-grid">
+            ${scoreOnly ? "" : numeric("performance-maximum", "سقف پایه", c?.maximumScore, "0.01") + numeric("performance-weight", "ضریب", c?.weight ?? 1, "0.01")}
+            ${numeric("performance-score", c ? "نمرهٔ فعلی" : "نمرهٔ اولیه (اختیاری)", c?.score, "0", !!c)}
+        </div>
+        <p class="task-muted">${c ? "" : "با خالی گذاشتن نمرهٔ اولیه، سقف پایه ثبت می‌شود. "}برای امتیاز تشویقی می‌توانید نمره‌ای بالاتر از سقف پایه ثبت کنید.</p>
+        <div class="form-group"><label for="performance-reason">دلیل تغییر ${p.status === "CLOSED" ? "(الزامی برای اصلاح دورهٔ بسته)" : "(برای تغییر نمره الزامی است)"}</label><textarea id="performance-reason" maxlength="2000" rows="2" ${p.status === "CLOSED" ? "required" : ""}></textarea></div>
         <p class="form-error" id="performance-form-error" role="alert"></p><div class="form-actions"><button type="button" class="btn btn-secondary" id="performance-cancel">انصراف</button><button type="submit" class="btn btn-primary">ذخیره</button></div></form>`);
     const form = document.getElementById("performance-criterion-form");
     document.getElementById("performance-cancel").onclick = closeModal;
     form.onsubmit = e => {
         e.preventDefault();
-        const data = { version: p.version, title: form.querySelector("#performance-title").value.trim(), description: form.querySelector("#performance-description").value,
-            maximumScore: form.querySelector("#performance-maximum").value, weight: form.querySelector("#performance-weight").value, reason: form.querySelector("#performance-reason").value.trim() };
-        if (c) data.score = form.querySelector("#performance-score").value;
-        const error = form.querySelector("#performance-form-error");
-        if (c && Number(data.score) > Number(data.maximumScore)) { error.textContent = "نمره نمی‌تواند از سقف بیشتر باشد"; error.style.display = "block"; return; }
-        if ((p.status === "CLOSED" || (c && Number(data.score) !== Number(c.score))) && !data.reason) { error.textContent = "دلیل تغییر را وارد کنید"; error.style.display = "block"; return; }
-        performanceSubmit(s, form, () => c ? PerformanceAPI.update(s.userId, p.id, c.id, data) : PerformanceAPI.add(s.userId, p.id, data));
+        const score = form.querySelector("#performance-score").value;
+        const reason = form.querySelector("#performance-reason").value.trim();
+        const data = { version: p.version, reason };
+        if (score !== "") data.score = score;
+        if (!scoreOnly) {
+            data.title = form.querySelector("#performance-title").value.trim();
+            data.description = form.querySelector("#performance-description").value;
+            data.maximumScore = form.querySelector("#performance-maximum").value;
+            data.weight = form.querySelector("#performance-weight").value;
+        }
+        const scoreChanged = score !== "" && Number(score) !== Number(c?.score ?? data.maximumScore);
+        if ((p.status === "CLOSED" || scoreChanged) && !reason) {
+            const error = form.querySelector("#performance-form-error");
+            error.textContent = "دلیل تغییر را وارد کنید";
+            error.style.display = "block";
+            return;
+        }
+        performanceSubmit(s, form, () => {
+            if (scoreOnly) return PerformanceAPI.updateScore(s.userId, p.id, c.id, data);
+            return c ? PerformanceAPI.update(s.userId, p.id, c.id, data) : PerformanceAPI.add(s.userId, p.id, data);
+        });
     };
 }
 
