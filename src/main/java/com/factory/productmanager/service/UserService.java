@@ -10,6 +10,7 @@ import com.factory.productmanager.model.dto.CreateUserRequest;
 
 import com.factory.productmanager.model.dto.UpdateUserPermissionsRequest;
 
+import com.factory.productmanager.model.dto.UserDirectoryResponse;
 import com.factory.productmanager.model.dto.UserResponse;
 
 import com.factory.productmanager.model.entity.Role;
@@ -136,6 +137,11 @@ public class UserService {
 
                 .toList();
 
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserDirectoryResponse> directory() {
+        return userRepository.findDirectory();
     }
 
     public void deleteUser(UUID id, String currentUsername) {

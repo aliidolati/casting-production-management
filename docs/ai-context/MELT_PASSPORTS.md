@@ -10,7 +10,11 @@ TaskTypeSchemaRepair now runs at startup on MySQL and conditionally converts a l
 
 The opt-in MeltTaskTypeMigrationMysqlTest uses only a fresh melt_tasktype_synthetic schema on a disposable loopback MySQL instance at port 13390; it never loads the application's default datasource. It reproduces both legacy failures, exercises V36 and startup repair twice apiece, checks both new melt codes, preserves null/legacy rows, and verifies that unrelated/mixed/current CHECKs still enforce their rules. Enable with -Dmelt.tasktype.mysql.enabled=true -Dtest=MeltTaskTypeMigrationMysqlTest test, and stop the helper afterward. Validation on 2026-10-30 passed **81 affected tests, zero failures/errors/skips**: this MySQL regression plus H2 melt workflow, passport, committed-transaction concurrency, task API and permission-seeding tests. No frontend assets changed. Production execution/deployment and the historical full migration chain remain unverified.
 
-## Operator assignment and task workflow — 2026-10-30
+## Delegated assignment and returned corrections — 2026-11-07
+
+MANAGER or an active holder of `ASSIGN_MELT_OPERATOR` can access the melt-specific assignee list and both assignment routes. Eligible assignees remain active task recipients. Delegated assignment changes the owner and entry task, independently of the passport editor. Active holders of `APPROVE_MELT_PASSPORT` can edit, calculate and resubmit a passport in NEEDS_CORRECTION. The entry task stays assigned to the current operator. The usual review and piece-movement checks run at final approval. The approved-passport correction route is manager-only.
+
+## Operator assignment and task workflow — 2026-10-30 (historical roles)
 
 ADMIN can save and assign/reassign a draft or correction passport to an active account eligible for RECEIVE_TASKS (ADMIN also eligible). Assignment applies to the shared passport and all of its current members. The form exposes the operator selector above the business fields. `POST /{id}/assignment` takes `{assigneeId, version}` and uses the existing pessimistic passport lock/version; `POST /piece/{pieceId}/assignment` creates a blank draft atomically when the piece has no active passport, otherwise requires the current passport version. Archive/stage/member uniqueness guards still apply. Assignment changes record OPERATOR_ASSIGNED with the actor and selected operator name. Existing permission codes and startup permission grants are unchanged.
 

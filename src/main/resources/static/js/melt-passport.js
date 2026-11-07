@@ -111,11 +111,11 @@ async function openMeltPassport(id, piece = null, history = null) {
             id ? MeltPassportAPI.get(id) : Promise.resolve(null), MeltPassportAPI.materials(), MeltPassportAPI.ingotTypes(), MeltPassportAPI.today(),
             history === null && piece ? MeltPassportAPI.forPiece(piece.id) : Promise.resolve(history || []),
             piece ? PieceAPI.getById(piece.id) : Promise.resolve(null),
-            isManager() ? TaskAPI.assignees() : Promise.resolve([]),
+            hasPermission("ASSIGN_MELT_OPERATOR") ? MeltPassportAPI.assignees() : Promise.resolve([]),
         ]);
         if (!stillCurrent()) return;
         piece = currentPiece;
-        const m = record || { version: 0, status: 'DRAFT', editable: true, assignable: isManager(), meltDate: today.date,
+        const m = record || { version: 0, status: 'DRAFT', editable: true, assignable: hasPermission("ASSIGN_MELT_OPERATOR") && !piece.archivedAt && piece.currentStage === "CASTING", meltDate: today.date,
             pieces: [{ id: piece.id, pieceName: piece.pieceName, pieceRef: pieceRefLabel(piece) }], materials: [], checks: [], magnesium: {}, process: {}, events: [] };
         renderMeltPassport({ m, catalog, ingotTypes, piece, history: records, assignees });
     } catch (e) { if (stillCurrent()) meltShowError(e); }
@@ -149,7 +149,7 @@ function renderMeltPassport(state) {
                 ${m.approvedBy ? `<span>تأییدکننده: ${escapeHtml(m.approvedBy)} · ${formatDateTime(m.approvedAt)}</span>` : ''}</div>
             ${m.correctionReason ? `<div class="melt-correction" role="status"><strong>علت بازگشت برای اصلاح</strong><p>${escapeHtml(m.correctionReason)}</p><small>${escapeHtml(m.returnedBy || '')} · ${formatDateTime(m.returnedAt)}</small></div>` : ''}
             ${correcting ? '<p class="form-hint" role="status">در حال اصلاح شناسنامه تأییدشده هستید. تغییرات با نام شما و مقادیر قبل و بعد در تاریخچه ثبت می‌شود.</p>' : ''}
-            ${m.assignable ? `<section class="melt-section"><label for="melt-assignee">تخصیص اپراتور ذوب</label><select id="melt-assignee">${meltOptions(Object.fromEntries((state.assignees || []).map(u => [u.id, u.fullName || u.username])), m.assignedOperatorId)}</select><button type="button" class="btn btn-secondary" id="melt-assign">ذخیره و تخصیص اپراتور</button></section>` : ''}
+            ${m.assignable ? `<section class="melt-section"><label for="melt-assignee">تخصیص اپراتور ذوب</label><select id="melt-assignee">${meltOptions(Object.fromEntries((state.assignees || []).map(u => [u.id, u.fullName || u.username])), m.assignedOperatorId)}</select><button type="button" class="btn btn-secondary" id="melt-assign">${isManager() ? "ذخیره و تخصیص اپراتور" : "تخصیص اپراتور"}</button></section>` : ''}
             <fieldset ${disabled ? 'disabled' : ''}>
             <section class="melt-section"><h3>اطلاعات ذوب و قطعات</h3>
                 <div id="melt-pieces" class="melt-piece-list"></div>
@@ -401,6 +401,10 @@ async function runMeltAction(state, action, reason) {
             const body = collectMeltForm(state);
             m = await MeltPassportAPI.correct(m.id, body, document.getElementById('melt-correction-reason').value || null, action === 'calculate-magnesium');
             state.correcting = false;
+        } else if (action === 'assign' && !isManager()) {
+            m = m.id
+                ? await MeltPassportAPI.assign(m.id, assigneeId, m.version)
+                : await MeltPassportAPI.assignPiece(state.piece.id, assigneeId);
         } else if (['save', 'submit', 'calculate-magnesium', 'assign'].includes(action)) {
             const body = collectMeltForm(state);
             if (!body.pieceIds.length) throw new Error('حداقل یک قطعه انتخاب کنید');

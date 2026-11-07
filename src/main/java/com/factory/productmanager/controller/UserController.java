@@ -4,6 +4,7 @@ import com.factory.productmanager.model.dto.AdminResetPasswordRequest;
 import com.factory.productmanager.model.dto.ChangePasswordRequest;
 import com.factory.productmanager.model.dto.CreateUserRequest;
 import com.factory.productmanager.model.dto.UpdateUserPermissionsRequest;
+import com.factory.productmanager.model.dto.UserDirectoryResponse;
 import com.factory.productmanager.model.dto.UserResponse;
 import com.factory.productmanager.service.UserService;
 import jakarta.validation.Valid;
@@ -35,6 +36,12 @@ public class UserController {
     @PreAuthorize("hasRole('MANAGER')")
     public ResponseEntity<List<UserResponse>> listUsers() {
         return ResponseEntity.ok(userService.listUsers());
+    }
+
+    @GetMapping("/directory")
+    @PreAuthorize("@permissionChecker.has(authentication, 'VIEW_USERS')")
+    public List<UserDirectoryResponse> directory() {
+        return userService.directory();
     }
 
     @DeleteMapping("/{id}")

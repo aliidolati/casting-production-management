@@ -23,6 +23,6 @@ public class PerformanceEvent {
     @Column(length = 2000) private String reason;
     @Column(columnDefinition = "MEDIUMTEXT") private String oldValues;
     @Column(columnDefinition = "MEDIUMTEXT") private String newValues;
-    @Column(precision = 5, scale = 4) private BigDecimal oldEfficiency;
-    @Column(precision = 5, scale = 4) private BigDecimal newEfficiency;
+    @Column(precision = 16, scale = 4) private BigDecimal oldEfficiency;
+    @Column(precision = 16, scale = 4) private BigDecimal newEfficiency;
 }

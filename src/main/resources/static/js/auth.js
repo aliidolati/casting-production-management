@@ -75,7 +75,8 @@ function showLoginScreen(message) {
 // شناسه‌ی دکمه‌هایی که بر اساس دسترسی نمایش داده می‌شوند
 const PERMISSION_BUTTONS = [
     { id: "nav-btn-dashboard", permission: "VIEW_DASHBOARD" },
-    { id: "nav-btn-users", permission: null, adminOnly: true },
+    { id: "nav-btn-users", permission: "VIEW_USERS" },
+    { id: "btn-add-user", adminOnly: true },
     { id: "nav-btn-tasks-all", permission: "MANAGE_TASKS" },
     { id: "btn-add-project", permission: "MANAGE_PROJECTS" },
     { id: "btn-add-definition", permission: "MANAGE_PIECE_DEFINITIONS" },

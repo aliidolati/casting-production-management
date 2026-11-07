@@ -1,6 +1,7 @@
 package com.factory.productmanager.task;
 
 import com.factory.productmanager.model.dto.PerformanceDtos.*;
+import com.factory.productmanager.model.entity.Permission;
 import com.factory.productmanager.model.entity.Role;
 import com.factory.productmanager.repository.*;
 import com.factory.productmanager.service.PerformanceService;
@@ -71,18 +72,70 @@ class PerformanceApiIntegrationTest extends TaskTestBase {
         call(get(path(p)), null).andExpect(status().isUnauthorized());
     }
 
-    @Test void invalidInputCannotMutateAndLoweringMaximumNeverClamps() throws Exception {
+    @Test void invalidInputCannotMutateScores() throws Exception {
         var p = add(create(), "کیفیت", "50", "3"); String url = path(p) + "/criteria/" + p.criteria().get(0).id();
         for (var invalid : List.of(body(p, "x", "0", "3", "0", "دلیل"), body(p, "x", "50", "0", "40", "دلیل"),
-                body(p, "x", "50", "3", "-1", "دلیل"), body(p, "x", "50", "3", "51", "دلیل"),
+                body(p, "x", "50", "3", "-1", "دلیل"), body(p, "x", "50", "3", "1.111", "دلیل"),
                 body(p, "x", "50", "3.001", "40", "دلیل"), body(p, " ", "50", "3", "40", "دلیل"),
-                body(p, "x", "40", "3", "50", "دلیل"), body(p, "x", "50", "3", "40", " "),
+                body(p, "x", "40", "3", "10000000000", "دلیل"), body(p, "x", "50", "3", "40", " "),
                 body(p, "x", "50", "3", null, "دلیل"))) {
             call(patch(url), admin, invalid).andExpect(status().isBadRequest());
         }
         call(post(path(p) + "/criteria"), admin, body(p, "x", "50", "1", "20", null)).andExpect(status().isBadRequest());
         assertEquals(p.version(), service.detail(worker.getId(), p.id(), admin.getUsername()).version());
         assertEquals(new BigDecimal("50.00"), service.detail(worker.getId(), p.id(), admin.getUsername()).criteria().get(0).score());
+    }
+
+    @Test void directoryAndScoreGrantsAreIndependentAndCannotManageAccountsOrCriteria() throws Exception {
+        var viewer = newUser("directory-" + UUID.randomUUID(), Role.ADMIN, Set.of(Permission.VIEW_USERS));
+        var grader = newUser("grader-" + UUID.randomUUID(), Role.ADMIN, Set.of(Permission.EDIT_PERFORMANCE_SCORES));
+        var p = add(create(), "کیفیت", "100", "1");
+        var criterion = p.criteria().get(0);
+        String criterionUrl = path(p) + "/criteria/" + criterion.id();
+
+        call(get("/api/users/directory"), viewer).andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.id == '" + worker.getId() + "' && @.username == '" + worker.getUsername() + "')]").isNotEmpty())
+                .andExpect(jsonPath("$..permissions").isEmpty());
+        call(get("/api/users"), viewer).andExpect(status().isForbidden());
+        call(get("/api/users/directory"), grader).andExpect(status().isForbidden());
+        call(patch("/api/users/" + worker.getId() + "/permissions"), viewer, Map.of("permissions", List.of()))
+                .andExpect(status().isForbidden());
+        call(get(path(p)), viewer).andExpect(status().isNotFound());
+        call(get("/api/users/" + worker.getId() + "/profile"), grader).andExpect(status().isNotFound());
+        call(get("/api/users/" + worker.getId() + "/performance"), grader).andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(worker.getUsername()));
+        call(get(path(p)), grader).andExpect(status().isOk()).andExpect(jsonPath("$.canEditScores").value(true))
+                .andExpect(jsonPath("$.canManage").value(false)).andExpect(jsonPath("$.canStartNext").value(false));
+        call(patch(criterionUrl), grader, body(p, "تغییر ساختار", "120", "2", "110", "تشویقی"))
+                .andExpect(status().isForbidden());
+        call(post(path(p) + "/criteria"), grader, body(p, "معیار جدید", "100", "1", null, null))
+                .andExpect(status().isForbidden());
+        call(patch(criterionUrl + "/score"), grader, new ScoreWrite(p.version(), new BigDecimal("110"), null))
+                .andExpect(status().isBadRequest());
+        call(patch(criterionUrl + "/score"), grader, Map.of("version", p.version(), "score", 110,
+                        "reason", "امتیاز تشویقی", "maximumScore", 200))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.criteria[0].maximumScore").value(100))
+                .andExpect(jsonPath("$.criteria[0].score").value(110)).andExpect(jsonPath("$.efficiency").value(1.1));
+        call(patch(criterionUrl + "/score"), grader, new ScoreWrite(p.version(), new BigDecimal("120"), "نسخه قدیمی"))
+                .andExpect(status().isConflict());
+        var event = service.history(worker.getId(), p.id(), grader.getUsername(), 0, 10).items().stream()
+                .filter(e -> "CRITERION_UPDATED".equals(e.action())).findFirst().orElseThrow();
+        assertEquals(grader.getId(), event.actorId());
+        assertEquals("امتیاز تشویقی", event.reason());
+        assertEquals(new BigDecimal("1.1000"), event.newEfficiency());
+    }
+
+    @Test void initialAndEditedBonusScoresPreserveTheWeightedRatioAndAudit() {
+        var p = create();
+        p = service.add(worker.getId(), p.id(), body(p, "کیفیت", "100", "1", "110", "تشویق اولیه"), admin.getUsername());
+        assertEquals(new BigDecimal("1.1000"), p.efficiency());
+        var criterion = p.criteria().get(0);
+        p = service.update(worker.getId(), p.id(), criterion.id(),
+                body(p, criterion.title(), "0.01", "1", "9999999999.99", "آزمون ظرفیت عددی"), admin.getUsername());
+        var expected = new BigDecimal("999999999999.0000");
+        assertEquals(expected, p.efficiency());
+        assertTrue(service.history(worker.getId(), p.id(), admin.getUsername(), 0, 10).items().stream()
+                .anyMatch(e -> expected.equals(e.newEfficiency())));
     }
 
     @Test void rolloverCopiesOnlyActiveCriteriaAtFullScoreAndClosedCorrectionsAreIndependent() throws Exception {

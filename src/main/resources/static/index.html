@@ -949,11 +949,11 @@
             </div>
         </section>
 
-        <!-- بخش مدیریت کاربران (فقط برای ادمین) -->
+        <!-- بخش فهرست و مدیریت کاربران -->
         <section id="users-section" class="content-section">
             <div class="section-header">
-                <h2 class="section-title">مدیریت کاربران</h2>
-                <button class="btn btn-primary" id="btn-add-user">+ افزودن کاربر جدید</button>
+                <h2 class="section-title" id="users-title">فهرست کاربران</h2>
+                <button class="btn btn-primary hidden" id="btn-add-user">+ افزودن کاربر جدید</button>
             </div>
 
             <div class="table-wrap">
@@ -964,7 +964,7 @@
                             <th>نام و نام خانوادگی</th>
                             <th>نقش</th>
                             <th>تاریخ ثبت</th>
-                            <th></th>
+                            <th id="users-actions-heading" class="hidden">عملیات</th>
                         </tr>
                     </thead>
                     <tbody id="users-table-body">
@@ -1085,9 +1085,9 @@
 
     <script src="js/jalali.js?v=20261102-integrated"></script>
     <script src="js/persian-datepicker.js?v=20261102-integrated"></script>
-    <script src="js/api.js?v=20261102-drawings"></script>
+    <script src="js/api.js?v=20261107-delegated-access"></script>
 
-    <script src="js/auth.js?v=20261102-integrated"></script>
+    <script src="js/auth.js?v=20261107-delegated-access"></script>
 
     <script src="js/app.js?v=20261102-drawings"></script>
     <script src="js/dashboard.js?v=20261102-integrated"></script>
@@ -1111,14 +1111,14 @@
     <script src="js/production-flow.js?v=20261102-integrated"></script>
     <script src="js/tracking.js?v=20261107-rt-hours"></script>
     <script src="js/notifications.js?v=20261102-integrated"></script>
-    <script src="js/users.js?v=20261102-integrated"></script>
+    <script src="js/users.js?v=20261107-delegated-access"></script>
     <script src="js/tasks-common.js?v=20261102-integrated"></script>
     <script src="js/tasks.js?v=20261102-integrated"></script>
     <script src="js/task-detail.js?v=20261102-integrated"></script>
-    <script src="js/profile.js?v=20261102-integrated"></script>
-    <script src="js/performance.js?v=20261102-integrated"></script>
+    <script src="js/profile.js?v=20261107-delegated-access"></script>
+    <script src="js/performance.js?v=20261107-delegated-access"></script>
     <script src="js/radiography-workflow.js?v=20261102-integrated"></script>
-    <script src="js/melt-passport.js?v=20261102-integrated"></script>
+    <script src="js/melt-passport.js?v=20261107-delegated-access"></script>
     <script src="js/operational-controls.js?v=20261102-integrated"></script>
 
 

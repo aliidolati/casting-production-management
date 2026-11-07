@@ -2,6 +2,13 @@
 
 Implemented scope: MANAGER / ADMIN / OPERATOR; explicit ADMIN grants; manager-only account/role/permission management; atomic name/role/grant edits; last-active-manager protection; append-only account-change history. The previously proposed categories 2–7 are not part of category 1. A later change implements only selected items 2–1/2–2; see [Stage movement access](STAGE_MOVEMENT_ACCESS.md).
 
+## Delegated access — 2026-11-07
+
+- `VIEW_USERS` exposes a read-only directory projection through `GET /api/users/directory`. The account-management API and access history are manager-only.
+- `EDIT_PERFORMANCE_SCORES` authorizes score edits and evaluation visibility independently of task and directory access. Periods and criterion structure are controlled by MANAGER.
+- `ASSIGN_MELT_OPERATOR` authorizes melt-specific assignee lookup and assignment independently of task management.
+- MANAGER has implicit access. Assign these grants explicitly to eligible ADMIN or OPERATOR users.
+
 ## Role semantics
 
 - MANAGER (مدیر) has all existing permissions implicitly and inherits former full-access ADMIN exceptions, including task administration, profile/status administration, performance, production corrections and melt administrative operations.

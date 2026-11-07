@@ -2,7 +2,7 @@
 
  * users.js
 
- * منطق مربوط به بخش «مدیریت کاربران»: فقط برای کاربران با نقش MANAGER قابل مشاهده است
+ * فهرست کاربران فقط‌خواندنی است و مدیریت حساب‌ها به مدیر اختصاص دارد.
 
  * (نمایش/مخفی‌سازی دکمه‌ی ناوبری در auth.js انجام می‌شود).
 
@@ -124,11 +124,14 @@ function togglePermissionsSection(roleSelect, sectionEl) {
 async function loadUsers() {
 
     const tbody = document.getElementById("users-table-body");
-    showTableLoader(tbody, 5);
+    const manage = isManager();
+    document.getElementById("users-title").textContent = manage ? "مدیریت کاربران" : "فهرست کاربران";
+    document.getElementById("users-actions-heading").classList.toggle("hidden", !manage);
+    showTableLoader(tbody, manage ? 5 : 4);
 
     try {
 
-        const users = await UserAPI.getAll();
+        const users = await (manage ? UserAPI.getAll() : UserAPI.directory());
 
         renderUsersTable(users);
 
@@ -145,12 +148,14 @@ async function loadUsers() {
 function renderUsersTable(users) {
 
     const tbody = document.getElementById("users-table-body");
+    const manage = isManager();
+    const canOpenOtherUser = canManageTasks() || hasPermission("EDIT_PERFORMANCE_SCORES");
 
 
 
     if (users.length === 0) {
 
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="5">هنوز هیچ کاربری ثبت نشده است</td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="${manage ? 5 : 4}">هنوز هیچ کاربری ثبت نشده است</td></tr>`;
 
         return;
 
@@ -166,7 +171,9 @@ function renderUsersTable(users) {
 
         <tr data-user-id="${u.id}">
 
-            <td><a href="#/profile/${u.id}" title="مشاهده پروفایل و وظایف">${escapeHtml(u.username)}</a>${u.active === false ? ` <span class="task-muted">(غیرفعال)</span>` : ""}</td>
+            <td>${canOpenOtherUser || u.id === AuthState.user?.id
+                ? `<a href="#/profile/${u.id}">${escapeHtml(u.username)}</a>`
+                : escapeHtml(u.username)}${u.active === false ? ` <span class="task-muted">(غیرفعال)</span>` : ""}</td>
 
             <td>${escapeHtml(u.fullName || "-")}</td>
 
@@ -174,7 +181,7 @@ function renderUsersTable(users) {
 
             <td>${formatDate(u.createdAt)}</td>
 
-            <td class="row-actions">
+            ${manage ? `<td class="row-actions">
 
                 ${
 
@@ -192,7 +199,7 @@ function renderUsersTable(users) {
 
                 <button class="btn btn-danger btn-delete-user" data-id="${u.id}">حذف</button>
 
-            </td>
+            </td>` : ""}
 
         </tr>
 
@@ -426,6 +433,7 @@ async function openEditPermissionsModal(userId, username) {
 
 
 document.getElementById("btn-add-user").addEventListener("click", async () => {
+    if (!isManager()) return;
 
     try {
 

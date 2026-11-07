@@ -2,7 +2,7 @@
  * profile.js
  * صفحه‌ی پروفایل کاربر (#/profile/{id}): مشخصات، آخرین فعالیت، آمار وظایف و لیست وظایف.
  * دسترسی را سرور تعیین می‌کند: خودِ کاربر یا مدیر وظایف/ادمین؛ برای بقیه «پیدا نشد».
- * ارزیابی عملکرد مستقل از آمار وظایف است و فقط برای خود فرد و ادمین بارگذاری می‌شود.
+ * ارزیابی عملکرد مستقل از آمار وظایف است و دسترسی جداگانه دارد.
  */
 
 /** آیکون «شخص» (person) برای آواتار پروفایل و لینک هدر */
@@ -25,14 +25,29 @@ async function openProfile(userId) {
         s.page = 0;
     }
     s.userId = userId;
+    s.profile = null;
     showSection("profile-section");
-    setActiveNavButton(userId === AuthState.user?.id ? "" : canManageTasks() ? "users" : "");
+    const isSelf = userId === AuthState.user?.id;
+    const canEditScores = hasPermission("EDIT_PERFORMANCE_SCORES");
+    const evaluationOnly = !isSelf && !canManageTasks() && canEditScores;
+    setActiveNavButton(!isSelf && (canManageTasks() || hasPermission("VIEW_USERS")) ? "users" : "");
 
     const root = document.getElementById("profile-root");
     const seq = ++s.seq;
     root.innerHTML = `<div class="task-state"><div class="loader-wrap">${loaderMarkup()}</div></div>`;
 
     try {
+        if (evaluationOnly) {
+            const employee = await PerformanceAPI.employee(userId);
+            if (seq !== s.seq) return;
+            root.innerHTML = `<div class="profile-head"><div class="profile-info">
+                <h2 class="profile-name">${escapeHtml(employee.fullName || employee.username)}</h2>
+                <p class="profile-meta"><bdi dir="ltr">@${escapeHtml(employee.username)}</bdi></p>
+                </div></div>
+                <section id="profile-performance" class="task-card" aria-label="ارزیابی عملکرد" aria-live="polite"></section>`;
+            await mountPerformance(userId);
+            return;
+        }
         const profile = await UserAPI.getProfile(userId);
         if (seq !== s.seq) return;
         s.profile = profile;
@@ -42,7 +57,7 @@ async function openProfile(userId) {
         if (seq !== s.seq) return;
         root.innerHTML = taskStateHtml({
             icon: "⚠",
-            title: "پروفایل پیدا نشد",
+            title: evaluationOnly ? "ارزیابی پیدا نشد" : "پروفایل پیدا نشد",
             message: error.message,
             error: true,
             actionHtml: `<a class="btn btn-secondary" href="#/tasks/my">بازگشت به وظایف من</a>`,
@@ -54,6 +69,7 @@ function renderProfile(p) {
     const root = document.getElementById("profile-root");
     const stats = p.stats;
     const isSelf = AuthState.user && AuthState.user.id === p.id;
+    const canSeePerformance = isSelf || hasPermission("EDIT_PERFORMANCE_SCORES");
 
     const statCard = (value, label, { alert = false, note = "" } = {}) => `
         <div class="profile-stat ${alert ? "is-alert" : ""}">
@@ -109,7 +125,7 @@ function renderProfile(p) {
 
         ${isSelf ? `<div id="profile-signature-region"></div>` : ""}
 
-        ${isSelf || isManager() ? `<section id="profile-performance" class="task-card" aria-label="ارزیابی عملکرد" aria-live="polite"></section>` : ""}
+        ${canSeePerformance ? `<section id="profile-performance" class="task-card" aria-label="ارزیابی عملکرد" aria-live="polite"></section>` : ""}
 
         <section class="task-card" aria-labelledby="profile-tasks-title">
             <h3 class="task-card-title" id="profile-tasks-title">${isSelf ? "وظایف من" : "وظایف این کاربر"}</h3>
@@ -135,7 +151,7 @@ function renderProfile(p) {
     );
     document.getElementById("btn-profile-edit")?.addEventListener("click", () => openProfileEditModal(p));
     if (isSelf && typeof renderProfileSignatureCard === "function") renderProfileSignatureCard();
-    if ((isSelf || isManager()) && typeof mountPerformance === "function") mountPerformance(p.id);
+    if (canSeePerformance && typeof mountPerformance === "function") mountPerformance(p.id);
 }
 
 async function loadProfileTasks() {

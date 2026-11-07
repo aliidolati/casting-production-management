@@ -18,6 +18,11 @@ public final class PerformanceDtos {
             @NotNull @DecimalMin("0.01") @Digits(integer = 10, fraction = 2) BigDecimal weight,
             @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal score,
             @Size(max = 2000) String reason) {}
+    public record ScoreWrite(
+            @NotNull @PositiveOrZero Long version,
+            @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal score,
+            @Size(max = 2000) String reason) {}
+    public record Employee(String username, String fullName) {}
     public record CriterionDelete(@NotNull @PositiveOrZero Long version, @Size(max = 2000) String reason) {}
     public record Criterion(UUID id, String title, String description, BigDecimal maximumScore,
                             BigDecimal weight, BigDecimal score) {}
@@ -26,7 +31,7 @@ public final class PerformanceDtos {
     public record Period(UUID id, String title, String status, long version,
                          LocalDateTime createdAt, LocalDateTime closedAt, LocalDateTime updatedAt,
                          List<Criterion> criteria, BigDecimal weightedScore, BigDecimal weightedMaximum,
-                         BigDecimal efficiency, boolean canManage, boolean canStartNext) {}
+                         BigDecimal efficiency, boolean canManage, boolean canEditScores, boolean canStartNext) {}
     public record Event(UUID id, UUID criterionId, String action, UUID actorId, String actorUsername,
                         String actorName, LocalDateTime occurredAt, String reason,
                         String oldValues, String newValues, BigDecimal oldEfficiency, BigDecimal newEfficiency) {}
