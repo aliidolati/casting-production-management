@@ -121,6 +121,65 @@ class MeltPassportCorrectionIntegrationTest extends TaskTestBase {
         assertEquals(m.pieces(),service.get(m.id(),admin.getUsername()).pieces());
     }
 
+    @Test void managerAddsPiecesAtOneChosenStageWithoutMovingExistingMembers() throws Exception {
+        var m = approved(false);
+        var third = piece(first.getPieceDefinition(), 3);
+        pieceService.updateStage(third.getId(), newStage(PieceStage.ROUGH_MACHINING), admin.getUsername());
+        var originalMove = new SkipPieceStageRequest(PieceStage.READY, null, null, null, "وضعیت قبلی");
+        pieceService.skipStage(first.getId(), originalMove, admin.getUsername());
+        int originalHistory = histories.findByPieceIdOrderByChangedAtDesc(first.getId()).size();
+
+        var body = form(m);
+        body.setPieceIds(List.of(first.getId(), second.getId(), third.getId()));
+        var request = new MeltPassportCorrectionRequest(body, "ثبت قطعات تکمیلی", false, PieceStage.RADIOGRAPHY, null);
+        call(post(route(m)),manager,request).andExpect(status().isForbidden());
+        call(post(route(m)),admin,new MeltPassportCorrectionRequest(body,null,false)).andExpect(status().isBadRequest());
+        call(get("/api/melt-passports/candidates").param("approvedPassportId",m.id().toString()),manager)
+                .andExpect(status().isForbidden());
+        call(get("/api/melt-passports/candidates").param("approvedPassportId",m.id().toString()).param("q","3"),admin)
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(third.getId().toString()));
+
+        call(post(route(m)),admin,request).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.pieces.length()").value(3))
+                .andExpect(jsonPath("$.events[-1].oldValues.pieceRefs.length()").value(1))
+                .andExpect(jsonPath("$.events[-1].newValues.pieceRefs.length()").value(3));
+        var saved = service.get(m.id(),admin.getUsername());
+        assertEquals(m.approvedAt(),saved.approvedAt());
+        assertEquals(m.approvedBy(),saved.approvedBy());
+        assertEquals(PieceStage.READY,first.getCurrentStage());
+        assertEquals(originalHistory,histories.findByPieceIdOrderByChangedAtDesc(first.getId()).size());
+        for (Piece added : List.of(second,third)) {
+            assertEquals(PieceStage.RADIOGRAPHY,added.getCurrentStage());
+            assertEquals(RadiographySubStage.SHOT,added.getRadiographySubStage());
+            assertEquals(m.id(),service.forPiece(added.getId(),worker.getUsername()).get(0).id());
+        }
+        assertEquals(m.meltDate(),dates.findByPieceIdAndStage(second.getId(),PieceStage.CASTING).orElseThrow().getProcessDate());
+        call(post(route(m)),admin,request).andExpect(status().isConflict());
+    }
+
+    @Test void correctionRejectsPiecesInAnotherActivePassportAndKeepsCastingMembershipWhenSelected() throws Exception {
+        var m = approved(false);
+        var draftRequest = complete();
+        draftRequest.setPieceIds(List.of(second.getId()));
+        var draft = service.create(draftRequest,worker.getUsername());
+        var body = form(m);
+        body.setPieceIds(List.of(first.getId(),second.getId()));
+        var request = new MeltPassportCorrectionRequest(body,null,false,PieceStage.CASTING,null);
+        call(post(route(m)),admin,request).andExpect(status().isConflict());
+        service.cancel(draft.id(),new MeltDecisionRequest(draft.version(),"لغو آزمایشی"),admin.getUsername());
+        call(post(route(m)),admin,request).andExpect(status().isOk());
+        assertEquals(PieceStage.CASTING,second.getCurrentStage());
+        assertTrue(histories.findByPieceIdOrderByChangedAtDesc(second.getId()).isEmpty());
+        assertTrue(service.get(m.id(),admin.getUsername()).pieces().stream().anyMatch(link -> link.id().equals(second.getId()) && link.active()));
+    }
+
+    private UpdateStageRequest newStage(PieceStage stage) {
+        var request = new UpdateStageRequest();
+        request.setNewStage(stage);
+        return request;
+    }
+
     @Test void nonApprovedRecordsAndInvalidApprovedDataAreRejected() throws Exception {
         var draftRequest=complete();draftRequest.setPieceIds(List.of(second.getId()));
         var draft=service.create(draftRequest,worker.getUsername());

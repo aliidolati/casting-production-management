@@ -45,8 +45,9 @@ public class MeltPassportController {
         return service.consumption(filter,a.getName());
     }
     @GetMapping("/candidates")
-    public List<MeltPassportResponse.PieceLink> candidates(@RequestParam(defaultValue="") String q, Authentication a) {
-        return service.candidates(q,a.getName());
+    public List<MeltPassportResponse.PieceLink> candidates(@RequestParam(defaultValue="") String q,
+            @RequestParam(required = false) UUID approvedPassportId, Authentication a) {
+        return service.candidates(q, approvedPassportId, a.getName());
     }
     @GetMapping("/ingot-types")
     public List<String> ingotTypes(Authentication a) { return service.ingotTypes(a.getName()); }

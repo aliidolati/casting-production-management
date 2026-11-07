@@ -178,15 +178,33 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         assertEquals(MeltPassportStatus.PENDING_APPROVAL,m.status()); assertEquals(2,m.events().stream().filter(e -> e.action().equals("SUBMITTED")).count());
     }
 
-    @Test void everyDepartureRouteIncludingAdminBulkTrustedAndWeldingRequiresApproval() throws Exception {
-        for(User as:List.of(worker,admin)) {
+    @Test void onlyManagerCanManuallyDepartFromCastingEvenWithDelegatedPermissions() throws Exception {
+        User delegate = newUser("melt-delegate-" + UUID.randomUUID(), Role.ADMIN, Set.of(
+                Permission.MOVE_PIECE_STAGE, Permission.ADVANCE_PIECE_STAGE,
+                Permission.SKIP_PIECE_STAGE, Permission.APPROVE_MELT_PASSPORT));
+        for(User as:List.of(worker,delegate)) {
             call(patch("/api/pieces/"+first.getId()+"/stage"),as,Map.of("newStage","ROUGH_MACHINING")).andExpect(status().isBadRequest());
             call(post("/api/pieces/"+first.getId()+"/advance"),as,Map.of("processDate","2026-10-18")).andExpect(status().isBadRequest());
             call(patch("/api/pieces/bulk/stage"),as,Map.of("pieceIds",List.of(first.getId(),second.getId()),"newStage","ROUGH_MACHINING")).andExpect(status().isBadRequest());
         }
-        assertThrows(IllegalStateException.class,()->pieceService.applyTrustedStageMove(first.getId(),PieceStage.HEAT_TREATMENT,null,null,null,admin.getUsername()));
+        call(get("/api/pieces/"+first.getId()+"/skip-targets"),delegate).andExpect(status().isBadRequest());
+        call(post("/api/pieces/"+first.getId()+"/skip"),delegate,Map.of("stage","READY","reason","آزمون")).andExpect(status().isBadRequest());
+        assertThrows(IllegalStateException.class,()->pieceService.applyTrustedStageMove(first.getId(),PieceStage.HEAT_TREATMENT,null,null,null,delegate.getUsername()));
         call(post("/api/pieces/"+first.getId()+"/welding-station"),worker,Map.of("defectType","OTHER","defectTypeCustom","آزمایشی")).andExpect(status().isBadRequest());
         assertEquals(PieceStage.CASTING,first.getCurrentStage()); assertEquals(PieceStage.CASTING,second.getCurrentStage());
+    }
+
+    @Test void managerCanAdvanceAndSkipWithoutPassportButOpenPassportStillProtectsItsMembers() throws Exception {
+        var m = pending(first);
+        call(post("/api/pieces/"+first.getId()+"/advance"),admin,Map.of("processDate","2026-10-18"))
+                .andExpect(status().isBadRequest());
+        assertEquals(m.version(), service.get(m.id(),admin.getUsername()).version());
+        call(post("/api/pieces/"+second.getId()+"/advance"),admin,Map.of("processDate","2026-10-18"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.currentStage").value("ROUGH_MACHINING"));
+        assertTrue(service.forPiece(second.getId(),admin.getUsername()).isEmpty());
+        pieceService.updateStage(second.getId(),newStage(PieceStage.CASTING),admin.getUsername());
+        call(post("/api/pieces/"+second.getId()+"/skip"),admin,Map.of("stage","READY","reason","انتقال آزمایشی"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.currentStage").value("READY"));
     }
 
     @Test void authorizedApprovalMovesAllPiecesByPolicyAndPreservesDatesAndHistory() throws Exception {
@@ -264,10 +282,10 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         assertTrue(service.candidates(code,worker.getUsername()).isEmpty());
     }
 
-    @Test void reenteringCastingRequiresANewPassportAndRetainsPriorMembership() {
+    @Test void reenteringCastingAllowsANewPassportAndRetainsPriorMembership() {
         var m=pending(first);m=service.approve(m.id(),decision(m),admin.getUsername());
         var move=new UpdateStageRequest();move.setNewStage(PieceStage.CASTING);pieceService.updateStage(first.getId(),move,admin.getUsername());
-        assertThrows(IllegalStateException.class,()->pieceService.updateStage(first.getId(),newStage(PieceStage.ROUGH_MACHINING),admin.getUsername()));
+        assertThrows(IllegalStateException.class,()->pieceService.updateStage(first.getId(),newStage(PieceStage.ROUGH_MACHINING),worker.getUsername()));
         var next=createComplete(first);assertNotEquals(m.id(),next.id());assertEquals(2,service.forPiece(first.getId(),worker.getUsername()).size());
     }
 

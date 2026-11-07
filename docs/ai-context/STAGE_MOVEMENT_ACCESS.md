@@ -16,7 +16,7 @@ Only normal forward progression and permissioned forward skipping are implemente
 - `POST /api/pieces/{id}/skip`: accepts `{stage, radiographySubStage?, heatTreatmentSubStage?, roughMachiningSubStage?, reason}`. Reason is mandatory (1–1000 characters, trimmed before storage). Substage must belong to the destination. The server recomputes targets under the piece write lock; client lists are not trusted.
 - `GET /api/pieces/{id}/stage-skips`: existing authenticated piece visibility, immutable skip history with actor ID/name, time, origin, destination and reason. No edit/delete audit API exists.
 
-Skip mutation, ordinary history and skip audit insert share one transaction. Cross-stage destination and substage are applied atomically. Current archive, open radiography workflow and casting-departure approval gates apply; permissions never disable those gates. A skip is an explicit administrative movement and does not create tensile decisions, report approvals, signatures, heat operations or dates for omitted locations.
+Skip mutation, ordinary history and skip audit insert share one transaction. Cross-stage destination and substage are applied atomically. Archive and open radiography workflow gates apply. Only MANAGER can skip from CASTING. An active unfinished melt passport must first be approved or cancelled. A skip is an explicit administrative movement and does not create tensile decisions, report approvals, signatures, heat operations or dates for omitted locations.
 
 Substage ordering uses the production route, not heat enum ordinal: STAGE_1 → STAGE_2 → CNC_SAMPLE. Aging stages 3–5 remain decision-driven branches and are not offered as skip destinations. Welding/scrapped/delivered origins have no forward skip targets.
 

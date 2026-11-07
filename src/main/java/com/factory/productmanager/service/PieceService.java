@@ -489,7 +489,9 @@ public class PieceService {
         PieceDefinition definition = piece.getPieceDefinition();
         boolean hasDrawing = definition.getDrawingImagePath() != null
                 && !definition.getDrawingImagePath().isBlank();
-        AllowedPieceMoves moves = stageTransitionPolicy.allowedMoves(piece, admin);
+        boolean castingLocked = !admin && piece.getCurrentStage() == PieceStage.CASTING;
+        AllowedPieceMoves moves = castingLocked ? AllowedPieceMoves.of(List.of(), List.of(), List.of(), List.of())
+                : stageTransitionPolicy.allowedMoves(piece, admin);
         return new PieceResponse(
                 piece.getId(),
                 piece.getPieceDefinition().getId(),
@@ -517,7 +519,7 @@ public class PieceService {
                 new ArrayList<>(moves.radiographySubStages()),
                 new ArrayList<>(moves.heatTreatmentSubStages()),
                 new ArrayList<>(moves.roughMachiningSubStages()),
-                stageTransitionPolicy.forwardMove(piece),
+                castingLocked ? null : stageTransitionPolicy.forwardMove(piece),
                 null
         );
     }
@@ -680,6 +682,7 @@ public class PieceService {
         var piece = findPieceOrThrow(pieceId);
         assertNotArchived(piece);
         radiographyWorkflowGate.assertPieceNotInWorkflow(pieceId);
+        meltPassportGate.assertManualDepartureAllowed(piece, PieceStage.ROUGH_MACHINING, username);
         return stageSkipPolicy.targets(piece);
     }
 
@@ -824,9 +827,20 @@ public class PieceService {
             throw new IllegalStateException("مرحله بعد ذوب‌ریزی در گردش تولید تعریف نشده است");
         }
         if (piece.getProcessDate() == null) piece.setProcessDate(meltDate);
-        applyStageChange(piece, move.getStage(), username, false, move.getRadiographySubStage(),
-                move.getHeatTreatmentSubStage(), move.getRoughMachiningSubStage());
+        meltPassportGate.assertApprovedDeparture(piece);
+        changeStage(piece, move.getStage(), username, false, move.getRadiographySubStage(),
+                move.getHeatTreatmentSubStage(), move.getRoughMachiningSubStage(), null);
         pieceRepository.save(piece);
+    }
+
+    /** Called for newly added members while the correction holds their piece locks. */
+    void movePieceAddedToApprovedMelt(Piece piece, PieceStage target, LocalDate meltDate, ScrapRequest scrap, String username) {
+        if (piece.getCurrentStage() == target) return;
+        assertNotArchived(piece);
+        if (piece.getCurrentStage() == PieceStage.CASTING && piece.getProcessDate() == null) {
+            piece.setProcessDate(meltDate);
+        }
+        applyStageChange(piece, target, username, true, null, null, null, scrap);
     }
 
     /**
@@ -1467,8 +1481,15 @@ public class PieceService {
     private void applyStageChange(Piece piece, PieceStage newStage, String changedByUsername, boolean trusted,
             RadiographySubStage radiographyOverride, HeatTreatmentSubStage heatTreatmentOverride,
             RoughMachiningSubStage roughMachiningOverride, ScrapRequest scrap) {
+        meltPassportGate.assertManualDepartureAllowed(piece, newStage, changedByUsername);
+        changeStage(piece, newStage, changedByUsername, trusted, radiographyOverride, heatTreatmentOverride,
+                roughMachiningOverride, scrap);
+    }
+
+    private void changeStage(Piece piece, PieceStage newStage, String changedByUsername, boolean trusted,
+            RadiographySubStage radiographyOverride, HeatTreatmentSubStage heatTreatmentOverride,
+            RoughMachiningSubStage roughMachiningOverride, ScrapRequest scrap) {
         radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
-        meltPassportGate.assertDepartureAllowed(piece, newStage);
         PieceStage oldStage = piece.getCurrentStage();
         if (newStage == PieceStage.WELDING) {
             throw new IllegalStateException(
@@ -1556,7 +1577,7 @@ public class PieceService {
     public PieceResponse sendToWeldingStation(UUID pieceId, SendToWeldingRequest request, String username) {
         Piece piece = pieceRepository.lockById(pieceId).orElseThrow(()->new ResourceNotFoundException("قطعه پیدا نشد"));
         assertNotArchived(piece);
-        meltPassportGate.assertDepartureAllowed(piece, PieceStage.WELDING);
+        meltPassportGate.assertManualDepartureAllowed(piece, PieceStage.WELDING, username);
         radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
         PieceStage oldStage = piece.getCurrentStage();
         if (oldStage == PieceStage.WELDING) {

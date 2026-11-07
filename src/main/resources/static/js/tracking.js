@@ -1225,19 +1225,21 @@ function forwardMoveLabel(move) {
 }
 
 function canAdvancePiece(piece) {
-    const blocked = new Set(["CASTING", "WELDING", "TENSILE", "DELIVERED", "SCRAPPED"]);
+    const blocked = new Set(["WELDING", "TENSILE", "DELIVERED", "SCRAPPED"]);
     return !!(
         piece &&
         !piece.archivedAt &&
         piece.forwardMove &&
         !blocked.has(piece.currentStage) &&
+        (piece.currentStage !== "CASTING" || isManager()) &&
         hasPermission(piece.forwardMove.requiredPermission)
     );
 }
 
 function renderProfileStageActions(piece) {
     if (piece.archivedAt) return "";
-    if (piece.currentStage === "CASTING") {
+    const casting = piece.currentStage === "CASTING";
+    if (casting && !isManager()) {
         return '<p class="form-hint">برای انتقال از ذوب‌ریزی، شناسنامه ذوب را تکمیل و برای تأیید ارسال کنید. پس از تأیید، قطعات مرتبط خودکار منتقل می‌شوند.</p>';
     }
     const bits = [];
@@ -1254,7 +1256,7 @@ function renderProfileStageActions(piece) {
             `<button type="button" class="btn btn-primary btn-sm" id="btn-profile-next">مرحله بعد: ${escapeHtml(forwardMoveLabel(piece.forwardMove))}</button>`
         );
     }
-    if (canUseStageSkip() && !["WELDING", "SCRAPPED", "DELIVERED", "CASTING"].includes(piece.currentStage)) {
+    if (canUseStageSkip() && !["WELDING", "SCRAPPED", "DELIVERED"].includes(piece.currentStage)) {
         bits.push('<button type="button" class="btn btn-secondary btn-sm" id="btn-profile-skip">پرش مرحله</button>');
     }
     if (isManager() && piece.currentStage !== "WELDING") {
@@ -1263,7 +1265,10 @@ function renderProfileStageActions(piece) {
         );
     }
     if (!bits.length) return "";
-    return `<div class="profile-stage-actions">${bits.join("")}</div>`;
+    const castingHint = casting
+        ? '<p class="form-hint">مدیر می‌تواند قطعهٔ بدون شناسنامه را دستی از ذوب‌ریزی منتقل کند. اگر شناسنامهٔ باز دارد، ابتدا آن را تأیید یا لغو کنید.</p>'
+        : '';
+    return `${castingHint}<div class="profile-stage-actions">${bits.join("")}</div>`;
 }
 
 function attachProfileStageActions(piece) {

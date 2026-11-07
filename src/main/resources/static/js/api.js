@@ -32,14 +32,15 @@ const MeltPassportAPI = {
     get: (id) => apiRequest(`/melt-passports/${encodeURIComponent(id)}`),
     forPiece: (id) => apiRequest(`/melt-passports/piece/${encodeURIComponent(id)}`),
     list: (filters) => apiRequest(`/melt-passports?${trackingQueryString(filters)}`),
-    candidates: (q = '') => apiRequest(`/melt-passports/candidates?${trackingQueryString({ q })}`),
+    candidates: (q = '', approvedPassportId) => apiRequest(`/melt-passports/candidates?${trackingQueryString({ q, approvedPassportId })}`),
     ingotTypes: () => apiRequest('/melt-passports/ingot-types'),
     materials: () => apiRequest('/melt-passports/materials'),
     createMaterial: (body) => apiRequest('/melt-passports/materials', 'POST', body),
     setMaterialActive: (id, active) => apiRequest(`/melt-passports/materials/${encodeURIComponent(id)}/active?active=${active}`, 'PATCH'),
     create: (body) => apiRequest('/melt-passports', 'POST', body),
     update: (id, body) => apiRequest(`/melt-passports/${encodeURIComponent(id)}`, 'PUT', body),
-    correct: (id, data, reason = null, calculateMagnesium = false) => apiRequest(`/melt-passports/${encodeURIComponent(id)}/corrections`, 'POST', { data, reason, calculateMagnesium }),
+    correct: (id, data, reason = null, calculateMagnesium = false, addedPiecesStage, scrap) =>
+        apiRequest(`/melt-passports/${encodeURIComponent(id)}/corrections`, 'POST', { data, reason, calculateMagnesium, addedPiecesStage, scrap }),
     action: (id, action, version, reason = null) => apiRequest(`/melt-passports/${encodeURIComponent(id)}/${action}`, 'POST', { version, reason }),
     consumption: (filters) => apiRequest(`/melt-passports/consumption?${trackingQueryString(filters)}`),
 };
