@@ -15,8 +15,9 @@ public enum Permission {
     MANAGE_PIECE_DEFINITIONS("مدیریت تعریف قطعات"),
     MANAGE_PIECES("مدیریت قطعات"),
     ADVANCE_PIECE_STAGE("پیشرفت عادی مرحله"),
+    // Kept for loading pre-existing user_permissions rows.
     SKIP_PIECE_STAGE("پرش مرحله (فقط ادمین)"),
-    CORRECT_PIECE_STAGE("اصلاح وضعیت (فقط ادمین)"),
+    CORRECT_PIECE_STAGE("اصلاح وضعیت تکی و دسته‌ای (فقط ادمین)"),
     MOVE_PIECE_STAGE("جابه‌جایی بین مراحل"),
     UPDATE_RADIOGRAPHY_SUBSTAGE("زیرمرحله رادیوگرافی"),
     UPDATE_HEAT_TREATMENT_SUBSTAGE("زیرمرحله عملیات حرارتی"),
@@ -48,6 +49,10 @@ public enum Permission {
     APPROVE_MELT_PASSPORT("تأیید شناسنامه ذوب");
 
     private final String label;
+
+    public boolean isActive() {
+        return this != SKIP_PIECE_STAGE;
+    }
 
     Permission(String label) {
         this.label = label;

@@ -179,8 +179,19 @@ public class MeltPassportService {
         var m = lock(id, r.getVersion());
         if (m.getStatus() != MeltPassportStatus.APPROVED) throw new IllegalStateException("فقط شناسنامه تأییدشده از این مسیر اصلاح می‌شود");
         Set<UUID> originalIds = m.getPieces().stream().map(l -> l.getPiece().getId()).collect(Collectors.toSet());
-        if (r.getPieceIds().size() != originalIds.size() || !originalIds.equals(new HashSet<>(r.getPieceIds()))) {
-            throw new IllegalArgumentException("فهرست قطعات شناسنامه تأییدشده قابل تغییر نیست");
+        Set<UUID> requestedIds = new HashSet<>(r.getPieceIds());
+        if (requestedIds.size() != r.getPieceIds().size() || !requestedIds.containsAll(originalIds)) {
+            throw new IllegalArgumentException("حذف قطعات قبلی یا ثبت قطعه تکراری مجاز نیست");
+        }
+        requestedIds.removeAll(originalIds);
+        PieceStage destination = request.addedPiecesStage();
+        if (!requestedIds.isEmpty() && (destination == null || !StageTransitionPolicy.TRANSFERABLE_STAGES.contains(destination))) {
+            throw new IllegalArgumentException("مرحله مقصد قطعات اضافه‌شده را انتخاب کنید");
+        }
+        List<Piece> added = requestedIds.isEmpty() ? List.of() : lockPieces(requestedIds);
+        for (Piece piece : added) {
+            if (piece.getArchivedAt() != null) throw new IllegalArgumentException("افزودن قطعه بایگانی‌شده مجاز نیست");
+            assertAvailableForMelt(piece.getId(), id);
         }
         String before = audit.snapshot(m, magnesium(m));
         // Validate and compare on a detached candidate: a no-op must not replace child rows or bump the version.
@@ -195,12 +206,19 @@ public class MeltPassportService {
             candidate.setMagnesiumCalculatedAt(LocalDateTime.now(clock));
         }
         validateSubmission(candidate);
-        String after = audit.snapshot(candidate, magnesium(candidate));
-        if (before.equals(after)) return response(m,u);
-        applyFields(m,r);
-        m.setMagnesiumResult(candidate.getMagnesiumResult()); m.setMagnesiumCalculatedAt(candidate.getMagnesiumCalculatedAt());
+        boolean fieldsChanged = !before.equals(audit.snapshot(candidate, magnesium(candidate)));
+        if (!fieldsChanged && added.isEmpty()) return response(m,u);
+        if (fieldsChanged) {
+            applyFields(m,r);
+            m.setMagnesiumResult(candidate.getMagnesiumResult());
+            m.setMagnesiumCalculatedAt(candidate.getMagnesiumCalculatedAt());
+        }
+        for (Piece piece : added) {
+            pieceService.movePieceAddedToApprovedMelt(piece, destination, m.getMeltDate(), request.scrap(), username);
+            addPieceLink(m, piece);
+        }
         var e = event(m,"ADMIN_CORRECTED",u,trim(request.reason()));
-        e.setOldValues(before); e.setNewValues(after);
+        e.setOldValues(before); e.setNewValues(audit.snapshot(m, magnesium(m)));
         passports.flush();
         return response(m,u);
     }
@@ -219,20 +237,29 @@ public class MeltPassportService {
         locked.forEach(this::assertCasting);
         m.getPieces().removeIf(l -> !r.getPieceIds().contains(l.getPiece().getId()));
         for (UUID pieceId : r.getPieceIds()) {
-            var existing = links.findByActivePieceKey(pieceId);
-            if (existing.isPresent() && !existing.get().getPassport().getId().equals(m.getId())) {
-                throw new DuplicateResourceException("قطعه قبلاً در یک شناسنامه ذوب ثبت شده است");
-            }
+            assertAvailableForMelt(pieceId, m.getId());
             if (m.getPieces().stream().anyMatch(l -> l.getPiece().getId().equals(pieceId))) continue;
-            Piece p = locked.stream().filter(x -> x.getId().equals(pieceId)).findFirst().orElseThrow();
-            var link = new MeltPassportPiece();
-            link.setPassport(m); link.setPiece(p); link.setActivePieceKey(pieceId);
-            link.setPieceName(p.getPieceDefinition().getPieceName());
-            var d = p.getPieceDefinition();
-            link.setPieceRef(d.getProject().getCode() + "-" + d.getRowNum() + "-" + p.getPieceNumber());
-            m.getPieces().add(link);
+            Piece piece = locked.stream().filter(p -> p.getId().equals(pieceId)).findFirst().orElseThrow();
+            addPieceLink(m, piece);
         }
         applyFields(m,r);
+    }
+
+    private void assertAvailableForMelt(UUID pieceId, UUID passportId) {
+        if (links.findByActivePieceKey(pieceId).filter(link -> !link.getPassport().getId().equals(passportId)).isPresent()) {
+            throw new DuplicateResourceException("قطعه قبلاً در یک شناسنامه ذوب ثبت شده است");
+        }
+    }
+
+    private void addPieceLink(MeltPassport m, Piece piece) {
+        var link = new MeltPassportPiece();
+        link.setPassport(m);
+        link.setPiece(piece);
+        link.setActivePieceKey(piece.getId());
+        var definition = piece.getPieceDefinition();
+        link.setPieceName(definition.getPieceName());
+        link.setPieceRef(definition.getProject().getCode() + "-" + definition.getRowNum() + "-" + piece.getPieceNumber());
+        m.getPieces().add(link);
     }
 
     private void applyFields(MeltPassport m, MeltPassportRequest r) {
@@ -424,14 +451,25 @@ public class MeltPassportService {
 
     @Transactional(readOnly=true)
     public List<MeltPassportResponse.PieceLink> candidates(String keyword, String username) {
-        actor(username);
+        return candidates(keyword, null, username);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MeltPassportResponse.PieceLink> candidates(String keyword, UUID approvedPassportId, String username) {
+        User user = actor(username);
+        if (approvedPassportId != null) {
+            if (user.getRole() != Role.MANAGER) throw new AccessDeniedException("فقط مدیر می‌تواند به شناسنامه تأییدشده قطعه اضافه کند");
+            if (find(approvedPassportId).getStatus() != MeltPassportStatus.APPROVED) {
+                throw new IllegalArgumentException("شناسنامه باید تأییدشده باشد");
+            }
+        }
         var search = MeltCandidateSearch.parse(keyword);
         String pattern = "%" + search.keyword().toLowerCase(Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
         return pieces.lookupMeltCandidates(search.keyword().isEmpty(), search.numeric(), search.pieceNumber(), pattern,
                         search.projectCode() == null ? null : search.projectCode().toLowerCase(Locale.ROOT),
-                        search.rowNumber(), search.referencePieceNumber(), PageRequest.of(0,100)).stream()
+                        search.rowNumber(), search.referencePieceNumber(), approvedPassportId, PageRequest.of(0,100)).stream()
                 .map(p -> new MeltPassportResponse.PieceLink(p.getId(), p.getPieceDefinition().getPieceName(),
-                        p.getPieceDefinition().getProject().getCode()+"-"+p.getPieceDefinition().getRowNum()+"-"+p.getPieceNumber()))
+                        p.getPieceDefinition().getProject().getCode()+"-"+p.getPieceDefinition().getRowNum()+"-"+p.getPieceNumber(), false))
                 .toList();
     }
 
@@ -498,7 +536,7 @@ public class MeltPassportService {
         return new MeltPassportResponse(m.getId(),m.getVersion(),m.getNumber(),m.getStatus(),m.getMeltDate(),m.getFurnaceNumber(),m.getIngotType(),m.getPrimaryBatch(),m.getRecycledBatch(),
                 m.getPrimaryWeight(),m.getRecycledWeight(),MeltCalculations.percent(m.getPrimaryWeight(),m.getRecycledWeight()),MeltCalculations.percent(m.getRecycledWeight(),m.getPrimaryWeight()),
                 m.getInjectionOperator(),m.getNotes(),m.getAdditionalNotes(),MeltProcessMapper.toData(m.getProcess()),magnesium(m),m.getMagnesiumResult(),m.getMagnesiumCalculatedAt(),
-                m.getPieces().stream().map(l -> new MeltPassportResponse.PieceLink(l.getPiece().getId(),l.getPieceName(),l.getPieceRef())).toList(),
+                m.getPieces().stream().map(l -> new MeltPassportResponse.PieceLink(l.getPiece().getId(),l.getPieceName(),l.getPieceRef(),l.getActivePieceKey() != null)).toList(),
                 m.getMaterials().stream().map(l -> new MeltPassportResponse.MaterialLine(l.getMaterial().getId(),l.getMaterialName(),l.getCategory(),l.getQuantity(),l.getUnit(),l.getBaseQuantity(),l.getBaseUnit(),l.getAddedAt(),l.getBatchNumber(),l.getNotes())).toList(),
                 m.getChecks().stream().map(c -> new MeltPassportRequest.CheckLine(c.getKind(),c.getStatus(),c.getNotes())).toList(),
                 m.getEvents().stream().map(e -> new MeltPassportResponse.Event(e.getAction(),e.getActorId(),e.getActorName(),e.getOccurredAt(),e.getReason(),audit.read(e.getOldValues()),audit.read(e.getNewValues()))).toList(),

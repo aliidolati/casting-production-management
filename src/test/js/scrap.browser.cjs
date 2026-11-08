@@ -26,6 +26,7 @@ const { chromium } = require('playwright');
         await page.locator('#btn-profile-scrap:enabled').waitFor();
         assert.equal((await stored()).length, 0);
         await page.locator('#btn-profile-scrap').click();
+        await page.locator('#form-scrap-reason').waitFor();
         assert.deepEqual(await page.locator('#scrap-type option').evaluateAll(nodes => nodes.map(n => n.value).filter(Boolean)),
             ['F.M.M','F.M.L','F.M','S.P','S.C','CR','G.H','G.P','VT','C.S','M.R','ماسه ریزی','ابعادی','OTHER']);
         await page.locator('#scrap-type').selectOption('OTHER');
@@ -83,24 +84,29 @@ const { chromium } = require('playwright');
         assert.match(csv.toString('utf8'), /بایگانی‌شده/);
         assert.equal(csv.toString('utf8').trim().split('\r\n').length, 3);
         await page.screenshot({ path: path.join(output, 'report-desktop.png'), fullPage: true });
-        // The admin jump dialog already occupies the nested modal: collecting a reason must still work.
+        // Scrapping from the profile still collects its own reason.
         const adminPiece = await page.evaluate(async id => {
             const original = await PieceAPI.getById(id);
             const p = await PieceAPI.create({ pieceDefinitionId: original.pieceDefinitionId, pieceNumber: 3 });
             await openPieceProfile(p.id); return p.id;
         }, process.env.SCRAP_PIECE);
-        await page.locator('#btn-admin-jump').click();
-        await page.locator('#admin-jump-stage').selectOption('SCRAPPED');
-        await page.locator('#btn-confirm-admin-jump').click();
+        await page.locator('#btn-profile-scrap').click();
         await page.locator('#scrap-type').selectOption('CR');
         await page.locator('#form-scrap-reason button[type=submit]').click();
         await page.locator('#btn-edit-scrap').waitFor();
         assert.equal((await page.evaluate(id => PieceAPI.getScrapDispatches(id), adminPiece))[0].defectType, 'CR');
+        await page.locator('#btn-admin-jump').click();
+        await page.locator('#stage-correction-target').selectOption('0');
+        await page.locator('#stage-correction-submit').click();
+        await page.locator('#btn-profile-next').waitFor();
+        const reversed = await page.evaluate(id => PieceAPI.getScrapDispatches(id), adminPiece);
+        assert.equal(reversed[0].active, false);
+        assert.ok(reversed[0].reversedAt);
         // Tensile disposition must collect its own reason, not rely on its optional general notes.
         const tensile = await page.evaluate(async id => {
             const original = await PieceAPI.getById(id);
             let p = await PieceAPI.create({ pieceDefinitionId: original.pieceDefinitionId, pieceNumber: 4 });
-            p = await PieceAPI.updateStage(p.id, 'TENSILE');
+            p = await PieceAPI.correctStage(p.id, { stage: 'TENSILE' });
             const test = await TensileTestAPI.create(p.id, { samples: [{ uts: 100 }] });
             await openTensileDispositionModal(p, test.id);
             TensileState.dispositionDateIso = '2026-10-31';
@@ -116,6 +122,6 @@ const { chromium } = require('playwright');
         assert.equal((await dispositionResponse).status(), 200);
         assert.equal((await page.evaluate(id => PieceAPI.getScrapDispatches(id), tensile.pieceId))[0].defectTypeCustom, 'علت کشش ساختگی');
         assert.deepEqual(errors, []);
-        console.log('Scrap browser passed: reason catalog/Other, optional notes, cancel, edit, unchanged timestamp, archived/legacy report, CSV, admin jump, tensile, desktop/mobile.');
+        console.log('Scrap browser passed: reason catalog/Other, optional notes, cancel, edit, unchanged timestamp, archived/legacy report, CSV, scrap reversal, tensile, desktop/mobile.');
     } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -91,7 +91,7 @@ test('approved correction uses one atomic request and never calls draft save or 
     b.context.collectMeltForm=()=>({version:7,pieceIds:['fixed-piece'],magnesium:{mg:0.2}});
     b.context.renderMeltPassport=state=>assert.equal(state.correcting,false);
     b.element('melt-correction-reason').value='اصلاح ساختگی';
-    b.run('globalThis.correctionState={m:{id:"approved-id",version:7,status:"APPROVED",correctable:true},correcting:true};');
+    b.run('globalThis.correctionState={m:{id:"approved-id",version:7,status:"APPROVED",correctable:true,pieces:[{id:"fixed-piece"}]},correcting:true};');
     await b.run('runMeltAction(correctionState,"calculate-magnesium")');
     assert.equal(requests.length,1);assert.match(requests[0].url,/\/approved-id\/corrections$/);
     const body=JSON.parse(requests[0].options.body);
@@ -105,7 +105,7 @@ test('failed approved correction preserves the edit mode, entered values, reason
     b.context.collectMeltForm=()=>({version:7,pieceIds:['fixed-piece'],notes:'متن حفظ‌شده'});
     b.context.renderMeltPassport=()=>assert.fail('A failed correction must not replace the form');
     b.element('melt-notes').value='متن حفظ‌شده';b.element('melt-correction-reason').value='دلیل حفظ‌شده';
-    b.run('globalThis.correctionState={m:{id:"approved-id",version:7,status:"APPROVED",correctable:true},correcting:true};');
+    b.run('globalThis.correctionState={m:{id:"approved-id",version:7,status:"APPROVED",correctable:true,pieces:[{id:"fixed-piece"}]},correcting:true};');
     await b.run('runMeltAction(correctionState,"save")');
     assert.equal(b.run('correctionState.correcting'),true);assert.equal(b.run('correctionState.m.version'),7);
     assert.equal(b.element('melt-notes').value,'متن حفظ‌شده');assert.equal(b.element('melt-correction-reason').value,'دلیل حفظ‌شده');

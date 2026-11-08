@@ -20,8 +20,10 @@ public interface PieceRepository extends JpaRepository<Piece, UUID>, PieceReposi
 
     @Query("""
         select p from Piece p join fetch p.pieceDefinition d join fetch d.project project
-        where p.archivedAt is null and p.currentStage = com.factory.productmanager.model.entity.PieceStage.CASTING
+        where p.archivedAt is null
+          and (:approvedPassportId is not null or p.currentStage = com.factory.productmanager.model.entity.PieceStage.CASTING)
           and not exists (select 1 from MeltPassportPiece link where link.activePieceKey = p.id)
+          and not exists (select 1 from MeltPassportPiece link where link.passport.id = :approvedPassportId and link.piece.id = p.id)
           and (:empty = true
             or (:numeric = true and p.pieceNumber = :number)
             or (:numeric = false and (lower(d.pieceName) like :pattern escape '\\'
@@ -33,7 +35,8 @@ public interface PieceRepository extends JpaRepository<Piece, UUID>, PieceReposi
     List<Piece> lookupMeltCandidates(@Param("empty") boolean empty, @Param("numeric") boolean numeric,
             @Param("number") Integer number, @Param("pattern") String pattern,
             @Param("referenceProject") String referenceProject, @Param("referenceRow") Integer referenceRow,
-            @Param("referenceNumber") Integer referenceNumber, org.springframework.data.domain.Pageable pageable);
+            @Param("referenceNumber") Integer referenceNumber, @Param("approvedPassportId") UUID approvedPassportId,
+            org.springframework.data.domain.Pageable pageable);
 
     @Query("""
         select p from Piece p join fetch p.pieceDefinition d join fetch d.project project

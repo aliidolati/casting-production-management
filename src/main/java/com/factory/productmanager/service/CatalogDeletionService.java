@@ -36,7 +36,7 @@ public class CatalogDeletionService {
   s.add("DrawingRevision","نسخه‌های نقشه",condition("x.definition",project),false);
   s.add("PieceStageHistory","تاریخچه مراحل",p,false);s.add("PieceSubStageHistory","تاریخچه زیرمرحله‌ها",p,false);
   s.add("PieceNote","یادداشت‌ها",p,false);s.add("WeldingMapMark","نشان‌های نقشه جوش",p,false);s.add("RadiographyDefect","عیوب رادیوگرافی",p,false);
-  s.add("TensileTest","تست‌های کشش",p,false);s.add("PieceWeldingDispatch","اعزام‌های جوشکاری",p,false);s.add("PieceScrapDispatch","سوابق اسقاط",p,false);s.add("PieceStageSkip","سوابق پرش مرحله",p,false);
+  s.add("TensileTest","تست‌های کشش",p,false);s.add("PieceWeldingDispatch","اعزام‌های جوشکاری",p,false);s.add("PieceScrapDispatch","سوابق اسقاط",p,false);s.add("PieceStageSkip","سوابق قدیمی انتقال",p,false);
   s.add("RadiographyReportTemplate","قالب‌های گزارش رادیوگرافی",condition("x.pieceDefinition",project),true);
   s.add("RadiographyReport","گزارش‌های رادیوگرافی",p,true);s.add("RadiographyWorkflow","گردش‌کارهای رادیوگرافی",p,true);
   s.add("PieceHeatTreatment","سوابق عملیات حرارتی",p,true);s.add("MeltPassportPiece","ارتباط شناسنامه‌های ذوب",p,true);

@@ -37,12 +37,13 @@ public class PermissionService {
 
     public List<PermissionInfoResponse> getAllPermissions() {
         return Arrays.stream(Permission.values())
+                .filter(Permission::isActive)
                 .map(p -> new PermissionInfoResponse(p.name(), p.getLabel()))
                 .toList();
     }
 
     public boolean hasPermission(String username, Permission permission) {
-        return userRepository.findByUsername(username)
+        return permission.isActive() && userRepository.findByUsername(username)
                 .map(user -> !user.isDisabled() && (user.getRole() == Role.MANAGER || user.getPermissions().contains(permission)))
                 .orElse(false);
     }
@@ -50,13 +51,6 @@ public class PermissionService {
     public boolean isManager(String username) {
         return userRepository.findByUsername(username)
                 .map(user -> !user.isDisabled() && user.getRole() == Role.MANAGER)
-                .orElse(false);
-    }
-
-    public boolean canSkipStage(String username) {
-        return userRepository.findByUsername(username)
-                .map(u -> !u.isDisabled() && (u.getRole() == Role.MANAGER
-                    || (u.getRole() == Role.ADMIN && u.getPermissions().contains(Permission.SKIP_PIECE_STAGE))))
                 .orElse(false);
     }
 
@@ -70,9 +64,9 @@ public class PermissionService {
 
     public List<String> resolvePermissionCodes(User user) {
         if (user.getRole() == Role.MANAGER) {
-            return Arrays.stream(Permission.values()).map(Enum::name).toList();
+            return Arrays.stream(Permission.values()).filter(Permission::isActive).map(Enum::name).toList();
         }
-        return user.getPermissions().stream().map(Enum::name).sorted().toList();
+        return user.getPermissions().stream().filter(Permission::isActive).map(Enum::name).sorted().toList();
     }
 
     public Set<Permission> sanitizePermissionsForRole(Role role, Set<Permission> requested) {
@@ -82,13 +76,11 @@ public class PermissionService {
         if (requested == null || requested.isEmpty()) {
             return EnumSet.noneOf(Permission.class);
         }
-        if (role == Role.OPERATOR && requested.contains(Permission.SKIP_PIECE_STAGE)) {
-            throw new IllegalArgumentException("مجوز پرش مرحله فقط برای ادمین قابل واگذاری است");
-        }
         if (role == Role.OPERATOR && requested.contains(Permission.CORRECT_PIECE_STAGE)) {
             throw new IllegalArgumentException("مجوز اصلاح وضعیت فقط برای ادمین قابل واگذاری است");
         }
         return requested.stream()
+                .filter(Permission::isActive)
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(Permission.class)));
     }
 

@@ -14,7 +14,7 @@ public record MeltPassportResponse(UUID id, long version, String number, MeltPas
  LocalDateTime submittedAt, String submittedBy, LocalDateTime approvedAt, String approvedBy,
  LocalDateTime returnedAt, String returnedBy, String correctionReason, boolean editable, boolean reviewable, boolean correctable,
  UUID assignedOperatorId, String assignedOperatorName, boolean assignable, boolean cancellable) {
- public record PieceLink(UUID id, String pieceName, String pieceRef) {}
+ public record PieceLink(UUID id, String pieceName, String pieceRef, boolean active) {}
  public record MaterialLine(UUID materialId, String materialName, String category, BigDecimal quantity,
   MeltMaterialUnit unit, BigDecimal baseQuantity, String baseUnit, LocalTime addedAt, String batchNumber, String notes) {}
  public record Event(String action, UUID actorId, String actorName, LocalDateTime occurredAt, String reason,

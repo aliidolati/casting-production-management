@@ -21,9 +21,14 @@ function isManager() {
     return !!AuthState.user && AuthState.user.role === "MANAGER";
 }
 
+function canCorrectPieceStage() {
+    return isManager() || (AuthState.user?.role === "ADMIN" && hasPermission("CORRECT_PIECE_STAGE"));
+}
+
 /** آیا کاربر حداقل یکی از دسترسی‌های عملیات دسته‌جمعی را دارد؟ */
 function canUseBulkSelection() {
     return (
+        canCorrectPieceStage() ||
         hasPermission("ADVANCE_PIECE_STAGE") ||
         hasPermission("MOVE_PIECE_STAGE") ||
         hasPermission("UPDATE_RADIOGRAPHY_SUBSTAGE") ||

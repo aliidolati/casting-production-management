@@ -96,7 +96,7 @@ function renderPiecesTable(pieces) {
             <td>${p.pieceNumber}</td>
             <td>
                 ${
-                    hasPermission("MOVE_PIECE_STAGE") && p.currentStage !== "WELDING" && !p.archivedAt
+                    hasPermission("MOVE_PIECE_STAGE") && !["WELDING", "SCRAPPED"].includes(p.currentStage) && !p.archivedAt
                         ? `<select class="stage-select" data-piece-id="${p.id}">
                     ${selectableStages(p)
                         .map(

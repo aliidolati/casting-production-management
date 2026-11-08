@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -67,8 +68,7 @@ public class PieceService {
     private final PieceSubStageProcessDateRepository pieceSubStageProcessDateRepository;
     private final PermissionService permissionService;
     private final StageTransitionPolicy stageTransitionPolicy;
-    private final StageSkipPolicy stageSkipPolicy;
-    private final com.factory.productmanager.repository.PieceStageSkipRepository stageSkips;
+    private final StageCorrectionPolicy stageCorrectionPolicy;
     private final java.time.Clock clock;
     private final RadiographyWorkflowGate radiographyWorkflowGate;
     private final TensileTrackingService tensileTrackingService;
@@ -489,7 +489,9 @@ public class PieceService {
         PieceDefinition definition = piece.getPieceDefinition();
         boolean hasDrawing = definition.getDrawingImagePath() != null
                 && !definition.getDrawingImagePath().isBlank();
-        AllowedPieceMoves moves = stageTransitionPolicy.allowedMoves(piece, admin);
+        boolean castingLocked = !admin && piece.getCurrentStage() == PieceStage.CASTING;
+        AllowedPieceMoves moves = castingLocked ? AllowedPieceMoves.of(List.of(), List.of(), List.of(), List.of())
+                : stageTransitionPolicy.allowedMoves(piece, admin);
         return new PieceResponse(
                 piece.getId(),
                 piece.getPieceDefinition().getId(),
@@ -517,7 +519,7 @@ public class PieceService {
                 new ArrayList<>(moves.radiographySubStages()),
                 new ArrayList<>(moves.heatTreatmentSubStages()),
                 new ArrayList<>(moves.roughMachiningSubStages()),
-                stageTransitionPolicy.forwardMove(piece),
+                castingLocked ? null : stageTransitionPolicy.forwardMove(piece),
                 null
         );
     }
@@ -651,7 +653,7 @@ public class PieceService {
                 || (request.getNewStage() != PieceStage.HEAT_TREATMENT && request.getHeatTreatmentSubStage() != null)
                 || (request.getNewStage() != PieceStage.ROUGH_MACHINING && request.getRoughMachiningSubStage() != null))
             throw new IllegalArgumentException("زیرمرحله باید متعلق به مرحله مقصد باشد");
-        authorizeManualMove(piece, stageSkipPolicy.target(request.getNewStage(), request.getRadiographySubStage(),
+        authorizeManualMove(piece, stageCorrectionPolicy.target(request.getNewStage(), request.getRadiographySubStage(),
                 request.getHeatTreatmentSubStage(), request.getRoughMachiningSubStage()), Permission.MOVE_PIECE_STAGE, changedByUsername);
         applyStageChange(piece, request.getNewStage(), changedByUsername, permissionService.isManager(changedByUsername),
                 request.getRadiographySubStage(), request.getHeatTreatmentSubStage(), request.getRoughMachiningSubStage(), request.getScrap());
@@ -662,70 +664,64 @@ public class PieceService {
         return pieceRepository.lockById(id).orElseThrow(() -> new ResourceNotFoundException("قطعه پیدا نشد"));
     }
 
-    /** Legacy PATCH routes cannot be used to avoid the independent advance/skip rules. */
-    private void authorizeManualMove(Piece piece, SkipStageTarget target, Permission legacy, String username) {
-        if (stageSkipPolicy.isNormal(piece, target)) {
-            if (!permissionService.hasPermission(username, Permission.ADVANCE_PIECE_STAGE))
+    /** Legacy PATCH routes still support normal advancement and the existing scrap operation. */
+    private void authorizeManualMove(Piece piece, StageCorrectionTarget target, Permission legacy, String username) {
+        if (stageCorrectionPolicy.isNormal(piece, target)) {
+            if (!permissionService.hasPermission(username, Permission.ADVANCE_PIECE_STAGE)) {
                 throw new AccessDeniedException("مجوز پیشرفت عادی مرحله لازم است");
-        } else if (stageSkipPolicy.isForward(piece, target)) {
-            throw new IllegalStateException("برای پرش رو به جلو از گزینه پرش مرحله و ثبت دلیل استفاده کنید");
-        } else if (!permissionService.hasPermission(username, legacy)) {
+            }
+            return;
+        }
+        if (target.stage() != PieceStage.SCRAPPED
+                && !(piece.getCurrentStage() == PieceStage.SCRAPPED && permissionService.isManager(username))) {
+            throw new IllegalStateException("برای جابه‌جایی خارج از مسیر عادی از «اصلاح وضعیت» استفاده کنید");
+        }
+        if (!permissionService.hasPermission(username, legacy)) {
             throw new AccessDeniedException("شما اجازه این انتقال را ندارید");
         }
     }
 
-    @Transactional(readOnly=true)
-    public List<SkipStageTarget> skipTargets(UUID pieceId, String username) {
-        if (!permissionService.canSkipStage(username)) throw new AccessDeniedException("مجوز پرش مرحله لازم است");
-        var piece = findPieceOrThrow(pieceId);
-        assertNotArchived(piece);
-        radiographyWorkflowGate.assertPieceNotInWorkflow(pieceId);
-        return stageSkipPolicy.targets(piece);
+    @Transactional(readOnly = true)
+    public List<StageCorrectionTarget> correctionTargets(UUID pieceId, String username) {
+        requireStageCorrector(username);
+        return availableCorrections(findPieceOrThrow(pieceId), permissionService.isManager(username), username);
     }
 
-    @Transactional(readOnly=true)
-    public List<PieceStageSkipResponse> skipHistory(UUID pieceId) {
-        findPieceOrThrow(pieceId);
-        return stageSkips.findByPieceIdOrderByOccurredAtDesc(pieceId).stream().map(PieceStageSkipResponse::from).toList();
-    }
-
-    public PieceResponse skipStage(UUID pieceId, SkipPieceStageRequest request, String username) {
-        if (!permissionService.canSkipStage(username)) throw new AccessDeniedException("پرش فقط برای مدیر یا ادمین دارای مجوز مجاز است");
-        if (request == null || request.stage() == null || request.reason() == null || request.reason().isBlank() || request.reason().length() > 1000)
-            throw new IllegalArgumentException("دلیل پرش باید بین ۱ تا ۱۰۰۰ کاراکتر باشد");
-        if ((request.stage() != PieceStage.RADIOGRAPHY && request.radiographySubStage() != null)
-                || (request.stage() != PieceStage.HEAT_TREATMENT && request.heatTreatmentSubStage() != null)
-                || (request.stage() != PieceStage.ROUGH_MACHINING && request.roughMachiningSubStage() != null))
-            throw new IllegalArgumentException("زیرمرحله باید متعلق به مرحله مقصد باشد");
+    public PieceResponse correctStage(UUID pieceId, StageCorrectionTarget target, String username) {
+        requireStageCorrector(username);
         var piece = lockPiece(pieceId);
-        assertNotArchived(piece);
-        radiographyWorkflowGate.assertPieceNotInWorkflow(pieceId);
-        var target = stageSkipPolicy.target(request.stage(), request.radiographySubStage(), request.heatTreatmentSubStage(), request.roughMachiningSubStage());
-        if (!stageSkipPolicy.targets(piece).contains(target))
-            throw new IllegalStateException("مقصد باید جلوتر از قدم عادی بعدی باشد؛ برگشت یا انتقال تکراری پرش نیست");
-        var from = stageSkipPolicy.current(piece);
-        applyOrderedMove(piece, target, username);
-        var actor = userRepository.findByUsername(username).orElseThrow();
-        stageSkips.save(new com.factory.productmanager.model.entity.PieceStageSkip(piece, actor, from.stage().name(), skipSubStage(from),
-                target.stage().name(), skipSubStage(target), request.reason().trim(), LocalDateTime.now(clock)));
+        assertCorrectionAllowed(piece, target, permissionService.isManager(username), username);
+        applyCorrection(piece, target, username);
         return toResponse(pieceRepository.save(piece));
     }
 
     @Transactional(readOnly = true)
-    public List<SkipStageTarget> correctionTargets(UUID pieceId, String username) {
+    public List<StageCorrectionTarget> bulkCorrectionTargets(List<UUID> pieceIds, String username) {
         requireStageCorrector(username);
-        return availableCorrections(findPieceOrThrow(pieceId));
+        boolean manager = permissionService.isManager(username);
+        var selections = correctionPieceIds(pieceIds).stream()
+                .map(id -> availableCorrections(findPieceOrThrow(id), manager, username))
+                .toList();
+        var common = new ArrayList<>(selections.get(0));
+        for (var targets : selections.subList(1, selections.size())) common.retainAll(targets);
+        return common;
     }
 
-    public PieceResponse correctStage(UUID pieceId, SkipStageTarget target, String username) {
+    public List<PieceResponse> bulkCorrectStage(List<UUID> pieceIds, StageCorrectionTarget target, String username) {
         requireStageCorrector(username);
-        var piece = lockPiece(pieceId);
-        if (!availableCorrections(piece).contains(target)) {
-            throw new IllegalStateException("مقصد برای اصلاح وضعیت فعلی قطعه مجاز نیست");
+        boolean manager = permissionService.isManager(username);
+        var pieces = correctionPieceIds(pieceIds).stream().map(this::lockPiece).toList();
+        pieces.forEach(piece -> assertCorrectionAllowed(piece, target, manager, username));
+        pieces.forEach(piece -> applyCorrection(piece, target, username));
+        var saved = pieceRepository.saveAll(pieces);
+        return toResponses(saved, defectsCountMapFor(saved), stageEnteredAtMapFor(saved));
+    }
+
+    private List<UUID> correctionPieceIds(List<UUID> pieceIds) {
+        if (pieceIds == null || pieceIds.isEmpty() || pieceIds.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("باید حداقل یک قطعه معتبر انتخاب شود");
         }
-        if (piece.getCurrentStage() == target.stage()) snapshotOutgoingProcessDate(piece);
-        applyOrderedMove(piece, target, username);
-        return toResponse(pieceRepository.save(piece));
+        return pieceIds.stream().distinct().sorted().toList();
     }
 
     private void requireStageCorrector(String username) {
@@ -734,33 +730,43 @@ public class PieceService {
         }
     }
 
-    private List<SkipStageTarget> availableCorrections(Piece piece) {
+    private List<StageCorrectionTarget> availableCorrections(Piece piece, boolean manager, String username) {
         assertNotArchived(piece);
         radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
-        return stageSkipPolicy.correctionTargets(piece);
+        if (manager && piece.getCurrentStage() == PieceStage.CASTING) {
+            meltPassportGate.assertManualDepartureAllowed(piece, PieceStage.ROUGH_MACHINING, username);
+        }
+        return stageCorrectionPolicy.correctionTargets(piece, manager);
     }
 
-    private void applyOrderedMove(Piece piece, SkipStageTarget target, String username) {
+    private void assertCorrectionAllowed(Piece piece, StageCorrectionTarget target, boolean manager, String username) {
+        if (!availableCorrections(piece, manager, username).contains(target)) {
+            throw new IllegalStateException("مقصد برای اصلاح وضعیت فعلی قطعه مجاز نیست");
+        }
+    }
+
+    private void applyCorrection(Piece piece, StageCorrectionTarget target, String username) {
         if (piece.getCurrentStage() != target.stage()) {
             applyStageChange(piece, target.stage(), username, true, target.radiographySubStage(),
                     target.heatTreatmentSubStage(), target.roughMachiningSubStage());
         } else {
+            snapshotOutgoingProcessDate(piece);
             switch (piece.getCurrentStage()) {
-                case RADIOGRAPHY -> { piece.setRadiographySubStage(target.radiographySubStage());
-                    recordSubStageHistory(piece, SubStageKind.RADIOGRAPHY, target.radiographySubStage().name(), username); }
-                case HEAT_TREATMENT -> { piece.setHeatTreatmentSubStage(target.heatTreatmentSubStage());
-                    recordSubStageHistory(piece, SubStageKind.HEAT_TREATMENT, target.heatTreatmentSubStage().name(), username); }
-                case ROUGH_MACHINING -> { piece.setRoughMachiningSubStage(target.roughMachiningSubStage());
-                    recordSubStageHistory(piece, SubStageKind.ROUGH_MACHINING, target.roughMachiningSubStage().name(), username); }
+                case RADIOGRAPHY -> {
+                    piece.setRadiographySubStage(target.radiographySubStage());
+                    recordSubStageHistory(piece, SubStageKind.RADIOGRAPHY, target.radiographySubStage().name(), username);
+                }
+                case HEAT_TREATMENT -> {
+                    piece.setHeatTreatmentSubStage(target.heatTreatmentSubStage());
+                    recordSubStageHistory(piece, SubStageKind.HEAT_TREATMENT, target.heatTreatmentSubStage().name(), username);
+                }
+                case ROUGH_MACHINING -> {
+                    piece.setRoughMachiningSubStage(target.roughMachiningSubStage());
+                    recordSubStageHistory(piece, SubStageKind.ROUGH_MACHINING, target.roughMachiningSubStage().name(), username);
+                }
                 default -> throw new IllegalStateException("مقصد انتقال معتبر نیست");
             }
         }
-    }
-
-    private String skipSubStage(SkipStageTarget target) {
-        if (target.radiographySubStage() != null) return target.radiographySubStage().name();
-        if (target.heatTreatmentSubStage() != null) return target.heatTreatmentSubStage().name();
-        return target.roughMachiningSubStage() == null ? null : target.roughMachiningSubStage().name();
     }
 
     /**
@@ -857,9 +863,20 @@ public class PieceService {
             throw new IllegalStateException("مرحله بعد ذوب‌ریزی در گردش تولید تعریف نشده است");
         }
         if (piece.getProcessDate() == null) piece.setProcessDate(meltDate);
-        applyStageChange(piece, move.getStage(), username, false, move.getRadiographySubStage(),
-                move.getHeatTreatmentSubStage(), move.getRoughMachiningSubStage());
+        meltPassportGate.assertApprovedDeparture(piece);
+        changeStage(piece, move.getStage(), username, false, move.getRadiographySubStage(),
+                move.getHeatTreatmentSubStage(), move.getRoughMachiningSubStage(), null);
         pieceRepository.save(piece);
+    }
+
+    /** Called for newly added members while the correction holds their piece locks. */
+    void movePieceAddedToApprovedMelt(Piece piece, PieceStage target, LocalDate meltDate, ScrapRequest scrap, String username) {
+        if (piece.getCurrentStage() == target) return;
+        assertNotArchived(piece);
+        if (piece.getCurrentStage() == PieceStage.CASTING && piece.getProcessDate() == null) {
+            piece.setProcessDate(meltDate);
+        }
+        applyStageChange(piece, target, username, true, null, null, null, scrap);
     }
 
     /**
@@ -947,7 +964,7 @@ public class PieceService {
     public PieceResponse updateRadiographySubStage(UUID pieceId, UpdateRadiographySubStageRequest request, String changedByUsername) {
         Piece piece = lockPiece(pieceId);
         assertNotArchived(piece);
-        authorizeManualMove(piece, stageSkipPolicy.target(piece.getCurrentStage(), request.getRadiographySubStage(),null,null),
+        authorizeManualMove(piece, stageCorrectionPolicy.target(piece.getCurrentStage(), request.getRadiographySubStage(),null,null),
                 Permission.UPDATE_RADIOGRAPHY_SUBSTAGE, changedByUsername);
         radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
         stageTransitionPolicy.assertRadiographySubStageAllowed(
@@ -966,7 +983,7 @@ public class PieceService {
     public PieceResponse updateHeatTreatmentSubStage(UUID pieceId, UpdateHeatTreatmentSubStageRequest request, String changedByUsername) {
         Piece piece = lockPiece(pieceId);
         assertNotArchived(piece);
-        authorizeManualMove(piece, stageSkipPolicy.target(piece.getCurrentStage(), null,request.getHeatTreatmentSubStage(),null),
+        authorizeManualMove(piece, stageCorrectionPolicy.target(piece.getCurrentStage(), null,request.getHeatTreatmentSubStage(),null),
                 Permission.UPDATE_HEAT_TREATMENT_SUBSTAGE, changedByUsername);
         stageTransitionPolicy.assertHeatTreatmentSubStageAllowed(
                 piece, request.getHeatTreatmentSubStage(), permissionService.isManager(changedByUsername)
@@ -984,7 +1001,7 @@ public class PieceService {
     public PieceResponse updateRoughMachiningSubStage(UUID pieceId, UpdateRoughMachiningSubStageRequest request, String changedByUsername) {
         Piece piece = lockPiece(pieceId);
         assertNotArchived(piece);
-        authorizeManualMove(piece, stageSkipPolicy.target(piece.getCurrentStage(), null,null,request.getRoughMachiningSubStage()),
+        authorizeManualMove(piece, stageCorrectionPolicy.target(piece.getCurrentStage(), null,null,request.getRoughMachiningSubStage()),
                 Permission.UPDATE_ROUGH_MACHINING_SUBSTAGE, changedByUsername);
         RoughMachiningSubStage target = request.getRoughMachiningSubStage();
         stageTransitionPolicy.assertRoughMachiningSubStageAllowed(
@@ -1029,7 +1046,7 @@ public class PieceService {
             throw new IllegalStateException("همه قطعات انتخاب‌شده هم‌اکنون در این مرحله هستند");
         }
 
-        toMove.forEach(piece -> authorizeManualMove(piece, stageSkipPolicy.target(newStage, null, null, null),
+        toMove.forEach(piece -> authorizeManualMove(piece, stageCorrectionPolicy.target(newStage, null, null, null),
                 Permission.MOVE_PIECE_STAGE, changedByUsername));
         for (Piece piece : toMove) {
             applyStageChange(piece, newStage, changedByUsername, trusted, null, null, null, request.getScrap());
@@ -1071,7 +1088,7 @@ public class PieceService {
             throw new IllegalStateException("همه قطعات انتخاب‌شده هم‌اکنون در این زیرمرحله هستند");
         }
         toMove.forEach(p -> radiographyWorkflowGate.assertPieceNotInWorkflow(p.getId()));
-        toMove.forEach(piece -> authorizeManualMove(piece, stageSkipPolicy.target(piece.getCurrentStage(), request.getRadiographySubStage(),null,null),
+        toMove.forEach(piece -> authorizeManualMove(piece, stageCorrectionPolicy.target(piece.getCurrentStage(), request.getRadiographySubStage(),null,null),
                 Permission.UPDATE_RADIOGRAPHY_SUBSTAGE, changedByUsername));
         toMove.forEach(p -> stageTransitionPolicy.assertRadiographySubStageAllowed(
                 p, request.getRadiographySubStage(), admin
@@ -1130,7 +1147,7 @@ public class PieceService {
         if (toMove.isEmpty()) {
             throw new IllegalStateException("همه قطعات انتخاب‌شده هم‌اکنون در این زیرمرحله هستند");
         }
-        toMove.forEach(piece -> authorizeManualMove(piece, stageSkipPolicy.target(piece.getCurrentStage(), null,request.getHeatTreatmentSubStage(),null),
+        toMove.forEach(piece -> authorizeManualMove(piece, stageCorrectionPolicy.target(piece.getCurrentStage(), null,request.getHeatTreatmentSubStage(),null),
                 Permission.UPDATE_HEAT_TREATMENT_SUBSTAGE, changedByUsername));
         toMove.forEach(p -> stageTransitionPolicy.assertHeatTreatmentSubStageAllowed(
                 p, request.getHeatTreatmentSubStage(), admin
@@ -1192,7 +1209,7 @@ public class PieceService {
             throw new IllegalStateException("همه قطعات انتخاب‌شده هم‌اکنون در این زیرمرحله هستند");
         }
 
-        toMove.forEach(piece -> authorizeManualMove(piece, stageSkipPolicy.target(piece.getCurrentStage(), null,null,request.getRoughMachiningSubStage()),
+        toMove.forEach(piece -> authorizeManualMove(piece, stageCorrectionPolicy.target(piece.getCurrentStage(), null,null,request.getRoughMachiningSubStage()),
                 Permission.UPDATE_ROUGH_MACHINING_SUBSTAGE, changedByUsername));
         toMove.forEach(p -> stageTransitionPolicy.assertRoughMachiningSubStageAllowed(p, target, admin));
 
@@ -1500,8 +1517,15 @@ public class PieceService {
     private void applyStageChange(Piece piece, PieceStage newStage, String changedByUsername, boolean trusted,
             RadiographySubStage radiographyOverride, HeatTreatmentSubStage heatTreatmentOverride,
             RoughMachiningSubStage roughMachiningOverride, ScrapRequest scrap) {
+        meltPassportGate.assertManualDepartureAllowed(piece, newStage, changedByUsername);
+        changeStage(piece, newStage, changedByUsername, trusted, radiographyOverride, heatTreatmentOverride,
+                roughMachiningOverride, scrap);
+    }
+
+    private void changeStage(Piece piece, PieceStage newStage, String changedByUsername, boolean trusted,
+            RadiographySubStage radiographyOverride, HeatTreatmentSubStage heatTreatmentOverride,
+            RoughMachiningSubStage roughMachiningOverride, ScrapRequest scrap) {
         radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
-        meltPassportGate.assertDepartureAllowed(piece, newStage);
         PieceStage oldStage = piece.getCurrentStage();
         if (newStage == PieceStage.WELDING) {
             throw new IllegalStateException(
@@ -1589,7 +1613,7 @@ public class PieceService {
     public PieceResponse sendToWeldingStation(UUID pieceId, SendToWeldingRequest request, String username) {
         Piece piece = pieceRepository.lockById(pieceId).orElseThrow(()->new ResourceNotFoundException("قطعه پیدا نشد"));
         assertNotArchived(piece);
-        meltPassportGate.assertDepartureAllowed(piece, PieceStage.WELDING);
+        meltPassportGate.assertManualDepartureAllowed(piece, PieceStage.WELDING, username);
         radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
         PieceStage oldStage = piece.getCurrentStage();
         if (oldStage == PieceStage.WELDING) {

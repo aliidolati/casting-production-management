@@ -27,6 +27,7 @@ class MeltPassportAudit {
         values.put("materials", m.getMaterials().stream().map(l -> new MeltPassportResponse.MaterialLine(
                 l.getMaterial().getId(), l.getMaterialName(), l.getCategory(), l.getQuantity(), l.getUnit(),
                 l.getBaseQuantity(), l.getBaseUnit(), l.getAddedAt(), l.getBatchNumber(), l.getNotes())).toList());
+        values.put("pieceRefs", m.getPieces().stream().map(MeltPassportPiece::getPieceRef).sorted().toList());
         values.put("checks", m.getChecks().stream().sorted(Comparator.comparing(c -> c.getKind().name()))
                 .map(c -> new MeltPassportRequest.CheckLine(c.getKind(),c.getStatus(),c.getNotes())).toList());
         return json.writeValueAsString(canonical(read(json.writeValueAsString(values))));
