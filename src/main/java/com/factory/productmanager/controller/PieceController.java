@@ -131,6 +131,17 @@ public class PieceController {
         return pieceService.skipStage(id, request, authentication.getName());
     }
 
+    @GetMapping("/{id}/stage-correction/targets")
+    public List<SkipStageTarget> correctionTargets(@PathVariable UUID id, Authentication authentication) {
+        return pieceService.correctionTargets(id, authentication.getName());
+    }
+
+    @PatchMapping("/{id}/stage-correction")
+    public PieceResponse correctStage(@PathVariable UUID id, @RequestBody SkipStageTarget target,
+            Authentication authentication) {
+        return pieceService.correctStage(id, target, authentication.getName());
+    }
+
     @GetMapping("/{id}/stage-skips")
     public List<PieceStageSkipResponse> skipHistory(@PathVariable UUID id) {
         return pieceService.skipHistory(id);

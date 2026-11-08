@@ -1257,7 +1257,7 @@ function renderProfileStageActions(piece) {
     if (canUseStageSkip() && !["WELDING", "SCRAPPED", "DELIVERED", "CASTING"].includes(piece.currentStage)) {
         bits.push('<button type="button" class="btn btn-secondary btn-sm" id="btn-profile-skip">پرش مرحله</button>');
     }
-    if (isManager() && piece.currentStage !== "WELDING") {
+    if (canUseStageCorrection(piece)) {
         bits.push(
             `<button type="button" class="profile-action-icon" id="btn-admin-jump" title="اصلاح وضعیت" aria-label="اصلاح وضعیت">↕</button>`
         );
@@ -1294,7 +1294,10 @@ function attachProfileStageActions(piece) {
     document.getElementById("btn-profile-skip")?.addEventListener("click", () => openStageSkipModal(piece));
     const jumpBtn = document.getElementById("btn-admin-jump");
     if (jumpBtn) {
-        jumpBtn.addEventListener("click", () => openAdminJumpModal(piece));
+        jumpBtn.addEventListener("click", () => {
+            if (isManager()) openAdminJumpModal(piece);
+            else withButtonLoader(jumpBtn, () => openStageCorrectionModal(piece, jumpBtn));
+        });
     }
 }
 
@@ -1653,6 +1656,62 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function canUseStageSkip() {
     return !!AuthState.user && ["MANAGER", "ADMIN"].includes(AuthState.user.role) && hasPermission("SKIP_PIECE_STAGE");
+}
+
+function canUseStageCorrection(piece) {
+    if (piece.archivedAt || piece.currentStage === "WELDING") return false;
+    if (isManager()) return true;
+    return AuthState.user?.role === "ADMIN" && hasPermission("CORRECT_PIECE_STAGE")
+        && !["NOT_STARTED", "CASTING", "SCRAPPED"].includes(piece.currentStage);
+}
+
+async function openStageCorrectionModal(piece, button) {
+    if (!canUseStageCorrection(piece)) return;
+    try {
+        const targets = await PieceAPI.getStageCorrectionTargets(piece.id);
+        if (!button.isConnected) return;
+        if (!targets.length) {
+            showToast("مقصدی برای اصلاح وضعیت این قطعه وجود ندارد", "error");
+            return;
+        }
+        openNestedModal("اصلاح وضعیت", `
+            <div class="form-group"><label for="stage-correction-target">بازگشت به مرحله یا زیرمرحله</label>
+                <select id="stage-correction-target">
+                    <option value="" selected disabled>مقصد را انتخاب کنید</option>
+                    ${targets.map((target, i) => `<option value="${i}">${escapeHtml(stageSkipLocation(target))}</option>`).join("")}
+                </select>
+            </div>
+            <div id="stage-correction-error" class="form-error" role="alert"></div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="stage-correction-cancel">انصراف</button>
+                <button type="button" class="btn btn-primary" id="stage-correction-submit">اعمال</button>
+            </div>`);
+        document.getElementById("stage-correction-cancel").addEventListener("click", closeNestedModal);
+        document.getElementById("stage-correction-submit").addEventListener("click", e => {
+            const selected = document.getElementById("stage-correction-target").value;
+            const errorBox = document.getElementById("stage-correction-error");
+            if (selected === "") {
+                errorBox.textContent = "مقصد اصلاح وضعیت را انتخاب کنید";
+                errorBox.style.display = "block";
+                return;
+            }
+            return withButtonLoader(e.currentTarget, async () => {
+                try {
+                    await PieceAPI.correctStage(piece.id, targets[Number(selected)]);
+                    closeNestedModal();
+                    showToast("اصلاح وضعیت ثبت شد");
+                    loadTracking();
+                    await openPieceProfile(piece.id);
+                } catch (error) {
+                    if (!errorBox.isConnected) return;
+                    errorBox.textContent = error.message;
+                    errorBox.style.display = "block";
+                }
+            });
+        });
+    } catch (error) {
+        if (button.isConnected) showToast(error.message, "error");
+    }
 }
 
 function stageSkipLocation(target) {

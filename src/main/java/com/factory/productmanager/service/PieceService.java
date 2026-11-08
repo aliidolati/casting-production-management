@@ -704,6 +704,43 @@ public class PieceService {
         if (!stageSkipPolicy.targets(piece).contains(target))
             throw new IllegalStateException("مقصد باید جلوتر از قدم عادی بعدی باشد؛ برگشت یا انتقال تکراری پرش نیست");
         var from = stageSkipPolicy.current(piece);
+        applyOrderedMove(piece, target, username);
+        var actor = userRepository.findByUsername(username).orElseThrow();
+        stageSkips.save(new com.factory.productmanager.model.entity.PieceStageSkip(piece, actor, from.stage().name(), skipSubStage(from),
+                target.stage().name(), skipSubStage(target), request.reason().trim(), LocalDateTime.now(clock)));
+        return toResponse(pieceRepository.save(piece));
+    }
+
+    @Transactional(readOnly = true)
+    public List<SkipStageTarget> correctionTargets(UUID pieceId, String username) {
+        requireStageCorrector(username);
+        return availableCorrections(findPieceOrThrow(pieceId));
+    }
+
+    public PieceResponse correctStage(UUID pieceId, SkipStageTarget target, String username) {
+        requireStageCorrector(username);
+        var piece = lockPiece(pieceId);
+        if (!availableCorrections(piece).contains(target)) {
+            throw new IllegalStateException("مقصد برای اصلاح وضعیت فعلی قطعه مجاز نیست");
+        }
+        if (piece.getCurrentStage() == target.stage()) snapshotOutgoingProcessDate(piece);
+        applyOrderedMove(piece, target, username);
+        return toResponse(pieceRepository.save(piece));
+    }
+
+    private void requireStageCorrector(String username) {
+        if (!permissionService.canCorrectStage(username)) {
+            throw new AccessDeniedException("مجوز اصلاح وضعیت قطعه لازم است");
+        }
+    }
+
+    private List<SkipStageTarget> availableCorrections(Piece piece) {
+        assertNotArchived(piece);
+        radiographyWorkflowGate.assertPieceNotInWorkflow(piece.getId());
+        return stageSkipPolicy.correctionTargets(piece);
+    }
+
+    private void applyOrderedMove(Piece piece, SkipStageTarget target, String username) {
         if (piece.getCurrentStage() != target.stage()) {
             applyStageChange(piece, target.stage(), username, true, target.radiographySubStage(),
                     target.heatTreatmentSubStage(), target.roughMachiningSubStage());
@@ -715,13 +752,9 @@ public class PieceService {
                     recordSubStageHistory(piece, SubStageKind.HEAT_TREATMENT, target.heatTreatmentSubStage().name(), username); }
                 case ROUGH_MACHINING -> { piece.setRoughMachiningSubStage(target.roughMachiningSubStage());
                     recordSubStageHistory(piece, SubStageKind.ROUGH_MACHINING, target.roughMachiningSubStage().name(), username); }
-                default -> throw new IllegalStateException("مقصد پرش معتبر نیست");
+                default -> throw new IllegalStateException("مقصد انتقال معتبر نیست");
             }
         }
-        var actor = userRepository.findByUsername(username).orElseThrow();
-        stageSkips.save(new com.factory.productmanager.model.entity.PieceStageSkip(piece, actor, from.stage().name(), skipSubStage(from),
-                target.stage().name(), skipSubStage(target), request.reason().trim(), LocalDateTime.now(clock)));
-        return toResponse(pieceRepository.save(piece));
     }
 
     private String skipSubStage(SkipStageTarget target) {

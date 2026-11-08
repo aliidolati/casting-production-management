@@ -47,3 +47,39 @@ test('skip history escapes user-provided reasons and actor names',()=>{
     const html=run(`renderStageSkipHistory([{fromStage:"NOT_STARTED",toStage:"RADIOGRAPHY",toSubStage:"VT",reason:"<img src=x>",actorName:"<script>bad</script>",occurredAt:"2026-11-01"}])`);
     assert.ok(html.includes('&lt;img'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('سوابق پرش'));
 });
+
+test('status correction is available only to a manager or a granted admin', () => {
+    const {run} = browser();
+    const profile = 'renderProfileStageActions({currentStage:"READY"})';
+    run('AuthState.user={role:"ADMIN",permissions:["MOVE_PIECE_STAGE"]}');
+    assert.doesNotMatch(run(profile), /btn-admin-jump/);
+    run('AuthState.user.permissions=["CORRECT_PIECE_STAGE"]');
+    assert.match(run(profile), /btn-admin-jump/);
+    assert.doesNotMatch(run(profile), /btn-profile-skip|btn-profile-scrap/);
+    assert.doesNotMatch(run('renderProfileStageActions({currentStage:"CASTING"})'), /btn-admin-jump/);
+    run('AuthState.user.role="OPERATOR"');
+    assert.doesNotMatch(run(profile), /btn-admin-jump/);
+    run('AuthState.user={role:"MANAGER",permissions:[]}');
+    assert.match(run(profile), /btn-admin-jump/);
+});
+
+test('delegated correction asks for a server-provided location before saving', async () => {
+    const {run,element} = browser();
+    run(`AuthState.user={role:"ADMIN",permissions:["CORRECT_PIECE_STAGE"]};
+        globalThis.openNestedModal=(title,html)=>{globalThis.modalHtml=html;};
+        globalThis.closeNestedModal=()=>{};globalThis.showToast=()=>{};
+        globalThis.withButtonLoader=async(button,fn)=>fn();globalThis.loadTracking=()=>{};
+        globalThis.openPieceProfile=async()=>{};
+        globalThis.PieceAPI={
+            getStageCorrectionTargets:async()=>[{stage:"RADIOGRAPHY",radiographySubStage:"SHOT"}],
+            correctStage:async(id,target)=>{globalThis.sent={id,target};}
+        };`);
+    await run('openStageCorrectionModal({id:"piece-id",currentStage:"READY"},{isConnected:true})');
+    assert.match(run('modalHtml'), /شوت/);
+    await element('stage-correction-submit').listeners.click({currentTarget:{}});
+    assert.equal(run('typeof sent'), 'undefined');
+    element('stage-correction-target').value = '0';
+    await element('stage-correction-submit').listeners.click({currentTarget:{}});
+    assert.equal(run('sent.id'), 'piece-id');
+    assert.equal(run('sent.target.radiographySubStage'), 'SHOT');
+});

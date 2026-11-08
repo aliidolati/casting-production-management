@@ -57,4 +57,15 @@ class SecuritySeedingAuditTest {
         var user=operator(granted);seeder(user).run();
         assertEquals(granted,user.getPermissions());
     }
+    @Test void startupDoesNotAssignStageCorrectionAndPreservesAnExplicitAdminGrant() {
+        var admin=operator(Set.of());
+        admin.setRole(Role.ADMIN);
+        var seeder=seeder(admin);
+        seeder.run();
+        assertFalse(admin.getPermissions().contains(Permission.CORRECT_PIECE_STAGE));
+        admin.getPermissions().add(Permission.CORRECT_PIECE_STAGE);
+        seeder.run();
+        assertEquals(Set.of(Permission.CORRECT_PIECE_STAGE),admin.getPermissions());
+    }
+
 }
