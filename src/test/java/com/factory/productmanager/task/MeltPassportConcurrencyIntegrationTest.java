@@ -18,7 +18,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /** Separate committed transactions are essential here: an enclosing test rollback would hide failures. */
-@SpringBootTest(properties="logging.level.com.factory.productmanager.config.DataSeeder=OFF")
+@SpringBootTest(properties = {
+        "logging.level.com.factory.productmanager.config.DataSeeder=OFF",
+        "spring.datasource.url=jdbc:h2:mem:melt_transactions;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
+})
 class MeltPassportConcurrencyIntegrationTest {
     @Autowired MeltPassportService service;
     @MockitoSpyBean PieceService pieceService;
