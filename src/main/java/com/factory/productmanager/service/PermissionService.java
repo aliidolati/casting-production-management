@@ -60,6 +60,14 @@ public class PermissionService {
                 .orElse(false);
     }
 
+    public boolean canCorrectStage(String username) {
+        return userRepository.findByUsername(username)
+                .filter(user -> !user.isDisabled())
+                .map(user -> user.getRole() == Role.MANAGER
+                        || (user.getRole() == Role.ADMIN && user.getPermissions().contains(Permission.CORRECT_PIECE_STAGE)))
+                .orElse(false);
+    }
+
     public List<String> resolvePermissionCodes(User user) {
         if (user.getRole() == Role.MANAGER) {
             return Arrays.stream(Permission.values()).map(Enum::name).toList();
@@ -76,6 +84,9 @@ public class PermissionService {
         }
         if (role == Role.OPERATOR && requested.contains(Permission.SKIP_PIECE_STAGE)) {
             throw new IllegalArgumentException("مجوز پرش مرحله فقط برای ادمین قابل واگذاری است");
+        }
+        if (role == Role.OPERATOR && requested.contains(Permission.CORRECT_PIECE_STAGE)) {
+            throw new IllegalArgumentException("مجوز اصلاح وضعیت فقط برای ادمین قابل واگذاری است");
         }
         return requested.stream()
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(Permission.class)));

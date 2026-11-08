@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import java.util.*;
 
-/** Forward skips only; existing manager correction/backward routes stay separate. */
+/** Ordered production locations for skips and delegated backward corrections. */
 @Component @RequiredArgsConstructor
 public class StageSkipPolicy {
     private final StageTransitionPolicy transitions;
@@ -44,6 +44,19 @@ public class StageSkipPolicy {
         return ROUTE.indexOf(target.stage()) * 100 + sub;
     }
     public List<SkipStageTarget> targets(Piece piece) {
+        return routeTargets().stream().filter(t -> isForward(piece,t) && !isNormal(piece,t)).toList();
+    }
+
+    public List<SkipStageTarget> correctionTargets(Piece piece) {
+        var current = current(piece);
+        if (!ROUTE.contains(current.stage()) || current.stage() == PieceStage.CASTING) return List.of();
+        int currentPosition = position(current);
+        return routeTargets().stream()
+                .filter(target -> !current.equals(target) && position(target) <= currentPosition)
+                .toList();
+    }
+
+    private List<SkipStageTarget> routeTargets() {
         List<SkipStageTarget> choices = new ArrayList<>();
         for (var stage : ROUTE) {
             if (stage == PieceStage.ROUGH_MACHINING) for (var sub : RoughMachiningSubStage.values()) choices.add(target(stage,null,null,sub));
@@ -51,6 +64,6 @@ public class StageSkipPolicy {
             else if (stage == PieceStage.HEAT_TREATMENT) for (var sub : HEAT) choices.add(target(stage,null,sub,null));
             else choices.add(target(stage,null,null,null));
         }
-        return choices.stream().filter(t -> isForward(piece,t) && !isNormal(piece,t)).toList();
+        return choices;
     }
 }

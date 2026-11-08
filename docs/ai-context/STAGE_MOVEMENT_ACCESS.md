@@ -2,6 +2,14 @@
 
 Only normal forward progression and permissioned forward skipping are implemented in this change. No new rollback, scrap/reversal, welding, archive/restore, date-correction or bulk-operation permission is introduced. Existing guards for those operations remain in place.
 
+## Delegated status correction
+
+An active ADMIN with the explicit `CORRECT_PIECE_STAGE` grant can open «اصلاح وضعیت» from a piece profile. The account editor offers this grant for ADMIN only. Existing manager corrections continue to use their established paths.
+
+`GET /api/pieces/{id}/stage-correction/targets` lists prior production locations, including earlier substages. `PATCH /api/pieces/{id}/stage-correction` accepts the selected typed location. It revalidates the destination under the piece lock and writes the production history with the actor's name. Existing process dates are recorded for the location being left.
+
+Delegated correction does not include normal advancement, forward skipping, bulk movement, leaving CASTING, welding dispatch/completion, or scrapping and reversal. Aging destinations remain workflow-driven. Archived pieces and pieces with open radiography workflows cannot be corrected through this action. The grant uses the existing permission storage and is never assigned by default.
+
 ## Grants
 
 - `ADVANCE_PIECE_STAGE` (پیشرفت عادی مرحله) authorizes the one normal next location, including rough-machining, radiography and heat-treatment substages. `/advance` retains its process-date and workflow rules. Legacy single/bulk PATCH routes also require this grant when they perform a normal forward step.

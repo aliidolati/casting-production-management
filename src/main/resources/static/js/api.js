@@ -244,6 +244,8 @@ const PieceAPI = {
     updateStage: (id, data, scrap, substages = {}) => apiRequest(`/pieces/${id}/stage`, "PATCH", { newStage: data, scrap, ...substages }),
     getSkipTargets: (id) => apiRequest(`/pieces/${id}/skip-targets`),
     skipStage: (id, data) => apiRequest(`/pieces/${id}/skip`, "POST", data),
+    getStageCorrectionTargets: (id) => apiRequest(`/pieces/${id}/stage-correction/targets`),
+    correctStage: (id, target) => apiRequest(`/pieces/${id}/stage-correction`, "PATCH", target),
     getStageSkips: (id) => apiRequest(`/pieces/${id}/stage-skips`),
     advance: (id, processDate) =>
         apiRequest(`/pieces/${id}/advance`, "POST", processDate ? { processDate } : {}),

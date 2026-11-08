@@ -114,6 +114,66 @@ class StageMovementAccessIntegrationTest extends TaskTestBase {
                 .andExpect(jsonPath("$.radiographySubStage").value("VT"));
         assertTrue(skips.findByPieceIdOrderByOccurredAtDesc(p.getId()).isEmpty());
     }
+    @Test void managerCanGrantAndRevokeIndependentStatusCorrectionForAdmin() throws Exception {
+        var delegate = actor(Role.ADMIN);
+        var p = piece(PieceStage.READY);
+        var api = "/api/pieces/" + p.getId() + "/stage-correction";
+        var backward = Map.of("stage","RADIOGRAPHY","radiographySubStage","VT");
+
+        call(patch(api),delegate,backward).andExpect(status().isForbidden());
+        call(patch("/api/users/"+delegate.getId()+"/permissions"),admin,
+                Map.of("permissions",List.of("CORRECT_PIECE_STAGE"))).andExpect(status().isOk());
+        call(get(api+"/targets"),delegate).andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.stage == 'RADIOGRAPHY' && @.radiographySubStage == 'VT')]").isNotEmpty())
+                .andExpect(jsonPath("$[?(@.stage == 'DELIVERED' || @.stage == 'SCRAPPED' || @.stage == 'WELDING')]").isEmpty());
+        call(patch(api),delegate,Map.of("stage","DELIVERED")).andExpect(status().isBadRequest());
+        call(patch(api),delegate,Map.of("stage","SCRAPPED")).andExpect(status().isBadRequest());
+        call(post("/api/pieces/"+p.getId()+"/advance"),delegate,Map.of()).andExpect(status().isForbidden());
+        call(post("/api/pieces/"+p.getId()+"/skip"),delegate,skip(PieceStage.DELIVERED)).andExpect(status().isForbidden());
+        call(patch("/api/pieces/bulk/stage"),delegate,Map.of("pieceIds",List.of(p.getId()),"newStage","TENSILE"))
+                .andExpect(status().isForbidden());
+
+        call(patch(api),delegate,backward).andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStage").value("RADIOGRAPHY"))
+                .andExpect(jsonPath("$.radiographySubStage").value("VT"));
+        call(patch(api),delegate,Map.of("stage","RADIOGRAPHY","radiographySubStage","SHOT")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.radiographySubStage").value("SHOT"));
+        call(patch(api),delegate,Map.of("stage","RADIOGRAPHY","radiographySubStage","INTERPRETATION")).andExpect(status().isBadRequest());
+        assertTrue(skips.findByPieceIdOrderByOccurredAtDesc(p.getId()).isEmpty());
+
+        call(patch("/api/users/"+delegate.getId()+"/permissions"),admin,Map.of("permissions",List.of())).andExpect(status().isOk());
+        call(get(api+"/targets"),delegate).andExpect(status().isForbidden());
+        call(patch(api),delegate,Map.of("stage","CASTING")).andExpect(status().isForbidden());
+    }
+
+    @Test void statusCorrectionKeepsRoleCastingArchiveAndReviewGuards() throws Exception {
+        var delegate = actor(Role.ADMIN,Permission.CORRECT_PIECE_STAGE);
+        var operator = actor(Role.OPERATOR,Permission.CORRECT_PIECE_STAGE);
+        var casting = piece(PieceStage.CASTING);
+        var castingApi = "/api/pieces/" + casting.getId() + "/stage-correction";
+        call(get(castingApi+"/targets"),delegate).andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+        call(patch(castingApi),delegate,Map.of("stage","NOT_STARTED")).andExpect(status().isBadRequest());
+        call(patch("/api/users/"+outsider.getId()+"/permissions"),admin,
+                Map.of("permissions",List.of("CORRECT_PIECE_STAGE"))).andExpect(status().isBadRequest());
+
+        var p = piece(PieceStage.RADIOGRAPHY);
+        p.setRadiographySubStage(RadiographySubStage.INTERPRETATION);
+        pieceRepository.saveAndFlush(p);
+        var api = "/api/pieces/" + p.getId() + "/stage-correction";
+        var backward = Map.of("stage","RADIOGRAPHY","radiographySubStage","SHOT");
+        call(patch(api),operator,backward).andExpect(status().isForbidden());
+        p.setArchivedAt(java.time.LocalDateTime.now());
+        pieceRepository.saveAndFlush(p);
+        call(patch(api),delegate,backward).andExpect(status().isBadRequest());
+        p.setArchivedAt(null);
+        pieceRepository.saveAndFlush(p);
+        var interpreter = actor(Role.OPERATOR,Permission.INTERPRET_RADIOGRAPHY);
+        call(post("/api/radiography/pieces/"+p.getId()+"/workflow/assign"),admin,Map.of("interpreterId",interpreter.getId()))
+                .andExpect(status().isCreated());
+        call(patch(api),delegate,backward).andExpect(status().isBadRequest());
+        assertEquals(RadiographySubStage.INTERPRETATION,p.getRadiographySubStage());
+    }
+
     @Test void managerCannotAssignSkipPermissionToOperator() throws Exception {
         call(patch("/api/users/"+outsider.getId()+"/permissions"),admin,Map.of("permissions",List.of("SKIP_PIECE_STAGE")))
                 .andExpect(status().isBadRequest());
