@@ -1,5 +1,7 @@
 # Project overview
 
+Update 2026-11-08: manual production movement uses the existing normal next step or permissioned single/bulk status correction in either direction. This retires the separate stage-skip action. See [stage movement access](STAGE_MOVEMENT_ACCESS.md).
+
 Update 2026-11-02 (8–3/8–4): immutable drawing revisions with version-bound welding marks and project/definition deletion previews. V42 / fixture: 53 tables, 67 FKs. See [Drawing history and deletion preview](DRAWING_HISTORY_AND_DELETE_PREVIEW.md).
 
 Integration 2026-11-02: approved categories 2–4 now combine with category 5; fixture totals are 52 tables / 66 FKs. See [Integrated release](INTEGRATED_RELEASE.md) for scope and upgrade requirements.

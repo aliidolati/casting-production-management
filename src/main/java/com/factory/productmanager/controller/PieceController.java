@@ -119,32 +119,27 @@ public class PieceController {
         return ResponseEntity.ok(pieceService.updateStage(id, request, authentication.getName()));
     }
 
-    @GetMapping("/{id}/skip-targets")
-    @PreAuthorize("@permissionService.canSkipStage(authentication.name)")
-    public List<SkipStageTarget> skipTargets(@PathVariable UUID id, Authentication authentication) {
-        return pieceService.skipTargets(id, authentication.getName());
-    }
-
-    @PostMapping("/{id}/skip")
-    @PreAuthorize("@permissionService.canSkipStage(authentication.name)")
-    public PieceResponse skip(@PathVariable UUID id, @Valid @RequestBody SkipPieceStageRequest request, Authentication authentication) {
-        return pieceService.skipStage(id, request, authentication.getName());
-    }
-
     @GetMapping("/{id}/stage-correction/targets")
-    public List<SkipStageTarget> correctionTargets(@PathVariable UUID id, Authentication authentication) {
+    public List<StageCorrectionTarget> correctionTargets(@PathVariable UUID id, Authentication authentication) {
         return pieceService.correctionTargets(id, authentication.getName());
     }
 
     @PatchMapping("/{id}/stage-correction")
-    public PieceResponse correctStage(@PathVariable UUID id, @RequestBody SkipStageTarget target,
+    public PieceResponse correctStage(@PathVariable UUID id, @Valid @RequestBody StageCorrectionTarget target,
             Authentication authentication) {
         return pieceService.correctStage(id, target, authentication.getName());
     }
 
-    @GetMapping("/{id}/stage-skips")
-    public List<PieceStageSkipResponse> skipHistory(@PathVariable UUID id) {
-        return pieceService.skipHistory(id);
+    @PostMapping("/bulk/stage-correction/targets")
+    public List<StageCorrectionTarget> bulkCorrectionTargets(@Valid @RequestBody BulkPieceIdsRequest request,
+            Authentication authentication) {
+        return pieceService.bulkCorrectionTargets(request.getPieceIds(), authentication.getName());
+    }
+
+    @PatchMapping("/bulk/stage-correction")
+    public List<PieceResponse> bulkCorrectStage(@Valid @RequestBody BulkStageCorrectionRequest request,
+            Authentication authentication) {
+        return pieceService.bulkCorrectStage(request.pieceIds(), request.target(), authentication.getName());
     }
 
     @PostMapping("/{id}/advance")

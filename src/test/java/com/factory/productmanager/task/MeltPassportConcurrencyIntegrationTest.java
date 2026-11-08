@@ -132,4 +132,33 @@ class MeltPassportConcurrencyIntegrationTest {
         var after=service.get(id,administrator);assertNull(after.notes());assertEquals(m.ingotType(),after.ingotType());
         assertEquals(m.version(),after.version());assertEquals(m.events().size(),after.events().size());
     }
+    @Test void failedCorrectionRollsBackNewMembershipAndPieceMovement() {
+        var pending = pending();
+        service.approve(pending.id(),new MeltDecisionRequest(pending.version(),null),reviewer);
+        var approved = service.get(pending.id(),administrator);
+        UUID addedId = new TransactionTemplate(txManager).execute(tx -> {
+            var added = new Piece();
+            added.setPieceDefinition(pieces.findById(ids.get(0)).orElseThrow().getPieceDefinition());
+            added.setPieceNumber(3);
+            added.setCurrentStage(PieceStage.CASTING);
+            return pieces.saveAndFlush(added).getId();
+        });
+        var data = correction(approved,"must roll back").data();
+        var selected = new ArrayList<>(ids);
+        selected.add(addedId);
+        data.setPieceIds(selected);
+        var request = new MeltPassportCorrectionRequest(data,null,false,PieceStage.RADIOGRAPHY,null);
+        doThrow(new IllegalStateException("synthetic flush failure")).when(passports).flush();
+        assertThrows(IllegalStateException.class,() -> service.correct(approved.id(),request,administrator));
+        reset(passports);
+
+        var after = service.get(approved.id(),administrator);
+        assertEquals(approved.version(),after.version());
+        assertEquals(approved.pieces(),after.pieces());
+        assertEquals(approved.events(),after.events());
+        assertTrue(service.forPiece(addedId,administrator).isEmpty());
+        assertEquals(PieceStage.CASTING,pieces.findById(addedId).orElseThrow().getCurrentStage());
+        assertTrue(history.findByPieceIdOrderByChangedAtDesc(addedId).isEmpty());
+    }
+
 }

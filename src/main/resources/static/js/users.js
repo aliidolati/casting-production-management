@@ -111,11 +111,10 @@ function togglePermissionsSection(roleSelect, sectionEl) {
     const isOperator = roleSelect.value !== "MANAGER";
 
     sectionEl.style.display = isOperator ? "block" : "none";
-    for (const code of ["SKIP_PIECE_STAGE", "CORRECT_PIECE_STAGE"]) {
-        const checkbox = sectionEl.querySelector?.(`input[value="${code}"]`);
-        if (!checkbox) continue;
-        checkbox.disabled = roleSelect.value === "OPERATOR";
-        if (checkbox.disabled) checkbox.checked = false;
+    const correction = sectionEl.querySelector?.('input[value="CORRECT_PIECE_STAGE"]');
+    if (correction) {
+        correction.disabled = roleSelect.value === "OPERATOR";
+        if (correction.disabled) correction.checked = false;
     }
 
 }

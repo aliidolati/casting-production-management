@@ -127,7 +127,7 @@ function renderMeltPassport(state) {
     state.correcting = correcting;
     const disabled = !(m.editable || correcting);
     const history = state.history || [];
-    const newCycle = !correcting && !state.pieceMoved && piece && !piece.archivedAt && piece.currentStage === 'CASTING' && m.id && !history.some(row => ['DRAFT', 'NEEDS_CORRECTION', 'PENDING_APPROVAL'].includes(row.status));
+    const newCycle = !correcting && !state.pieceMoved && piece && !piece.archivedAt && piece.currentStage === 'CASTING' && m.id && ![m, ...history].some(row => row.pieces.some(link => link.id === piece.id && link.active));
     const processField = ([key, label, type]) => {
         const value = m.process?.[key];
         if (type === 'lock' || type === 'boolean') {
@@ -153,7 +153,13 @@ function renderMeltPassport(state) {
             <fieldset ${disabled ? 'disabled' : ''}>
             <section class="melt-section"><h3>اطلاعات ذوب و قطعات</h3>
                 <div id="melt-pieces" class="melt-piece-list"></div>
-                ${m.editable ? `<div class="melt-piece-search"><label for="melt-piece-search">افزودن قطعه از مرحله ذوب‌ریزی</label><input id="melt-piece-search" type="search" placeholder="نام یا شماره کامل قطعه"><div id="melt-piece-results" aria-live="polite"></div></div>` : ''}
+                ${m.editable || correcting ? `<div class="melt-piece-search"><label for="melt-piece-search">${correcting ? 'افزودن قطعهٔ بدون شناسنامهٔ فعال' : 'افزودن قطعه از مرحله ذوب‌ریزی'}</label><input id="melt-piece-search" type="search" placeholder="نام یا شماره کامل قطعه"><div id="melt-piece-results" aria-live="polite"></div></div>` : ''}
+                ${correcting ? `<div id="melt-added-destination" hidden>
+                    <div class="form-group"><label for="melt-added-stage">قطعات تازه‌اضافه‌شده به کدام مرحله بروند؟</label>
+                        <select id="melt-added-stage" required>${meltOptions(Object.fromEntries(TRANSFERABLE_STAGES.map(stage => [stage, stageLabel(stage)])), '')}</select>
+                        <p class="form-hint">این مقصد برای همهٔ قطعات تازه‌اضافه‌شده اعمال می‌شود.</p>
+                    </div>
+                </div>` : ''}
                 <div class="melt-grid">
                     ${meltField('date', 'تاریخ ذوب', '', 'text')}
                     ${meltField('furnace', 'شماره کوره', m.furnaceNumber, 'number', 'min="0" step="1"')}
@@ -231,10 +237,22 @@ function renderMeltPassport(state) {
 
 function renderMeltPieces(state) {
     const region = document.getElementById('melt-pieces');
-    region.innerHTML = state.selectedPieces.map(p => `<div class="melt-piece"><strong>${escapeHtml(p.pieceName)}</strong><bdi>${escapeHtml(p.pieceRef)}</bdi>${state.m.editable ? `<button type="button" class="btn btn-secondary btn-sm" data-melt-remove-piece="${escapeHtml(p.id)}" aria-label="حذف ${escapeHtml(p.pieceRef)}">حذف</button>` : ''}</div>`).join('');
+    const originalIds = new Set(state.m.pieces.map(p => p.id));
+    region.innerHTML = state.selectedPieces.map(p => {
+        const isNew = state.correcting && !originalIds.has(p.id);
+        const remove = state.m.editable || isNew
+            ? `<button type="button" class="btn btn-secondary btn-sm" data-melt-remove-piece="${escapeHtml(p.id)}" aria-label="حذف ${escapeHtml(p.pieceRef)}">حذف</button>` : '';
+        return `<div class="melt-piece"><strong>${escapeHtml(p.pieceName)}</strong><bdi>${escapeHtml(p.pieceRef)}</bdi>${isNew ? '<span>قطعه جدید</span>' : ''}${remove}</div>`;
+    }).join('');
     region.querySelectorAll('[data-melt-remove-piece]').forEach(btn => btn.addEventListener('click', () => {
-        state.selectedPieces = state.selectedPieces.filter(p => p.id !== btn.dataset.meltRemovePiece); renderMeltPieces(state);
+        state.selectedPieces = state.selectedPieces.filter(p => p.id !== btn.dataset.meltRemovePiece);
+        renderMeltPieces(state);
     }));
+    const destination = document.getElementById('melt-added-destination');
+    if (destination) {
+        destination.hidden = state.selectedPieces.length === originalIds.size;
+        if (destination.hidden) document.getElementById('melt-added-stage').value = '';
+    }
 }
 
 function addMeltMaterialRow(state, value = {}) {
@@ -321,11 +339,11 @@ function attachMeltEditEvents(state) {
     document.getElementById('melt-piece-search')?.addEventListener('input', e => {
         clearTimeout(timer); const q = e.target.value; const current = ++seq;
         timer = setTimeout(async () => {
-            if (!form.isConnected) return;
+            if (!form.isConnected || state.busy) return;
             try {
-                const results = await MeltPassportAPI.candidates(q);
+                const results = await MeltPassportAPI.candidates(q, state.correcting ? state.m.id : undefined);
                 const box = document.getElementById('melt-piece-results');
-                if (!form.isConnected || !box || seq !== current) return;
+                if (!form.isConnected || state.busy || !box || seq !== current) return;
                 const eligible = results.filter(p => !state.selectedPieces.some(x => x.id === p.id));
                 box.innerHTML = eligible.map(p => `<button type="button" class="btn btn-secondary btn-sm" data-melt-add-piece="${escapeHtml(p.id)}">${escapeHtml(p.pieceName)} · ${escapeHtml(p.pieceRef)}</button>`).join('') || '<p class="form-hint">قطعه مجاز دیگری پیدا نشد</p>';
                 box.querySelectorAll('[data-melt-add-piece]').forEach(btn => btn.addEventListener('click', () => {
@@ -367,6 +385,7 @@ function renderMeltAuditChanges(event) {
     const materialLabels = { materialId: 'شناسه ماده', materialName: 'نام ماده', category: 'دسته‌بندی', quantity: 'مقدار', unit: 'واحد', baseQuantity: 'مقدار پایه', baseUnit: 'واحد پایه', addedAt: 'زمان افزودن', batchNumber: 'شماره بچ', notes: 'توضیحات' };
     const label = key => {
         const [group, index, field] = key.split('.');
+        if (group === 'pieceRefs') return 'شماره قطعه';
         if (group === 'materials') return `ماده ${Number(index) + 1} ـ ${materialLabels[field] || field}`;
         if (group === 'checks') {
             const kind = event.newValues.checks?.[index]?.kind || event.oldValues.checks?.[index]?.kind;
@@ -396,10 +415,21 @@ async function runMeltAction(state, action, reason) {
     try {
         let m = state.m;
         const assigneeId = document.getElementById('melt-assignee')?.value;
+        let addedPiecesCount = 0;
         if (action === 'assign' && !assigneeId) throw new Error('اپراتور ذوب را انتخاب کنید');
         if (state.correcting) {
             const body = collectMeltForm(state);
-            m = await MeltPassportAPI.correct(m.id, body, document.getElementById('melt-correction-reason').value || null, action === 'calculate-magnesium');
+            addedPiecesCount = body.pieceIds.length - m.pieces.length;
+            const stageSelect = document.getElementById('melt-added-stage');
+            const addedPiecesStage = addedPiecesCount ? stageSelect.value : undefined;
+            if (addedPiecesCount && !addedPiecesStage) {
+                stageSelect.scrollIntoView({ block: 'nearest' });
+                throw new Error('مرحله مقصد قطعات تازه‌اضافه‌شده را انتخاب کنید');
+            }
+            const scrap = addedPiecesStage === 'SCRAPPED' ? await requestScrapDetails({ count: addedPiecesCount }) : undefined;
+            if (scrap === null || !form.isConnected) return;
+            m = await MeltPassportAPI.correct(m.id, body, document.getElementById('melt-correction-reason').value || null,
+                action === 'calculate-magnesium', addedPiecesStage, scrap);
             state.correcting = false;
         } else if (action === 'assign' && !isManager()) {
             m = m.id
@@ -424,11 +454,12 @@ async function runMeltAction(state, action, reason) {
         if (state.piece) state.history = [m, ...(state.history || []).filter(row => row.id !== m.id)].sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
         renderMeltPassport(state);
         if (action === 'calculate-magnesium' && Number(m.magnesiumResult) < 0) meltFeedback('نتیجه منیزیم منفی است و نیاز به بررسی دارد', 'warning');
+        else if (addedPiecesCount) meltFeedback('قطعات جدید به شناسنامه اضافه شدند و مرحلهٔ انتخاب‌شده اعمال شد');
         else meltFeedback(action === 'approve' ? 'شناسنامه تأیید و تمام قطعات منتقل شدند' : action === 'submit' ? 'شناسنامه برای تأیید ارسال شد' : 'اطلاعات ثبت شد');
         if (typeof TaskDetailState !== 'undefined' && TaskDetailState.task?.workflowId === m.id) {
             TaskAPI.get(TaskDetailState.task.id).then(refreshTaskDetail).catch(() => {});
         }
-        if (action === 'approve') {
+        if (action === 'approve' || addedPiecesCount) {
             if (typeof loadTracking === 'function') loadTracking();
         }
     } catch (error) { if (form.isConnected) meltShowError(error); }

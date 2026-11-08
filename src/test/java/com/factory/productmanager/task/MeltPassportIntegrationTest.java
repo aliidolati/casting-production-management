@@ -178,15 +178,40 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         assertEquals(MeltPassportStatus.PENDING_APPROVAL,m.status()); assertEquals(2,m.events().stream().filter(e -> e.action().equals("SUBMITTED")).count());
     }
 
-    @Test void everyDepartureRouteIncludingAdminBulkTrustedAndWeldingRequiresApproval() throws Exception {
-        for(User as:List.of(worker,admin)) {
+    @Test void onlyManagerCanManuallyDepartFromCastingEvenWithDelegatedPermissions() throws Exception {
+        User delegate = newUser("melt-delegate-" + UUID.randomUUID(), Role.ADMIN, Set.of(
+                Permission.MOVE_PIECE_STAGE, Permission.ADVANCE_PIECE_STAGE,
+                Permission.CORRECT_PIECE_STAGE, Permission.APPROVE_MELT_PASSPORT));
+        for(User as:List.of(worker,delegate)) {
             call(patch("/api/pieces/"+first.getId()+"/stage"),as,Map.of("newStage","ROUGH_MACHINING")).andExpect(status().isBadRequest());
             call(post("/api/pieces/"+first.getId()+"/advance"),as,Map.of("processDate","2026-10-18")).andExpect(status().isBadRequest());
             call(patch("/api/pieces/bulk/stage"),as,Map.of("pieceIds",List.of(first.getId(),second.getId()),"newStage","ROUGH_MACHINING")).andExpect(status().isBadRequest());
         }
-        assertThrows(IllegalStateException.class,()->pieceService.applyTrustedStageMove(first.getId(),PieceStage.HEAT_TREATMENT,null,null,null,admin.getUsername()));
+        call(get("/api/pieces/"+first.getId()+"/stage-correction/targets"),delegate)
+                .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+        call(patch("/api/pieces/"+first.getId()+"/stage-correction"),delegate,Map.of("stage","READY"))
+                .andExpect(status().isBadRequest());
+        call(patch("/api/pieces/bulk/stage-correction"),delegate,
+                Map.of("pieceIds", List.of(first.getId(), second.getId()), "target", Map.of("stage", "READY")))
+                .andExpect(status().isBadRequest());
+        assertThrows(IllegalStateException.class,()->pieceService.applyTrustedStageMove(first.getId(),PieceStage.HEAT_TREATMENT,null,null,null,delegate.getUsername()));
         call(post("/api/pieces/"+first.getId()+"/welding-station"),worker,Map.of("defectType","OTHER","defectTypeCustom","آزمایشی")).andExpect(status().isBadRequest());
         assertEquals(PieceStage.CASTING,first.getCurrentStage()); assertEquals(PieceStage.CASTING,second.getCurrentStage());
+    }
+
+    @Test void managerCanAdvanceAndCorrectWithoutPassportButOpenPassportStillProtectsItsMembers() throws Exception {
+        var m = pending(first);
+        call(post("/api/pieces/"+first.getId()+"/advance"),admin,Map.of("processDate","2026-10-18"))
+                .andExpect(status().isBadRequest());
+        call(patch("/api/pieces/"+first.getId()+"/stage-correction"),admin,Map.of("stage","READY"))
+                .andExpect(status().isBadRequest());
+        assertEquals(m.version(), service.get(m.id(),admin.getUsername()).version());
+        call(post("/api/pieces/"+second.getId()+"/advance"),admin,Map.of("processDate","2026-10-18"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.currentStage").value("ROUGH_MACHINING"));
+        assertTrue(service.forPiece(second.getId(),admin.getUsername()).isEmpty());
+        pieceService.correctStage(second.getId(), new StageCorrectionTarget(PieceStage.CASTING, null, null, null), admin.getUsername());
+        call(patch("/api/pieces/"+second.getId()+"/stage-correction"),admin,Map.of("stage","READY"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.currentStage").value("READY"));
     }
 
     @Test void authorizedApprovalMovesAllPiecesByPolicyAndPreservesDatesAndHistory() throws Exception {
@@ -264,10 +289,10 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         assertTrue(service.candidates(code,worker.getUsername()).isEmpty());
     }
 
-    @Test void reenteringCastingRequiresANewPassportAndRetainsPriorMembership() {
+    @Test void reenteringCastingAllowsANewPassportAndRetainsPriorMembership() {
         var m=pending(first);m=service.approve(m.id(),decision(m),admin.getUsername());
-        var move=new UpdateStageRequest();move.setNewStage(PieceStage.CASTING);pieceService.updateStage(first.getId(),move,admin.getUsername());
-        assertThrows(IllegalStateException.class,()->pieceService.updateStage(first.getId(),newStage(PieceStage.ROUGH_MACHINING),admin.getUsername()));
+        pieceService.correctStage(first.getId(), new StageCorrectionTarget(PieceStage.CASTING, null, null, null), admin.getUsername());
+        assertThrows(IllegalStateException.class,()->pieceService.updateStage(first.getId(),newStage(PieceStage.ROUGH_MACHINING),worker.getUsername()));
         var next=createComplete(first);assertNotEquals(m.id(),next.id());assertEquals(2,service.forPiece(first.getId(),worker.getUsername()).size());
     }
 
@@ -318,7 +343,7 @@ class MeltPassportIntegrationTest extends TaskTestBase {
         var original=pending(first);original=service.approve(original.id(),decision(original),manager.getUsername());
         call(get("/api/melt-passports/piece/"+first.getId()),worker).andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(original.id().toString())).andExpect(jsonPath("$[0].editable").value(false));
-        pieceService.updateStage(first.getId(),newStage(PieceStage.CASTING),admin.getUsername());
+        pieceService.correctStage(first.getId(), new StageCorrectionTarget(PieceStage.CASTING, null, null, null), admin.getUsername());
         var newer=createComplete(first);
         call(get("/api/melt-passports/piece/"+first.getId()),worker).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2)).andExpect(jsonPath("$[0].id").value(newer.id().toString()));

@@ -17,37 +17,6 @@ function browser() {
     for(const file of ['auth.js','tracking.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../../main/resources/static/js',file),'utf8'),context);
     return {run:source=>vm.runInContext(source,context),element};
 }
-test('skip controls require both eligible role and independent grant; normal grant is separate',()=>{
-    const {run}=browser();
-    run('AuthState.user={role:"ADMIN",permissions:["SKIP_PIECE_STAGE"]}');
-    assert.equal(run('canUseStageSkip()'),true);assert.equal(run('hasPermission("ADVANCE_PIECE_STAGE")'),false);
-    run('AuthState.user={role:"OPERATOR",permissions:["SKIP_PIECE_STAGE"]}');assert.equal(run('canUseStageSkip()'),false);
-    run('AuthState.user={role:"ADMIN",permissions:["ADVANCE_PIECE_STAGE"]}');assert.equal(run('canUseStageSkip()'),false);
-    assert.equal(run('canAdvancePiece({currentStage:"NOT_STARTED",forwardMove:{requiredPermission:"ADVANCE_PIECE_STAGE"}})'),true);
-});
-test('skip modal requires a reason and sends the selected server target in one request',async()=>{
-    const {run,element}=browser();
-    run(`AuthState.user={role:"ADMIN",permissions:["SKIP_PIECE_STAGE"]};
-        globalThis.openNestedModal=(title,html)=>{globalThis.modalHtml=html;};
-        globalThis.closeNestedModal=()=>{};globalThis.showToast=()=>{};
-        globalThis.withButtonLoader=async(button,fn)=>fn();globalThis.loadTracking=()=>{};
-        globalThis.openPieceProfile=async()=>{};
-        globalThis.PieceAPI={getSkipTargets:async()=>[{stage:"RADIOGRAPHY",radiographySubStage:"VT",heatTreatmentSubStage:null,roughMachiningSubStage:null}],
-            skipStage:async(id,data)=>{globalThis.sent={id,data};}};`);
-    await run('openStageSkipModal({id:"piece-id"})');
-    element('stage-skip-target').value='0';element('stage-skip-reason').value='  ';
-    await element('stage-skip-submit').listeners.click({currentTarget:{}});
-    assert.equal(run('typeof sent'),'undefined');assert.equal(element('stage-skip-error').style.display,'block');
-    element('stage-skip-reason').value='  دلیل مجاز  ';
-    await element('stage-skip-submit').listeners.click({currentTarget:{}});
-    assert.equal(run('sent.id'),'piece-id');assert.equal(run('sent.data.radiographySubStage'),'VT');assert.equal(run('sent.data.reason'),'دلیل مجاز');
-});
-test('skip history escapes user-provided reasons and actor names',()=>{
-    const {run}=browser();run('globalThis.formatDate=value=>value');
-    const html=run(`renderStageSkipHistory([{fromStage:"NOT_STARTED",toStage:"RADIOGRAPHY",toSubStage:"VT",reason:"<img src=x>",actorName:"<script>bad</script>",occurredAt:"2026-11-01"}])`);
-    assert.ok(html.includes('&lt;img'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('سوابق پرش'));
-});
-
 test('status correction is available only to a manager or a granted admin', () => {
     const {run} = browser();
     const profile = 'renderProfileStageActions({currentStage:"READY"})';
@@ -55,10 +24,13 @@ test('status correction is available only to a manager or a granted admin', () =
     assert.doesNotMatch(run(profile), /btn-admin-jump/);
     run('AuthState.user.permissions=["CORRECT_PIECE_STAGE"]');
     assert.match(run(profile), /btn-admin-jump/);
+    assert.equal(run('canUseBulkSelection()'), true);
+    assert.equal(run('hasPermission("ADVANCE_PIECE_STAGE")'), false);
     assert.doesNotMatch(run(profile), /btn-profile-skip|btn-profile-scrap/);
     assert.doesNotMatch(run('renderProfileStageActions({currentStage:"CASTING"})'), /btn-admin-jump/);
     run('AuthState.user.role="OPERATOR"');
     assert.doesNotMatch(run(profile), /btn-admin-jump/);
+    assert.equal(run('canUseBulkSelection()'), false);
     run('AuthState.user={role:"MANAGER",permissions:[]}');
     assert.match(run(profile), /btn-admin-jump/);
 });
@@ -74,7 +46,7 @@ test('delegated correction asks for a server-provided location before saving', a
             getStageCorrectionTargets:async()=>[{stage:"RADIOGRAPHY",radiographySubStage:"SHOT"}],
             correctStage:async(id,target)=>{globalThis.sent={id,target};}
         };`);
-    await run('openStageCorrectionModal({id:"piece-id",currentStage:"READY"},{isConnected:true})');
+    await run('openStageCorrectionModal([{id:"piece-id",currentStage:"READY"}],{isConnected:true})');
     assert.match(run('modalHtml'), /شوت/);
     await element('stage-correction-submit').listeners.click({currentTarget:{}});
     assert.equal(run('typeof sent'), 'undefined');
@@ -82,4 +54,29 @@ test('delegated correction asks for a server-provided location before saving', a
     await element('stage-correction-submit').listeners.click({currentTarget:{}});
     assert.equal(run('sent.id'), 'piece-id');
     assert.equal(run('sent.target.radiographySubStage'), 'SHOT');
+});
+
+test('bulk correction submits one request for all selected pieces with no reason field', async () => {
+    const {run, element} = browser();
+    run(`AuthState.user={role:"ADMIN",permissions:["CORRECT_PIECE_STAGE"]};
+        globalThis.openNestedModal=(title,html)=>{globalThis.modalHtml=html;};
+        globalThis.closeNestedModal=()=>{};globalThis.showToast=()=>{};
+        globalThis.withButtonLoader=async(button,fn)=>fn();globalThis.loadTracking=()=>{};
+        globalThis.formatFaNumber=value=>value;
+        globalThis.openPieceProfile=()=>{throw new Error("Bulk correction should stay in tracking");};
+        globalThis.PieceAPI={
+            getBulkStageCorrectionTargets:async(ids)=>{
+                globalThis.preview=ids;
+                return [{stage:"RADIOGRAPHY",radiographySubStage:"VT"}];
+            },
+            bulkCorrectStage:async(ids,target)=>{globalThis.sent={ids,target};}
+        };`);
+    await run('openStageCorrectionModal([{id:"first"},{id:"second"}],{isConnected:true},{bulk:true})');
+    assert.equal(run('preview.join(",")'), 'first,second');
+    assert.match(run('modalHtml'), /بازرسی/);
+    assert.doesNotMatch(run('modalHtml'), /reason|دلیل/);
+    element('stage-correction-target').value = '0';
+    await element('stage-correction-submit').listeners.click({currentTarget:{}});
+    assert.equal(run('sent.ids.join(",")'), 'first,second');
+    assert.equal(run('sent.target.radiographySubStage'), 'VT');
 });

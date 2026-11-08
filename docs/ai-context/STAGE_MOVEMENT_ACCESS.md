@@ -1,47 +1,18 @@
-# Stage movement access — selected items 2–1 and 2–2
+# Stage movement access
 
-Only normal forward progression and permissioned forward skipping are implemented in this change. No new rollback, scrap/reversal, welding, archive/restore, date-correction or bulk-operation permission is introduced. Existing guards for those operations remain in place.
+The production UI exposes two manual movement actions.
 
-## Delegated status correction
+- **Normal next step** uses `ADVANCE_PIECE_STAGE` and the existing `StageTransitionPolicy.forwardMove` rules, including substages and the process-date rules on `POST /api/pieces/{id}/advance`. Legacy stage and substage routes continue to support their existing normal transfers. They direct non-normal production moves to the correction action.
+- **Status correction** uses `CORRECT_PIECE_STAGE` for both single and bulk actions. An active manager has implicit access. An active admin needs the explicit grant. The grant is unavailable to operators and grants neither normal advancement nor operational actions.
 
-An active ADMIN with the explicit `CORRECT_PIECE_STAGE` grant can open «اصلاح وضعیت» from a piece profile. The account editor offers this grant for ADMIN only. Existing manager corrections continue to use their established paths.
+## Correction
 
-`GET /api/pieces/{id}/stage-correction/targets` lists prior production locations, including earlier substages. `PATCH /api/pieces/{id}/stage-correction` accepts the selected typed location. It revalidates the destination under the piece lock and writes the production history with the actor's name. Existing process dates are recorded for the location being left.
+`GET /api/pieces/{id}/stage-correction/targets` lists valid production stages and substages in both directions. `PATCH /api/pieces/{id}/stage-correction` accepts the selected typed destination. The payload carries a stage and, when applicable, the corresponding substage.
 
-Delegated correction does not include normal advancement, forward skipping, bulk movement, leaving CASTING, welding dispatch/completion, or scrapping and reversal. Aging destinations remain workflow-driven. Archived pieces and pieces with open radiography workflows cannot be corrected through this action. The grant uses the existing permission storage and is never assigned by default.
+`POST /api/pieces/bulk/stage-correction/targets` accepts `{pieceIds}` and returns the intersection of those pieces' destinations. `PATCH /api/pieces/bulk/stage-correction` accepts `{pieceIds, target}`. The service locks the pieces in ID order, validates all selected destinations and applies every change in one transaction. A stale, unavailable or invalid target for any piece rejects the batch.
 
-## Grants
+Correction records ordinary production history and preserves the outgoing process date. It requires no reason and creates no dates or approvals for locations passed over. Archived pieces and pieces with an open radiography workflow remain blocked. Only MANAGER can correct a piece out of casting, and any active unfinished melt passport must first be approved or cancelled. Welding, scrapping and aging destinations use their operation-specific workflows. A manager can still restore a scrapped piece to a production location. Admin correction grants do not authorize scrap reversal.
 
-- `ADVANCE_PIECE_STAGE` (پیشرفت عادی مرحله) authorizes the one normal next location, including rough-machining, radiography and heat-treatment substages. `/advance` retains its process-date and workflow rules. Legacy single/bulk PATCH routes also require this grant when they perform a normal forward step.
-- `SKIP_PIECE_STAGE` authorizes an explicit forward skip only for an enabled ADMIN. MANAGER has both grants implicitly. OPERATOR cannot skip even if the code is manually present in its stored grants; account administration rejects granting it to OPERATOR and the editor disables that checkbox.
-- A skip grant does not grant ordinary progression, scrap, reverse movement, welding or date edits. An advance grant does not grant those operations either.
-- Legacy permission codes are retained. Existing users are not automatically granted/regranted ADVANCE or SKIP. After upgrade, the manager must explicitly choose normal-advance access for existing users. The new-user operator form includes ADVANCE in its defaults. Legacy MOVE/UPDATE permissions no longer imply normal progression.
+## Compatibility
 
-## APIs
-
-- `POST /api/pieces/{id}/advance`: requires ADVANCE and only performs the policy's next step.
-- `GET /api/pieces/{id}/skip-targets`: enabled manager/permitted admin only; returns typed later locations excluding the immediate normal next location, current/earlier locations, welding, scraps and aging decision branches.
-- `POST /api/pieces/{id}/skip`: accepts `{stage, radiographySubStage?, heatTreatmentSubStage?, roughMachiningSubStage?, reason}`. Reason is mandatory (1–1000 characters, trimmed before storage). Substage must belong to the destination. The server recomputes targets under the piece write lock; client lists are not trusted.
-- `GET /api/pieces/{id}/stage-skips`: existing authenticated piece visibility, immutable skip history with actor ID/name, time, origin, destination and reason. No edit/delete audit API exists.
-
-Skip mutation, ordinary history and skip audit insert share one transaction. Cross-stage destination and substage are applied atomically. Current archive, open radiography workflow and casting-departure approval gates apply; permissions never disable those gates. A skip is an explicit administrative movement and does not create tensile decisions, report approvals, signatures, heat operations or dates for omitted locations.
-
-Substage ordering uses the production route, not heat enum ordinal: STAGE_1 → STAGE_2 → CNC_SAMPLE. Aging stages 3–5 remain decision-driven branches and are not offered as skip destinations. Welding/scrapped/delivered origins have no forward skip targets.
-
-Legacy main/substage PATCH routes reject forward skips for everyone, including MANAGER, so a caller cannot evade the skip reason by choosing an older API. Bulk normal calls validate every candidate before mutation and use the same independent grant. Skipping remains a single-piece action; this change does not introduce a new bulk privilege or a separate bulk-skip workflow.
-
-Existing manager backward corrections retain legacy authority. Optional typed substages on UpdateStageRequest preserve the existing cross-stage backward correction in one request, avoiding a partially applied correction followed by a now-forbidden forward-substage request. This is compatibility behavior, not a new rollback grant.
-
-## UI
-
-The profile's normal-next button follows the server's ADVANCE requirement. Eligible admins/managers get a separate skip form with server-provided destinations and mandatory reason. Recorded skips appear in the profile with escaped reason/actor text. The existing manager correction action remains distinct. Bulk normal controls recognize ADVANCE while date/weld/scrap controls continue using their original checks.
-
-## Schema and upgrade
-
-V39 adds only `piece_stage_skips`; historical production rows are preserved. The table has one FK to pieces, scalar actor identities that survive user deletion, and no copied credentials. The record-free MySQL fixture contains 50 tables/66 FKs after this addition. JPA keeps role and permission storage as VARCHAR for additive enum values. Do not enable the incomplete Flyway chain blindly; use the installation's reviewed schema process. No production/default datasource was started or changed during implementation.
-
-## Validation
-
-Added H2/API and inherited isolated-MySQL regressions cover grant separation, direct API/bulk bypasses, operator rejection, mandatory reasons, typed destinations, ordinary substage progression, archived/casting/workflow guards, audit snapshots and backward-correction compatibility. A standalone owned-MySQL V39 regression checks repeatability and preservation of the prior piece. Unit tests cover route ordering and terminal origins. Three Node regressions cover independent role/grant controls, the atomic reason form and escaped skip history.
-
-Locally: all 28 Node regressions pass; Java source parsing has no syntax errors. Local Maven remains unavailable because its dependencies are absent and Maven Central cannot resolve. Full Java/H2/MySQL execution must be verified by GitHub CI on this PR; parsing is not compilation. Browser execution remains unverified locally because Chromium is unavailable.
+The former stage-skip routes and profile history display are retired. Historical rows and their piece relationships remain in the database. The retired `SKIP_PIECE_STAGE` enum value still loads historical account grants but is omitted from permission lists, inactive for authorization and ignored when saving grants. Existing skip grants confer no correction access. Existing correction grants cover both directions and bulk movement. No schema migration is required.

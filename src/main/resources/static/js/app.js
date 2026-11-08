@@ -250,7 +250,9 @@ const TRANSFERABLE_STAGES = ALL_STAGES.filter((stage) => stage !== "WELDING");
 function selectableStages(piece) {
     const allowed = piece && Array.isArray(piece.allowedNextStages) ? piece.allowedNextStages : [];
     const current = piece ? piece.currentStage : null;
-    return TRANSFERABLE_STAGES.filter((s) => s === current || allowed.includes(s));
+    return TRANSFERABLE_STAGES.filter((s) => s === current
+        || (s === "SCRAPPED" && allowed.includes(s))
+        || (piece?.forwardMove?.kind === "STAGE" && piece.forwardMove.stage === s));
 }
 
 function selectableSubstages(allOptions, current, allowedNext) {

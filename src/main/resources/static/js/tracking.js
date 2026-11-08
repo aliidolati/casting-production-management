@@ -646,6 +646,7 @@ function renderBulkActionsBar() {
     }
 
     bar.style.display = "flex";
+    document.getElementById("btn-bulk-stage-correction").style.display = canCorrectPieceStage() ? "" : "none";
     document.getElementById("bulk-actions-count").textContent = `${count} قطعه انتخاب شده`;
 
     // تغییر دسته‌جمعی زیرمرحله‌ی رادیوگرافی فقط وقتی معنا دارد که همه‌ی قطعات انتخاب‌شده در همان مرحله باشند
@@ -697,7 +698,9 @@ function fillBulkSelects(selectedPieces) {
     const applyRoughBtn = document.getElementById("btn-bulk-apply-rough-machining-substage");
 
     const stageValues = isManager()
-        ? TRANSFERABLE_STAGES
+        ? TRANSFERABLE_STAGES.filter((stage) =>
+              stage === "SCRAPPED" || selectedPieces.every((p) =>
+                  p.currentStage === stage || (p.forwardMove?.kind === "STAGE" && p.forwardMove.stage === stage)))
         : TRANSFERABLE_STAGES.filter((s) =>
               intersectAllowedValues(selectedPieces, "allowedNextStages").includes(s)
                   && (s === "SCRAPPED" ? hasPermission("MOVE_PIECE_STAGE") : hasPermission("ADVANCE_PIECE_STAGE"))
@@ -706,7 +709,8 @@ function fillBulkSelects(selectedPieces) {
     if (applyStageBtn) applyStageBtn.disabled = stageValues.length === 0;
 
     const radioValues = isManager()
-        ? RADIOGRAPHY_SUBSTAGE_OPTIONS
+        ? RADIOGRAPHY_SUBSTAGE_OPTIONS.filter((sub) => selectedPieces.every((p) =>
+              p.radiographySubStage === sub || p.forwardMove?.radiographySubStage === sub))
         : RADIOGRAPHY_SUBSTAGE_OPTIONS.filter((s) =>
               intersectAllowedValues(selectedPieces, "allowedNextRadiographySubStages").includes(s)
           );
@@ -714,7 +718,8 @@ function fillBulkSelects(selectedPieces) {
     if (applyRadioBtn) applyRadioBtn.disabled = radioValues.length === 0;
 
     const heatValues = isManager()
-        ? HEAT_TREATMENT_SUBSTAGE_OPTIONS
+        ? HEAT_TREATMENT_SUBSTAGE_OPTIONS.filter((sub) => selectedPieces.every((p) =>
+              p.heatTreatmentSubStage === sub || p.forwardMove?.heatTreatmentSubStage === sub))
         : HEAT_TREATMENT_SUBSTAGE_OPTIONS.filter((s) =>
               intersectAllowedValues(selectedPieces, "allowedNextHeatTreatmentSubStages").includes(s)
           );
@@ -722,7 +727,8 @@ function fillBulkSelects(selectedPieces) {
     if (applyHeatBtn) applyHeatBtn.disabled = heatValues.length === 0;
 
     const roughValues = isManager()
-        ? ROUGH_MACHINING_SUBSTAGE_OPTIONS
+        ? ROUGH_MACHINING_SUBSTAGE_OPTIONS.filter((sub) => selectedPieces.every((p) =>
+              p.roughMachiningSubStage === sub || p.forwardMove?.roughMachiningSubStage === sub))
         : ROUGH_MACHINING_SUBSTAGE_OPTIONS.filter((s) =>
               intersectAllowedValues(selectedPieces, "allowedNextRoughMachiningSubStages").includes(s)
           );
@@ -766,6 +772,14 @@ function setupBulkActionsListeners() {
     clearBtn.addEventListener("click", () => {
         TrackingState.selectedPieceIds.clear();
         renderTrackingTable();
+    });
+
+    document.getElementById("btn-bulk-stage-correction").addEventListener("click", (event) => {
+        const button = event.currentTarget;
+        const pieces = getSelectedPieces();
+        if (pieces.length && canCorrectPieceStage()) {
+            withButtonLoader(button, () => openStageCorrectionModal(pieces, button, { bulk: true }));
+        }
     });
 
     applyStageBtn.addEventListener("click", async () => {
@@ -970,7 +984,7 @@ function attachProcessDatePickers(root) {
 async function openPieceProfile(pieceId) {
     openModal("در حال بارگذاری", `<div class="loader-wrap">${loaderMarkup()}</div>`, { size: "lg" });
     try {
-        const [piece, history, subStageHistory, processDates, defects, notes, tensileTests, heatTreatments, weldingDispatches, scrapDispatches, stageSkips] = await Promise.all([
+        const [piece, history, subStageHistory, processDates, defects, notes, tensileTests, heatTreatments, weldingDispatches, scrapDispatches] = await Promise.all([
             PieceAPI.getById(pieceId),
             PieceAPI.getStageHistory(pieceId),
             PieceAPI.getSubStageHistory(pieceId),
@@ -985,13 +999,12 @@ async function openPieceProfile(pieceId) {
             HeatTreatmentAPI.getByPiece(pieceId),
             PieceAPI.getWeldingDispatches(pieceId),
             PieceAPI.getScrapDispatches(pieceId),
-            PieceAPI.getStageSkips(pieceId),
         ]);
 
         resetRadiographyState();
         resetNotesState();
         resetTensileState();
-        renderPieceProfileModal(piece, history, defects, notes, subStageHistory, tensileTests, heatTreatments, weldingDispatches, processDates, scrapDispatches, stageSkips);
+        renderPieceProfileModal(piece, history, defects, notes, subStageHistory, tensileTests, heatTreatments, weldingDispatches, processDates, scrapDispatches);
     } catch (error) {
         openModal(
             "پروفایل قطعه",
@@ -1012,8 +1025,7 @@ function renderPieceProfileModal(
     heatTreatments = [],
     weldingDispatches = [],
     processDates = [],
-    scrapDispatches = [],
-    stageSkips = []
+    scrapDispatches = []
 ) {
     openModal(
         `قطعه شماره ${piece.pieceNumber} — ${piece.pieceName}`,
@@ -1084,7 +1096,6 @@ function renderPieceProfileModal(
         ${typeof renderWeldingDispatchHistorySection === "function" ? renderWeldingDispatchHistorySection(weldingDispatches) : ""}
 
         ${typeof renderProductionFlow === "function" ? renderProductionFlow(piece, history, subStageHistory, processDates, weldingDispatches) : ""}
-        ${renderStageSkipHistory(stageSkips)}
     `,
         { size: "xl" }
     );
@@ -1225,19 +1236,21 @@ function forwardMoveLabel(move) {
 }
 
 function canAdvancePiece(piece) {
-    const blocked = new Set(["CASTING", "WELDING", "TENSILE", "DELIVERED", "SCRAPPED"]);
+    const blocked = new Set(["WELDING", "TENSILE", "DELIVERED", "SCRAPPED"]);
     return !!(
         piece &&
         !piece.archivedAt &&
         piece.forwardMove &&
         !blocked.has(piece.currentStage) &&
+        (piece.currentStage !== "CASTING" || isManager()) &&
         hasPermission(piece.forwardMove.requiredPermission)
     );
 }
 
 function renderProfileStageActions(piece) {
     if (piece.archivedAt) return "";
-    if (piece.currentStage === "CASTING") {
+    const casting = piece.currentStage === "CASTING";
+    if (casting && !isManager()) {
         return '<p class="form-hint">برای انتقال از ذوب‌ریزی، شناسنامه ذوب را تکمیل و برای تأیید ارسال کنید. پس از تأیید، قطعات مرتبط خودکار منتقل می‌شوند.</p>';
     }
     const bits = [];
@@ -1254,16 +1267,16 @@ function renderProfileStageActions(piece) {
             `<button type="button" class="btn btn-primary btn-sm" id="btn-profile-next">مرحله بعد: ${escapeHtml(forwardMoveLabel(piece.forwardMove))}</button>`
         );
     }
-    if (canUseStageSkip() && !["WELDING", "SCRAPPED", "DELIVERED", "CASTING"].includes(piece.currentStage)) {
-        bits.push('<button type="button" class="btn btn-secondary btn-sm" id="btn-profile-skip">پرش مرحله</button>');
-    }
     if (canUseStageCorrection(piece)) {
         bits.push(
             `<button type="button" class="profile-action-icon" id="btn-admin-jump" title="اصلاح وضعیت" aria-label="اصلاح وضعیت">↕</button>`
         );
     }
     if (!bits.length) return "";
-    return `<div class="profile-stage-actions">${bits.join("")}</div>`;
+    const castingHint = casting
+        ? '<p class="form-hint">مدیر می‌تواند قطعهٔ بدون شناسنامه را دستی از ذوب‌ریزی منتقل کند. اگر شناسنامهٔ باز دارد، ابتدا آن را تأیید یا لغو کنید.</p>'
+        : '';
+    return `${castingHint}<div class="profile-stage-actions">${bits.join("")}</div>`;
 }
 
 function attachProfileStageActions(piece) {
@@ -1291,14 +1304,10 @@ function attachProfileStageActions(piece) {
         nextBtn.addEventListener("click", () => advancePieceFromProfile(piece, nextBtn));
     }
 
-    document.getElementById("btn-profile-skip")?.addEventListener("click", () => openStageSkipModal(piece));
-    const jumpBtn = document.getElementById("btn-admin-jump");
-    if (jumpBtn) {
-        jumpBtn.addEventListener("click", () => {
-            if (isManager()) openAdminJumpModal(piece);
-            else withButtonLoader(jumpBtn, () => openStageCorrectionModal(piece, jumpBtn));
-        });
-    }
+    const correctionButton = document.getElementById("btn-admin-jump");
+    correctionButton?.addEventListener("click", () => {
+        withButtonLoader(correctionButton, () => openStageCorrectionModal([piece], correctionButton));
+    });
 }
 
 async function advancePieceFromProfile(piece, btn) {
@@ -1364,111 +1373,6 @@ async function advancePieceFromProfile(piece, btn) {
     });
 }
 
-function openAdminJumpModal(piece) {
-    const stageOptions = TRANSFERABLE_STAGES.map(
-        (s) => `<option value="${s}" ${s === piece.currentStage ? "selected" : ""}>${stageLabel(s)}</option>`
-    ).join("");
-    const radioOptions = RADIOGRAPHY_SUBSTAGE_OPTIONS.map(
-        (s) =>
-            `<option value="${s}" ${s === piece.radiographySubStage ? "selected" : ""}>${RADIOGRAPHY_SUBSTAGE_LABELS[s]}</option>`
-    ).join("");
-    const heatOptions = HEAT_TREATMENT_SUBSTAGE_OPTIONS.map(
-        (s) =>
-            `<option value="${s}" ${s === (piece.heatTreatmentSubStage || "AWAITING_OPERATIONS") ? "selected" : ""}>${HEAT_TREATMENT_SUBSTAGE_LABELS[s]}</option>`
-    ).join("");
-    const roughOptions = ROUGH_MACHINING_SUBSTAGE_OPTIONS.map(
-        (s) =>
-            `<option value="${s}" ${s === (piece.roughMachiningSubStage || "DEBURRING") ? "selected" : ""}>${ROUGH_MACHINING_SUBSTAGE_LABELS[s]}</option>`
-    ).join("");
-
-    openNestedModal(
-        "اصلاح وضعیت",
-        `
-        <p class="form-hint">برای پرش رو به جلو از دکمه «پرش مرحله» و ثبت دلیل استفاده کنید. این بخش برای اصلاح وضعیت است.</p>
-        <div class="form-group">
-            <label for="admin-jump-stage">مرحله</label>
-            <select id="admin-jump-stage">${stageOptions}</select>
-        </div>
-        <div class="form-group admin-jump-sub" id="admin-jump-radio-wrap">
-            <label for="admin-jump-radio">زیرمرحله رادیوگرافی</label>
-            <select id="admin-jump-radio">${radioOptions}</select>
-        </div>
-        <div class="form-group admin-jump-sub" id="admin-jump-heat-wrap">
-            <label for="admin-jump-heat">زیرمرحله عملیات حرارتی</label>
-            <select id="admin-jump-heat">${heatOptions}</select>
-        </div>
-        <div class="form-group admin-jump-sub" id="admin-jump-rough-wrap">
-            <label for="admin-jump-rough">زیرمرحله خشن‌تراشی</label>
-            <select id="admin-jump-rough">${roughOptions}</select>
-        </div>
-        <div class="form-error" id="admin-jump-error"></div>
-        <div class="form-actions">
-            <button type="button" class="btn btn-secondary" id="btn-cancel-admin-jump">انصراف</button>
-            <button type="button" class="btn btn-primary" id="btn-confirm-admin-jump">اعمال</button>
-        </div>`
-    );
-
-    const stageSelect = document.getElementById("admin-jump-stage");
-    const syncSubstageVisibility = () => {
-        const stage = stageSelect.value;
-        document.getElementById("admin-jump-radio-wrap").style.display = stage === "RADIOGRAPHY" ? "" : "none";
-        document.getElementById("admin-jump-heat-wrap").style.display = stage === "HEAT_TREATMENT" ? "" : "none";
-        document.getElementById("admin-jump-rough-wrap").style.display = stage === "ROUGH_MACHINING" ? "" : "none";
-    };
-    syncSubstageVisibility();
-    stageSelect.addEventListener("change", syncSubstageVisibility);
-
-    document.getElementById("btn-cancel-admin-jump")?.addEventListener("click", closeNestedModal);
-    document.getElementById("btn-confirm-admin-jump")?.addEventListener("click", async (e) => {
-        const btn = e.currentTarget;
-        const errorBox = document.getElementById("admin-jump-error");
-        const targetStage = stageSelect.value;
-        const radio = document.getElementById("admin-jump-radio").value;
-        const heat = document.getElementById("admin-jump-heat").value;
-        const rough = document.getElementById("admin-jump-rough").value;
-        await withButtonLoader(btn, async () => {
-            try {
-                if (targetStage !== piece.currentStage) {
-                    const scrap = targetStage === "SCRAPPED" ? await requestScrapDetails({ pieceId: piece.id }) : undefined;
-                    if (scrap === null) return;
-                    await PieceAPI.updateStage(piece.id, targetStage, scrap, {
-                        ...(targetStage === "RADIOGRAPHY" ? { radiographySubStage: radio } : {}),
-                        ...(targetStage === "HEAT_TREATMENT" ? { heatTreatmentSubStage: heat } : {}),
-                        ...(targetStage === "ROUGH_MACHINING" ? { roughMachiningSubStage: rough } : {}),
-                    });
-                } else if (targetStage === "RADIOGRAPHY") {
-                    if (radio === piece.radiographySubStage) {
-                        throw new Error("این قطعه هم‌اکنون در همین وضعیت است");
-                    }
-                    await PieceAPI.updateRadiographySubStage(piece.id, radio);
-                } else if (targetStage === "HEAT_TREATMENT") {
-                    if (heat === (piece.heatTreatmentSubStage || "AWAITING_OPERATIONS")) {
-                        throw new Error("این قطعه هم‌اکنون در همین وضعیت است");
-                    }
-                    await PieceAPI.updateHeatTreatmentSubStage(piece.id, heat);
-                } else if (targetStage === "ROUGH_MACHINING") {
-                    if (rough === (piece.roughMachiningSubStage || "DEBURRING")) {
-                        throw new Error("این قطعه هم‌اکنون در همین وضعیت است");
-                    }
-                    await PieceAPI.updateRoughMachiningSubStage(piece.id, rough);
-                } else {
-                    throw new Error("این قطعه هم‌اکنون در همین مرحله است و انتقال تکراری مجاز نیست");
-                }
-                showToast("وضعیت قطعه با موفقیت تغییر کرد");
-                closeNestedModal();
-                loadTracking();
-                await openPieceProfile(piece.id);
-            } catch (error) {
-                if (errorBox?.isConnected) {
-                    errorBox.textContent = error.message;
-                    errorBox.style.display = "block";
-                } else {
-                    showToast(error.message, "error");
-                }
-            }
-        });
-    });
-}
 /* ===========================
    مدیریت جستجو (Debounce)
    =========================== */
@@ -1654,31 +1558,32 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-function canUseStageSkip() {
-    return !!AuthState.user && ["MANAGER", "ADMIN"].includes(AuthState.user.role) && hasPermission("SKIP_PIECE_STAGE");
-}
-
 function canUseStageCorrection(piece) {
-    if (piece.archivedAt || piece.currentStage === "WELDING") return false;
-    if (isManager()) return true;
-    return AuthState.user?.role === "ADMIN" && hasPermission("CORRECT_PIECE_STAGE")
-        && !["NOT_STARTED", "CASTING", "SCRAPPED"].includes(piece.currentStage);
+    return canCorrectPieceStage()
+        && !piece.archivedAt
+        && piece.currentStage !== "WELDING"
+        && (!["CASTING", "SCRAPPED"].includes(piece.currentStage) || isManager());
 }
 
-async function openStageCorrectionModal(piece, button) {
-    if (!canUseStageCorrection(piece)) return;
+async function openStageCorrectionModal(pieces, button, { bulk = false } = {}) {
+    const piece = pieces[0];
+    if (!canCorrectPieceStage() || (!bulk && !canUseStageCorrection(piece))) return;
+    const ids = pieces.map(piece => piece.id);
     try {
-        const targets = await PieceAPI.getStageCorrectionTargets(piece.id);
+        const targets = bulk
+            ? await PieceAPI.getBulkStageCorrectionTargets(ids)
+            : await PieceAPI.getStageCorrectionTargets(piece.id);
         if (!button.isConnected) return;
         if (!targets.length) {
-            showToast("مقصدی برای اصلاح وضعیت این قطعه وجود ندارد", "error");
+            showToast("مقصد مجازی برای اصلاح وضعیت قطعات انتخاب‌شده وجود ندارد", "error");
             return;
         }
-        openNestedModal("اصلاح وضعیت", `
-            <div class="form-group"><label for="stage-correction-target">بازگشت به مرحله یا زیرمرحله</label>
+        openNestedModal(bulk ? "اصلاح وضعیت دسته‌ای" : "اصلاح وضعیت", `
+            ${bulk ? `<p class="form-hint">${formatFaNumber(ids.length)} قطعه به مقصد انتخاب‌شده منتقل می‌شوند.</p>` : ""}
+            <div class="form-group"><label for="stage-correction-target">مرحله یا زیرمرحله مقصد</label>
                 <select id="stage-correction-target">
                     <option value="" selected disabled>مقصد را انتخاب کنید</option>
-                    ${targets.map((target, i) => `<option value="${i}">${escapeHtml(stageSkipLocation(target))}</option>`).join("")}
+                    ${targets.map((target, i) => `<option value="${i}">${escapeHtml(stageCorrectionLocation(target))}</option>`).join("")}
                 </select>
             </div>
             <div id="stage-correction-error" class="form-error" role="alert"></div>
@@ -1697,11 +1602,13 @@ async function openStageCorrectionModal(piece, button) {
             }
             return withButtonLoader(e.currentTarget, async () => {
                 try {
-                    await PieceAPI.correctStage(piece.id, targets[Number(selected)]);
+                    const target = targets[Number(selected)];
+                    if (bulk) await PieceAPI.bulkCorrectStage(ids, target);
+                    else await PieceAPI.correctStage(piece.id, target);
                     closeNestedModal();
                     showToast("اصلاح وضعیت ثبت شد");
                     loadTracking();
-                    await openPieceProfile(piece.id);
+                    if (!bulk) await openPieceProfile(piece.id);
                 } catch (error) {
                     if (!errorBox.isConnected) return;
                     errorBox.textContent = error.message;
@@ -1714,52 +1621,10 @@ async function openStageCorrectionModal(piece, button) {
     }
 }
 
-function stageSkipLocation(target) {
+function stageCorrectionLocation(target) {
     const radio = target.radiographySubStage;
     const heat = target.heatTreatmentSubStage;
     const rough = target.roughMachiningSubStage;
     const sub = radio ? RADIOGRAPHY_SUBSTAGE_LABELS[radio] : heat ? HEAT_TREATMENT_SUBSTAGE_LABELS[heat] : rough ? ROUGH_MACHINING_SUBSTAGE_LABELS[rough] : "";
     return [stageLabel(target.stage), sub].filter(Boolean).join(" — ");
-}
-
-async function openStageSkipModal(piece) {
-    if (!canUseStageSkip()) return;
-    try {
-        const targets = await PieceAPI.getSkipTargets(piece.id);
-        if (!targets.length) { showToast("مقصدی برای پرش رو به جلو وجود ندارد", "error"); return; }
-        openNestedModal("پرش مرحله", `
-            <p class="form-hint">این انتقال با نام شما و دلیل ثبت می‌شود.</p>
-            <div class="form-group"><label for="stage-skip-target">مقصد</label>
-                <select id="stage-skip-target">${targets.map((target, i) => `<option value="${i}">${escapeHtml(stageSkipLocation(target))}</option>`).join("")}</select></div>
-            <div class="form-group"><label for="stage-skip-reason">دلیل پرش</label>
-                <textarea id="stage-skip-reason" maxlength="1000" required></textarea></div>
-            <div id="stage-skip-error" class="form-error"></div>
-            <div class="form-actions"><button type="button" class="btn btn-secondary" id="stage-skip-cancel">انصراف</button>
-                <button type="button" class="btn btn-primary" id="stage-skip-submit">ثبت پرش</button></div>`);
-        document.getElementById("stage-skip-cancel").addEventListener("click", closeNestedModal);
-        document.getElementById("stage-skip-submit").addEventListener("click", async e => {
-            const reason = document.getElementById("stage-skip-reason").value.trim();
-            const box = document.getElementById("stage-skip-error");
-            if (!reason) { box.textContent = "دلیل پرش را وارد کنید"; box.style.display = "block"; return; }
-            await withButtonLoader(e.currentTarget, async () => {
-                try {
-                    const target = targets[Number(document.getElementById("stage-skip-target").value)];
-                    await PieceAPI.skipStage(piece.id, { ...target, reason });
-                    closeNestedModal(); showToast("پرش مرحله ثبت شد"); loadTracking(); await openPieceProfile(piece.id);
-                } catch (error) { box.textContent = error.message; box.style.display = "block"; }
-            });
-        });
-    } catch (error) { showToast(error.message, "error"); }
-}
-
-function renderStageSkipHistory(events = []) {
-    if (!events.length) return "";
-    const location = (stage, sub) => stageSkipLocation({stage,
-        radiographySubStage: stage === "RADIOGRAPHY" ? sub : null,
-        heatTreatmentSubStage: stage === "HEAT_TREATMENT" ? sub : null,
-        roughMachiningSubStage: stage === "ROUGH_MACHINING" ? sub : null});
-    return `<section class="task-card"><h3>سوابق پرش مرحله</h3>${events.map(event => `
-        <article><p>${escapeHtml(location(event.fromStage,event.fromSubStage))} ← ${escapeHtml(location(event.toStage,event.toSubStage))}</p>
-            <p>${escapeHtml(event.reason)}</p>
-            <p class="form-hint">${escapeHtml(event.actorName)} — ${escapeHtml(formatDate(event.occurredAt))}</p></article>`).join("")}</section>`;
 }

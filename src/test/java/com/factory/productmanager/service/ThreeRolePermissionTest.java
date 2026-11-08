@@ -20,7 +20,11 @@ class ThreeRolePermissionTest {
         user.getPermissions().clear();
         assertFalse(service.hasPermission("synthetic", Permission.MANAGE_PROJECTS));
         user.setRole(Role.MANAGER);
-        for (Permission p : Permission.values()) assertTrue(service.hasPermission("synthetic", p));
+        for (Permission p : Permission.values()) {
+            assertEquals(p != Permission.SKIP_PIECE_STAGE, service.hasPermission("synthetic", p));
+        }
+        assertFalse(service.resolvePermissionCodes(user).contains("SKIP_PIECE_STAGE"));
+        assertEquals(Set.of(), service.sanitizePermissionsForRole(Role.ADMIN, Set.of(Permission.SKIP_PIECE_STAGE)));
         user.setDisabled(true);
         assertFalse(service.hasPermission("synthetic", Permission.MANAGE_PROJECTS));
         assertFalse(service.isManager("synthetic"));

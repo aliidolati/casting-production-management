@@ -10,12 +10,24 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MeltPassportGate {
     private final MeltPassportPieceRepository links;
+    private final PermissionService permissions;
 
-    public void assertDepartureAllowed(Piece piece, PieceStage target) {
+    public void assertManualDepartureAllowed(Piece piece, PieceStage target, String username) {
         if (piece.getCurrentStage() != PieceStage.CASTING || target == PieceStage.CASTING) return;
-        var link = links.findByActivePieceKey(piece.getId());
-        if (link.isEmpty() || link.get().getPassport().getStatus() != MeltPassportStatus.APPROVED) {
-            throw new IllegalStateException("خروج از ذوب‌ریزی فقط پس از تأیید شناسنامه ذوب مجاز است");
+        if (!permissions.isManager(username)) {
+            throw new IllegalStateException("انتقال دستی از ذوب‌ریزی فقط برای مدیر مجاز است");
+        }
+        links.findByActivePieceKey(piece.getId()).ifPresent(link -> {
+            if (link.getPassport().getStatus() != MeltPassportStatus.APPROVED) {
+                throw new IllegalStateException("ابتدا شناسنامه ذوب فعال را تأیید یا لغو کنید");
+            }
+        });
+    }
+
+    public void assertApprovedDeparture(Piece piece) {
+        if (links.findByActivePieceKey(piece.getId())
+                .filter(link -> link.getPassport().getStatus() == MeltPassportStatus.APPROVED).isEmpty()) {
+            throw new IllegalStateException("خروج خودکار از ذوب‌ریزی نیاز به شناسنامه تأییدشده دارد");
         }
     }
 
