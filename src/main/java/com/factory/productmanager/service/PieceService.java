@@ -876,7 +876,8 @@ public class PieceService {
         if (piece.getCurrentStage() == PieceStage.CASTING && piece.getProcessDate() == null) {
             piece.setProcessDate(meltDate);
         }
-        applyStageChange(piece, target, username, true, null, null, null, scrap);
+        // The passport service authorizes this departure and validates active membership.
+        changeStage(piece, target, username, true, null, null, null, scrap);
     }
 
     /**

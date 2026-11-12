@@ -24,6 +24,7 @@ import com.factory.productmanager.repository.TensileTestDispositionRepository;
 import com.factory.productmanager.repository.TensileTestRepository;
 import com.factory.productmanager.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -147,7 +148,7 @@ public class TensileTestService {
 
     /**
      * ثبت یا ویرایش تعیین‌تکلیف یک تست. وضعیت نهایی تست از «نتیجه بازرسی»
-     * گرفته می‌شود. اصلاح سابقه قطعه را جابه‌جا نمی‌کند؛ انتقال نیازمند تصمیم جاری و معتبر است.
+     * گرفته می‌شود. اصلاح سابقه قطعه را جابه‌جا نمی‌کند؛ انتقال صریح برای هر تستِ قطعه بایگانی‌نشده در مرحله کشش ممکن است.
      */
     public TensileTestResponse saveDisposition(UUID tensileTestId, SaveTensileDispositionRequest request, String username) {
         TensileTest test = lockTestWithPiece(tensileTestId);
@@ -155,14 +156,16 @@ public class TensileTestService {
         TensileTestDisposition disposition = test.getDisposition();
         boolean existingDecision = disposition != null;
         Piece piece = test.getPiece();
-        var latest = tensileTestRepository.findLatestForUpdate(piece.getId(), org.springframework.data.domain.PageRequest.of(0, 1));
-        boolean eligibleMovement = piece.getCurrentStage() == PieceStage.TENSILE && piece.getArchivedAt() == null
-                && !latest.isEmpty() && latest.get(0).getId().equals(test.getId());
-        boolean movePiece = Boolean.TRUE.equals(request.getApplyStageMove())
-                || (request.getApplyStageMove() == null && !existingDecision && eligibleMovement);
-        if (Boolean.TRUE.equals(request.getApplyStageMove()) && !eligibleMovement) {
-            throw new IllegalStateException("اعمال انتقال فقط برای آخرین تست و قطعه فعال در مرحله کشش مجاز است؛ اصلاح تاریخی را بدون انتقال ذخیره کنید");
+        boolean eligibleMovement = piece.getCurrentStage() == PieceStage.TENSILE && piece.getArchivedAt() == null;
+        Boolean requestedMovement = request.getApplyStageMove();
+        if (Boolean.TRUE.equals(requestedMovement) && !eligibleMovement) {
+            throw new IllegalStateException("انتقال فقط برای قطعه بایگانی‌نشده در مرحله کشش مجاز است");
         }
+        // Clients that omit the movement flag retain the previous first-decision behavior.
+        boolean movePiece = Boolean.TRUE.equals(requestedMovement)
+                || (requestedMovement == null && !existingDecision && eligibleMovement
+                    && tensileTestRepository.findLatestForUpdate(piece.getId(), PageRequest.of(0, 1))
+                            .stream().anyMatch(latest -> latest.getId().equals(test.getId())));
         if (disposition == null) {
             disposition = new TensileTestDisposition();
             disposition.setTensileTest(test);

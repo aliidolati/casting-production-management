@@ -42,17 +42,48 @@ async function dispositionFixture(piece, testRow, tests=[testRow]) {
 test('historical edit exposes record-only save and never requests a movement or scrap reason',async()=>{
     const row={id:'old',testIndex:1,disposition:{dispositionDate:'2026-11-01',nextStage:'AGING',inspectionResult:'REJECTED'}};
     const {run,element}=await dispositionFixture({id:'p',currentStage:'READY'},row);
-    assert.equal(run('modalHtml.includes("ذخیره و اعمال انتقال")'),false);
+    assert.match(run('modalHtml'), /data-apply-movement="false">ذخیره اصلاحات/);
+    assert.match(run('modalHtml'), /data-apply-movement="true" disabled>ذخیره و انتقال/);
     element('disposition-next-stage').value='SCRAP';element('disposition-inspection').value='REJECTED';
     await element('form-tensile-disposition').listeners.submit({preventDefault(){},submitter:{dataset:{applyMovement:'false'}}});
     assert.equal(run('savedDecision.data.applyStageMove'),false);assert.equal(run('savedDecision.data.nextStage'),'SCRAP');
     assert.ok(run('lastToast.includes("مرحله قطعه تغییر نکرد")'));
 });
-test('current latest decision has a separate explicit movement action',async()=>{
-    const row={id:'latest',testIndex:2,disposition:{dispositionDate:'2026-11-01',nextStage:'NEXT_TENSILE',inspectionResult:'REJECTED'}};
-    const {run,element}=await dispositionFixture({id:'p',currentStage:'TENSILE'},row);
-    assert.equal(run('modalHtml.includes("ذخیره و اعمال انتقال")'),true);
-    element('disposition-next-stage').value='APPROVED';element('disposition-inspection').value='ACCEPTED';
-    await element('form-tensile-disposition').listeners.submit({preventDefault(){},submitter:{dataset:{applyMovement:'true'}}});
-    assert.equal(run('savedDecision.data.applyStageMove'),true);
+test('all tests of an active tensile piece show both save actions', async () => {
+    const decision = {dispositionDate: '2026-11-01', nextStage: 'NEXT_TENSILE', inspectionResult: 'REJECTED'};
+    const piece = {id: 'p', currentStage: 'TENSILE'};
+    const old = {id: 'old', testIndex: 1};
+    const latest = {id: 'latest', testIndex: 2};
+
+    for (const selected of [old, latest]) {
+        for (const disposition of [null, decision]) {
+            const row = {...selected, disposition};
+            const tests = [old, latest].map(item => item.id === row.id ? row : item);
+            const {run, element} = await dispositionFixture(piece, row, tests);
+            assert.match(run('modalHtml'), /data-apply-movement="false">ذخیره اصلاحات/);
+            assert.match(run('modalHtml'), /data-apply-movement="true">ذخیره و انتقال/);
+
+            run('TensileState.dispositionDateIso = "2026-11-01"');
+            element('disposition-next-stage').value = 'APPROVED';
+            element('disposition-inspection').value = 'ACCEPTED';
+            const submit = element('form-tensile-disposition').listeners.submit;
+            await submit({preventDefault() {}});
+            assert.equal(run('savedDecision.data.applyStageMove'), false);
+            await submit({preventDefault() {}, submitter: {dataset: {applyMovement: 'true'}}});
+            assert.equal(run('savedDecision.data.applyStageMove'), true);
+            assert.equal(run('savedDecision.id'), row.id);
+        }
+    }
+});
+
+test('archived tensile pieces show a disabled movement action', async () => {
+    const row = {id: 'test', testIndex: 1};
+    const piece = {id: 'p', currentStage: 'TENSILE', archivedAt: '2026-11-01'};
+    const {run, element} = await dispositionFixture(piece, row);
+    assert.match(run('modalHtml'), /data-apply-movement="false">ذخیره اصلاحات/);
+    assert.match(run('modalHtml'), /data-apply-movement="true" disabled>ذخیره و انتقال/);
+
+    const submit = element('form-tensile-disposition').listeners.submit;
+    await submit({preventDefault() {}, submitter: {dataset: {applyMovement: 'true'}}});
+    assert.equal(run('typeof savedDecision'), 'undefined');
 });

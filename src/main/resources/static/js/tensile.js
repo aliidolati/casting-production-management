@@ -492,9 +492,8 @@ async function submitNewTensileTest(piece) {
 
 async function openTensileDispositionModal(piece, tensileTestId) {
     let test;
-    let tests;
     try {
-        tests = await TensileTestAPI.getByPiece(piece.id);
+        const tests = await TensileTestAPI.getByPiece(piece.id);
         test = tests.find((t) => t.id === tensileTestId);
     } catch (error) {
         showToast(error.message, "error");
@@ -507,8 +506,7 @@ async function openTensileDispositionModal(piece, tensileTestId) {
     }
 
     const d = test.disposition;
-    const canApplyMovement = piece.currentStage === "TENSILE" && !piece.archivedAt
-        && test.testIndex === Math.max(...tests.map(item => item.testIndex));
+    const canApplyMovement = piece.currentStage === "TENSILE" && !piece.archivedAt;
     TensileState.dispositionDateIso = d ? d.dispositionDate : null;
 
     const nextStageOptions = Object.entries(TENSILE_NEXT_STAGE_LABELS)
@@ -576,13 +574,13 @@ async function openTensileDispositionModal(piece, tensileTestId) {
                 <label for="disposition-notes">توضیحات (اختیاری)</label>
                 <textarea id="disposition-notes" rows="2">${d && d.notes ? escapeHtml(d.notes) : ""}</textarea>
             </div>
-            <p class="form-hint">اصلاح تعیین‌تکلیف قبلی، مرحله قطعه را تغییر نمی‌دهد. اعمال تصمیم عملیاتی فقط برای آخرین تستِ قطعه فعال در مرحله کشش ممکن است.</p>
+            ${canApplyMovement ? "" : '<p class="form-hint">انتقال فقط برای قطعه بایگانی‌نشده در مرحله کشش مجاز است.</p>'}
             <p class="form-hint">وضعیت نهایی تست از روی «نتیجه بازرسی» تعیین می‌شود. فقط هنگام اعمال تصمیم، مرحله بعدی قطعه را جابه‌جا می‌کند: تایید/تایید ارفاقی → شات‌بلاست، اسقاط → اسقاط، عملیات مجدد → منتظر عملیات، پیرسازی → مرحله سوم/چهارم/پنجم، کشش مجدد → ماندن در تست کشش.</p>
             <div class="form-error" id="disposition-form-error"></div>
             <div class="form-actions">
                 <button type="button" class="btn btn-secondary" id="btn-cancel-disposition">انصراف</button>
-                <button type="submit" class="btn btn-primary" data-apply-movement="${!d && canApplyMovement}">${d ? "ذخیره اصلاحات" : canApplyMovement ? "ثبت و اعمال تصمیم" : "ذخیره تعیین‌تکلیف تاریخی"}</button>
-                ${d && canApplyMovement ? '<button type="submit" class="btn btn-secondary" data-apply-movement="true">ذخیره و اعمال انتقال</button>' : ""}
+                <button type="submit" class="btn btn-secondary" data-apply-movement="false">ذخیره اصلاحات</button>
+                <button type="submit" class="btn btn-primary" data-apply-movement="true"${canApplyMovement ? "" : " disabled"}>ذخیره و انتقال</button>
             </div>
         </form>
     `,
@@ -605,8 +603,14 @@ async function openTensileDispositionModal(piece, tensileTestId) {
 
     document.getElementById("form-tensile-disposition").addEventListener("submit", async (e) => {
         e.preventDefault();
-        const applyMovement = e.submitter ? e.submitter.dataset.applyMovement === "true" : !d && canApplyMovement;
+        const applyMovement = e.submitter?.dataset.applyMovement === "true";
         const errorBox = document.getElementById("disposition-form-error");
+
+        if (applyMovement && !canApplyMovement) {
+            errorBox.textContent = "انتقال فقط برای قطعه بایگانی‌نشده در مرحله کشش مجاز است";
+            errorBox.style.display = "block";
+            return;
+        }
 
         if (!TensileState.dispositionDateIso) {
             errorBox.textContent = "انتخاب تاریخ الزامی است";
@@ -626,9 +630,7 @@ async function openTensileDispositionModal(piece, tensileTestId) {
 
         try {
             const nextStage = document.getElementById("disposition-next-stage").value;
-            const currentScrap = applyMovement && nextStage === "SCRAP" && piece.currentStage === "SCRAPPED"
-                ? (await PieceAPI.getScrapDispatches(piece.id)).find(d => d.active) || { version: null } : null;
-            const scrap = applyMovement && nextStage === "SCRAP" ? await requestScrapDetails({ pieceId: piece.id, dispatch: currentScrap }) : undefined;
+            const scrap = applyMovement && nextStage === "SCRAP" ? await requestScrapDetails({ pieceId: piece.id }) : undefined;
             if (scrap === null) return;
             await TensileTestAPI.saveDisposition(test.id, {
                 scrap,

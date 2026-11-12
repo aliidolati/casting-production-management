@@ -18,18 +18,18 @@ Final approval compares the current actor ID against the stored interpreter appr
 
 Manager-task assignment excludes the current interpreter approver unless that candidate is a MANAGER. Workflow permissions now expose canApprove separately from canReview, so the UI can show review/return actions without offering forbidden final approval. A return for correction remains possible; it is not a second approval. The server checks separation under the workflow lock before copying a final signature or mutating tasks/approval records.
 
-## 3–6: historical disposition edits do not move production
+## 3–6: saving tensile dispositions and applying movement
 
 SaveTensileDispositionRequest adds optional Boolean applyStageMove:
 
 - Existing disposition edit, omitted or false: update decision data only; no piece movement, stage/substage history, process-date change, scrap reversal or welding-dispatch effect.
 - First disposition, omitted: retain prior movement behavior only when this is the latest test on an unarchived piece still in TENSILE. A first decision on a historical pending test only records data.
-- Explicit true: operational decision, permitted only for the latest test on an unarchived piece currently in TENSILE. Invalid historical requests fail before editing the decision, including when the caller is MANAGER.
+- Explicit true: operational decision for any test on an unarchived piece currently in TENSILE. Ineligible requests fail before editing the decision, including when the caller is MANAGER.
 - Explicit false: record-only, even for a new current decision.
 
-The UI separates save corrections from save and apply transfer and does not show the operational action for a stale test/downstream piece. It does not request a scrap reason or announce a move during a record-only edit.
+Every disposition form shows Save corrections and Save and transfer. The transfer button is disabled when the piece is archived or outside TENSILE. Only an operational scrap decision opens the scrap details form.
 
-Piece locks serialize test creation and mutation. Mutations lock piece then test; an ordered latest-test locking query provides a current read on MySQL rather than relying on a repeatable-read MAX snapshot. Existing threshold evaluation, sample correction, automatic acceptance, signatures, production routing and other permissions remain unchanged. This is not the unselected sample-version/re-review feature (3–5), nor mandatory RT workflow enforcement (3–4).
+Piece locks serialize test creation and mutation. Mutations lock piece then test; clients omitting the flag on a first decision use an ordered latest-test locking query for a current read on MySQL. Existing threshold evaluation, sample correction, automatic acceptance, signatures, production routing and other permissions remain unchanged. This is not the unselected sample-version/re-review feature (3–5), nor mandatory RT workflow enforcement (3–4).
 
 ## Compatibility and validation
 

@@ -54,15 +54,31 @@ class HistoricalTensileDispositionIntegrationTest extends TaskTestBase {
         p=reload(p);p.setCurrentStage(PieceStage.TENSILE);p.setArchivedAt(LocalDateTime.now());pieceRepository.saveAndFlush(p);
         call(put("/api/tensile-tests/"+id+"/disposition"),admin,body).andExpect(status().isBadRequest());
     }
-    @Test void olderTestCannotMovePieceAfterNewerTestWasCreated() throws Exception {
-        var p=piece();String old=test(p,100);
-        call(put("/api/tensile-tests/"+old+"/disposition"),admin,decision("NEXT_TENSILE")).andExpect(status().isOk());
-        String current=test(p,110);assertNotEquals(old,current);
-        var body=decision("APPROVED");body.put("applyStageMove",true);
-        call(put("/api/tensile-tests/"+old+"/disposition"),admin,body).andExpect(status().isBadRequest());
-        call(put("/api/tensile-tests/"+old+"/disposition"),admin,decision("AGING")).andExpect(status().isOk());
-        assertEquals(PieceStage.TENSILE,reload(p).getCurrentStage());
-        assertTrue(histories.findByPieceIdOrderByChangedAtDesc(p.getId()).isEmpty());
+    @Test
+    void explicitlyApplyingAnOlderDecisionMovesOnlyThePieceAndSavesTheSelectedTest() throws Exception {
+        Piece piece = piece();
+        String olderTest = test(piece, 100);
+        String newerTest = test(piece, 110);
+        String testsUrl = "/api/pieces/" + piece.getId() + "/tensile-tests";
+        String dispositionUrl = "/api/tensile-tests/" + olderTest + "/disposition";
+
+        call(put(dispositionUrl), admin, decision("RE_OPERATION")).andExpect(status().isOk());
+        assertEquals(PieceStage.TENSILE, reload(piece).getCurrentStage());
+        assertTrue(histories.findByPieceIdOrderByChangedAtDesc(piece.getId()).isEmpty());
+
+        var saveAndMove = decision("AGING");
+        saveAndMove.put("applyStageMove", true);
+        call(put(dispositionUrl), admin, saveAndMove).andExpect(status().isOk())
+                .andExpect(jsonPath("$.disposition.nextStage").value("AGING"));
+
+        Piece moved = reload(piece);
+        assertEquals(PieceStage.HEAT_TREATMENT, moved.getCurrentStage());
+        assertEquals(HeatTreatmentSubStage.STAGE_3, moved.getHeatTreatmentSubStage());
+        assertEquals(1, histories.findByPieceIdOrderByChangedAtDesc(piece.getId()).size());
+        call(get(testsUrl), admin).andExpect(status().isOk())
+                .andExpect(jsonPath("$[1].id").value(newerTest))
+                .andExpect(jsonPath("$[1].status").value("PENDING_REVIEW"))
+                .andExpect(jsonPath("$[1].disposition").doesNotExist());
     }
     @Test void editingCurrentDecisionRequiresSeparateExplicitChoiceToMovePiece() throws Exception {
         var p=piece();String id=test(p,100);

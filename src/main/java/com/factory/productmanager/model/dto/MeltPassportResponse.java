@@ -13,7 +13,7 @@ public record MeltPassportResponse(UUID id, long version, String number, MeltPas
  List<Event> events, LocalDateTime createdAt, String createdBy, LocalDateTime updatedAt, String updatedBy,
  LocalDateTime submittedAt, String submittedBy, LocalDateTime approvedAt, String approvedBy,
  LocalDateTime returnedAt, String returnedBy, String correctionReason, boolean editable, boolean reviewable, boolean correctable,
- UUID assignedOperatorId, String assignedOperatorName, boolean assignable, boolean cancellable) {
+ UUID assignedOperatorId, String assignedOperatorName, boolean assignable, boolean cancellable, boolean deletable, boolean membershipEditable) {
  public record PieceLink(UUID id, String pieceName, String pieceRef, boolean active) {}
  public record MaterialLine(UUID materialId, String materialName, String category, BigDecimal quantity,
   MeltMaterialUnit unit, BigDecimal baseQuantity, String baseUnit, LocalTime addedAt, String batchNumber, String notes) {}
