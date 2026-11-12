@@ -58,6 +58,56 @@ class MeltPassportCorrectionIntegrationTest extends TaskTestBase {
     }
     String route(MeltPassportResponse m) {return "/api/melt-passports/"+m.id()+"/corrections";}
 
+    @Test
+    void delegatedAssignerCanReplaceApprovedMembershipAndOnlyTheAdditionMoves() throws Exception {
+        var passport = approved(false);
+        var assigner = newUser("approved-members-" + UUID.randomUUID(), Role.ADMIN, Set.of(Permission.ASSIGN_MELT_OPERATOR));
+        var route = "/api/melt-passports/" + passport.id();
+        var pieces = List.of(second.getId());
+        var request = new MeltPassportMembershipRequest(passport.version(), pieces, PieceStage.TENSILE, null);
+        int originalHistory = histories.findByPieceIdOrderByChangedAtDesc(first.getId()).size();
+
+        call(get(route), assigner).andExpect(jsonPath("$.membershipEditable").value(true))
+                .andExpect(jsonPath("$.correctable").value(false));
+        call(put(route + "/pieces"), worker, request).andExpect(status().isForbidden());
+        call(put(route + "/pieces"), assigner, new MeltPassportMembershipRequest(passport.version(), pieces, null, null))
+                .andExpect(status().isBadRequest());
+        call(get("/api/melt-passports/candidates").param("approvedPassportId", passport.id().toString()).param("q", "2"),
+                assigner).andExpect(status().isOk());
+        call(put(route + "/pieces"), assigner, request).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.pieces.length()").value(1))
+                .andExpect(jsonPath("$.pieces[0].id").value(second.getId().toString()))
+                .andExpect(jsonPath("$.events[-1].action").value("PIECES_UPDATED"));
+        assertTrue(service.forPiece(first.getId(), admin.getUsername()).isEmpty());
+        assertEquals(PieceStage.ROUGH_MACHINING, first.getCurrentStage());
+        assertEquals(originalHistory, histories.findByPieceIdOrderByChangedAtDesc(first.getId()).size());
+        assertEquals(PieceStage.TENSILE, second.getCurrentStage());
+    }
+
+    @Test
+    void delegatedDeleterPermanentlyRemovesApprovedPassportAndItsTasks() throws Exception {
+        var passport = approved(false);
+        var deleter = newUser("approved-delete-" + UUID.randomUUID(), Role.OPERATOR, Set.of(Permission.CANCEL_MELT_PASSPORT));
+        var route = "/api/melt-passports/" + passport.id();
+        int originalHistory = histories.findByPieceIdOrderByChangedAtDesc(first.getId()).size();
+
+        call(delete(route).param("version", Long.toString(passport.version())), worker).andExpect(status().isForbidden());
+        call(delete(route).param("version", Long.toString(passport.version() - 1)), deleter).andExpect(status().isConflict());
+        call(get(route), deleter).andExpect(jsonPath("$.deletable").value(true));
+        call(delete(route).param("version", Long.toString(passport.version())), deleter).andExpect(status().isNoContent());
+
+        em.flush();
+        em.clear();
+        call(get(route), admin).andExpect(status().isNotFound());
+        assertTrue(service.forPiece(first.getId(), admin.getUsername()).isEmpty());
+        for (var type : List.of(TaskType.MELT_PASSPORT_ENTRY, TaskType.MELT_PASSPORT_APPROVAL)) {
+            assertTrue(taskRepository.findByWorkflowIdAndTaskType(passport.id(), type).isEmpty());
+        }
+        assertEquals(PieceStage.ROUGH_MACHINING, pieceRepository.findById(first.getId()).orElseThrow().getCurrentStage());
+        assertEquals(originalHistory, histories.findByPieceIdOrderByChangedAtDesc(first.getId()).size());
+    }
+
     @Test void onlyAdminCanCorrectAndLegacyMutationRoutesStayLocked() throws Exception {
         var m=approved(false);
         call(get("/api/melt-passports/"+m.id()),admin).andExpect(jsonPath("$.correctable").value(true)).andExpect(jsonPath("$.editable").value(false));

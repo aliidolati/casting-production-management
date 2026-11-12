@@ -2,9 +2,9 @@
 
 Implements selected 5–1 through 5–4 independently from draft PRs #2–#4. No production/default datasource has been started or modified.
 
-## Melt cancellation
+## Legacy melt cancellation
 
-POST /api/melt-passports/{id}/cancel accepts the existing version/reason decision request. CANCEL_MELT_PASSPORT is required (MANAGER implicit; ADMIN/OPERATOR explicitly granted). DRAFT, NEEDS_CORRECTION and PENDING_APPROVAL may be cancelled, with a nonblank reason, current passport version, all members still active/unarchived in CASTING and their original active links intact. APPROVED and CANCELLED cannot be cancelled, even by MANAGER.
+The passport form now uses permanent deletion. See [Melt passports](MELT_PASSPORTS.md). The legacy POST /api/melt-passports/{id}/cancel accepts the existing version/reason decision request. CANCEL_MELT_PASSPORT is required (MANAGER implicit; ADMIN/OPERATOR explicitly granted). DRAFT, NEEDS_CORRECTION and PENDING_APPROVAL may be cancelled, with a nonblank reason, current passport version, all members still active/unarchived in CASTING and their original active links intact. APPROVED and CANCELLED cannot be cancelled, even by MANAGER.
 
 The passport lock and ordered member piece locks serialize cancellation against approval/membership changes. Cancellation sets status CANCELLED, appends a CANCELLED event with actor/time/reason and status before/after, nulls activePieceKey on retained historical membership rows and cancels only open entry/review tasks with task activity. Completed tasks stay completed. No production movement, signed data removal or destructive record deletion occurs. Old passports remain visible per piece; released pieces may receive a new passport. Cancelled passports cannot be edited, assigned, submitted or approved and never contribute to material consumption, even under an explicit cancelled-status report filter. Response adds cancellable capability; status filters and task panels display cancellation.
 

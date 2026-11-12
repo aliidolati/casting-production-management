@@ -60,10 +60,22 @@ class MeltWorkflowTasks {
             tasks.findByWorkflowIdAndTaskType(m.getId(),type).forEach(t->operations.cancel(t,actor,reason,op));
     }
 
-    void syncPiece(MeltPassport m) {
-        for (var t : tasks.findByWorkflowIdAndTaskType(m.getId(), TaskType.MELT_PASSPORT_ENTRY)) {
-            var p = m.getPieces().get(0).getPiece();
-            t.setPart(p); t.setProject(p.getPieceDefinition().getProject());
+    void delete(MeltPassport passport) {
+        for (var type : java.util.List.of(TaskType.MELT_PASSPORT_ENTRY, TaskType.MELT_PASSPORT_APPROVAL)) {
+            tasks.deleteAll(tasks.findByWorkflowIdAndTaskType(passport.getId(), type));
+        }
+    }
+
+    void syncPiece(MeltPassport passport) {
+        var piece = passport.getPieces().get(0).getPiece();
+        for (var task : tasks.findByWorkflowIdAndTaskType(passport.getId(), TaskType.MELT_PASSPORT_ENTRY)) {
+            task.setPart(piece);
+            task.setProject(piece.getPieceDefinition().getProject());
+        }
+        for (var task : tasks.findByWorkflowIdAndTaskType(passport.getId(), TaskType.MELT_PASSPORT_APPROVAL)) {
+            if (task.getStatus().isTerminal()) continue;
+            task.setPart(piece);
+            task.setProject(piece.getPieceDefinition().getProject());
         }
     }
 }

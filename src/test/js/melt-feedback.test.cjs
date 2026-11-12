@@ -122,3 +122,25 @@ test('audit renders changed values, additions, removals and untrusted text safel
     assert.equal(b.run('renderMeltAuditChanges({})'),'');
     assert.equal(b.run('renderMeltAuditChanges({oldValues:{notes:"ثابت"},newValues:{notes:"ثابت"}})'), '');
 });
+
+test('replacing an approved member at the same count still requires a destination', async () => {
+    const b = browser(), requests = [];
+    b.context.fetch = async (url, options) => {
+        requests.push({url, options});
+        return {ok: true, status: 200, json: async () => ({id: 'approved-id', version: 8, status: 'APPROVED'})};
+    };
+    b.context.renderMeltPassport = () => {};
+    b.element('melt-added-stage').scrollIntoView = () => {};
+    b.run('globalThis.members = {m: {id:"approved-id", version:7, status:"APPROVED", pieces:[{id:"old"}]}, selectedPieces:[{id:"new"}], membersOnly:true};');
+
+    await b.run('runMeltAction(members, "membership")');
+    assert.equal(requests.length, 0);
+    assert.match(b.element('toast').textContent, /مرحله مقصد/);
+
+    b.element('melt-added-stage').value = 'TENSILE';
+    await b.run('runMeltAction(members, "membership")');
+    assert.equal(requests.length, 1);
+    assert.match(requests[0].url, /\/approved-id\/pieces$/);
+    assert.equal(requests[0].options.method, 'PUT');
+    assert.deepEqual(JSON.parse(requests[0].options.body), {version: 7, pieceIds: ['new'], addedPiecesStage: 'TENSILE'});
+});

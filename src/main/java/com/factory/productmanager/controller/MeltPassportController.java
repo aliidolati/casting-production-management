@@ -80,6 +80,18 @@ public class MeltPassportController {
     public MeltPassportResponse calculate(@PathVariable UUID id, @Valid @RequestBody MeltDecisionRequest r, Authentication a) {
         return service.calculate(id,r,a.getName());
     }
+    @PutMapping("/{id}/pieces")
+    public MeltPassportResponse updateMembership(@PathVariable UUID id,
+            @Valid @RequestBody MeltPassportMembershipRequest request, Authentication a) {
+        return service.updateMembership(id, request, a.getName());
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID id, @RequestParam Long version, Authentication a) {
+        service.delete(id, version, a.getName());
+    }
+
     @PostMapping("/{id}/corrections")
     public MeltPassportResponse correct(@PathVariable UUID id, @Valid @RequestBody MeltPassportCorrectionRequest r, Authentication a) {
         return service.correct(id,r,a.getName());

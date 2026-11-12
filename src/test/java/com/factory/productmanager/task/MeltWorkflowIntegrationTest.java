@@ -40,6 +40,28 @@ class MeltWorkflowIntegrationTest extends TaskTestBase {
         return taskRepository.findByWorkflowIdAndTaskType(m.id(), type).get(0);
     }
 
+    @Test
+    void delegatedAssignerReplacesPendingMembersAndReviewMovesOnlyTheNewPiece() throws Exception {
+        var filled = fill(assigned(), first);
+        var pending = service.submit(filled.id(), decision(filled), worker.getUsername());
+        var assigner = newUser("pending-members-" + UUID.randomUUID(), Role.OPERATOR, Set.of(Permission.ASSIGN_MELT_OPERATOR));
+        var route = "/api/melt-passports/" + pending.id() + "/pieces";
+
+        call(put(route), assigner, new MeltPassportMembershipRequest(pending.version(), List.of(), null, null))
+                .andExpect(status().isBadRequest());
+        call(put(route), assigner, new MeltPassportMembershipRequest(pending.version(), List.of(second.getId()), null, null))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING_APPROVAL"))
+                .andExpect(jsonPath("$.assignedOperatorId").value(worker.getId().toString()));
+        assertEquals(second.getId(), task(pending, TaskType.MELT_PASSPORT_APPROVAL).getPart().getId());
+        assertEquals(PieceStage.CASTING, first.getCurrentStage());
+
+        var updated = service.get(pending.id(), admin.getUsername());
+        service.approve(updated.id(), decision(updated), admin.getUsername());
+        assertEquals(PieceStage.CASTING, first.getCurrentStage());
+        assertEquals(PieceStage.ROUGH_MACHINING, second.getCurrentStage());
+    }
+
     @Test void assignedOperatorAddsUnassignedPieceAndApprovalMovesBothAndCompletesTasks() throws Exception {
         var m = assigned(); var entry = task(m, TaskType.MELT_PASSPORT_ENTRY);
         assertEquals(worker.getId(), entry.getAssignedTo().getId());

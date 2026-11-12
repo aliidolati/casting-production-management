@@ -48,6 +48,15 @@ public class MeltPassportService {
         return u.getRole() == Role.MANAGER || u.getPermissions().contains(Permission.ASSIGN_MELT_OPERATOR);
     }
 
+    private boolean canDelete(User u) {
+        return u.getRole() == Role.MANAGER || u.getPermissions().contains(Permission.CANCEL_MELT_PASSPORT);
+    }
+
+    private boolean membershipOpen(MeltPassport m) {
+        return m.getStatus() == MeltPassportStatus.APPROVED
+                || (m.getStatus() != MeltPassportStatus.CANCELLED && m.getAssignedOperatorId() != null);
+    }
+
     private void requireAssigner(User u) {
         if (!canAssign(u)) throw new AccessDeniedException("مجوز تخصیص اپراتور ذوب لازم است");
     }
@@ -168,6 +177,66 @@ public class MeltPassportService {
         event(m, "UPDATED", u, null);
         passports.flush();
         return response(m, u);
+    }
+
+    public MeltPassportResponse updateMembership(UUID id, MeltPassportMembershipRequest request, String username) {
+        User user = actor(username);
+        requireAssigner(user);
+        MeltPassport passport = lock(id, request.version());
+        if (!membershipOpen(passport)) {
+            throw new IllegalStateException("فهرست قطعات پس از تخصیص اپراتور یا تأیید شناسنامه قابل تغییر است");
+        }
+
+        Set<UUID> selected = new HashSet<>(request.pieceIds());
+        if (selected.isEmpty() || selected.size() != request.pieceIds().size()) {
+            throw new IllegalArgumentException("حداقل یک قطعه و بدون تکرار انتخاب کنید");
+        }
+        Set<UUID> original = passport.getPieces().stream().map(link -> link.getPiece().getId()).collect(Collectors.toSet());
+        if (selected.equals(original)) return response(passport, user);
+
+        Set<UUID> affected = new HashSet<>(original);
+        affected.addAll(selected);
+        List<Piece> locked = lockPieces(affected);
+        List<Piece> additions = locked.stream()
+                .filter(piece -> selected.contains(piece.getId()) && !original.contains(piece.getId()))
+                .toList();
+        boolean approved = passport.getStatus() == MeltPassportStatus.APPROVED;
+        if (approved && !additions.isEmpty() && (request.addedPiecesStage() == null
+                || !StageTransitionPolicy.TRANSFERABLE_STAGES.contains(request.addedPiecesStage()))) {
+            throw new IllegalArgumentException("مرحله مقصد قطعات اضافه‌شده را انتخاب کنید");
+        }
+        if (!approved) locked.stream().filter(piece -> selected.contains(piece.getId())).forEach(this::assertCasting);
+        for (Piece piece : additions) {
+            if (piece.getArchivedAt() != null) throw new IllegalArgumentException("افزودن قطعه بایگانی‌شده مجاز نیست");
+            assertAvailableForMelt(piece.getId(), id);
+        }
+
+        String before = audit.snapshot(passport, magnesium(passport));
+        passport.getPieces().removeIf(link -> !selected.contains(link.getPiece().getId()));
+        for (Piece piece : additions) {
+            if (approved) {
+                pieceService.movePieceAddedToApprovedMelt(piece, request.addedPiecesStage(), passport.getMeltDate(), request.scrap(), username);
+            }
+            addPieceLink(passport, piece);
+        }
+        if (!approved) workflowTasks.syncPiece(passport);
+        MeltPassportEvent event = event(passport, "PIECES_UPDATED", user, null);
+        event.setOldValues(before);
+        event.setNewValues(audit.snapshot(passport, magnesium(passport)));
+        passports.flush();
+        return response(passport, user);
+    }
+
+    public void delete(UUID id, Long version, String username) {
+        User user = actor(username);
+        if (!canDelete(user)) throw new AccessDeniedException("مجوز حذف شناسنامه ذوب لازم است");
+        MeltPassport passport = lock(id, version);
+        if (!passport.getPieces().isEmpty()) {
+            lockPieces(passport.getPieces().stream().map(link -> link.getPiece().getId()).toList());
+        }
+        workflowTasks.delete(passport);
+        passports.delete(passport);
+        passports.flush();
     }
 
     public MeltPassportResponse correct(UUID id, MeltPassportCorrectionRequest request, String username) {
@@ -458,7 +527,7 @@ public class MeltPassportService {
     public List<MeltPassportResponse.PieceLink> candidates(String keyword, UUID approvedPassportId, String username) {
         User user = actor(username);
         if (approvedPassportId != null) {
-            if (user.getRole() != Role.MANAGER) throw new AccessDeniedException("فقط مدیر می‌تواند به شناسنامه تأییدشده قطعه اضافه کند");
+            requireAssigner(user);
             if (find(approvedPassportId).getStatus() != MeltPassportStatus.APPROVED) {
                 throw new IllegalArgumentException("شناسنامه باید تأییدشده باشد");
             }
@@ -544,7 +613,7 @@ public class MeltPassportService {
                 reviewer(u) && m.getStatus() == MeltPassportStatus.PENDING_APPROVAL,
                 u.getRole() == Role.MANAGER && m.getStatus() == MeltPassportStatus.APPROVED,
                 m.getAssignedOperatorId(), m.getAssignedOperatorName(), openForChanges && canAssign(u),
-                (u.getRole()==Role.MANAGER || u.getPermissions().contains(Permission.CANCEL_MELT_PASSPORT))
-                 && m.getStatus()!=MeltPassportStatus.APPROVED && m.getStatus()!=MeltPassportStatus.CANCELLED);
+                canDelete(u) && m.getStatus() != MeltPassportStatus.APPROVED && m.getStatus() != MeltPassportStatus.CANCELLED,
+                canDelete(u), canAssign(u) && membershipOpen(m));
     }
 }

@@ -12,7 +12,6 @@ const API_BASE_URL = `${window.location.origin}/api`;
 const AUTH_TOKEN_KEY = "pm_auth_token";
 
 const OperationAPI = {
-    cancelMelt: (id,version,reason) => apiRequest(`/melt-passports/${id}/cancel`,'POST',{version,reason}),
     cancelWelding: (piece,id,reason,noWorkConfirmed) => apiRequest(`/pieces/${piece}/welding-dispatches/${id}/cancel`,'POST',{reason,noWorkConfirmed}),
     batches: filters => apiRequest(`/heat-treatment-batches/archive?${trackingQueryString(filters)}`),
     batch: id => apiRequest(`/heat-treatment-batches/${id}`),
@@ -39,6 +38,8 @@ const MeltPassportAPI = {
     setMaterialActive: (id, active) => apiRequest(`/melt-passports/materials/${encodeURIComponent(id)}/active?active=${active}`, 'PATCH'),
     create: (body) => apiRequest('/melt-passports', 'POST', body),
     update: (id, body) => apiRequest(`/melt-passports/${encodeURIComponent(id)}`, 'PUT', body),
+    remove: (id, version) => apiRequest(`/melt-passports/${encodeURIComponent(id)}?version=${encodeURIComponent(version)}`, 'DELETE'),
+    updateMembership: (id, body) => apiRequest(`/melt-passports/${encodeURIComponent(id)}/pieces`, 'PUT', body),
     correct: (id, data, reason = null, calculateMagnesium = false, addedPiecesStage, scrap) =>
         apiRequest(`/melt-passports/${encodeURIComponent(id)}/corrections`, 'POST', { data, reason, calculateMagnesium, addedPiecesStage, scrap }),
     action: (id, action, version, reason = null) => apiRequest(`/melt-passports/${encodeURIComponent(id)}/${action}`, 'POST', { version, reason }),
