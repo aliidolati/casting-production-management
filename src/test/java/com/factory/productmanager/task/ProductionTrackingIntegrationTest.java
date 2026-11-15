@@ -140,6 +140,32 @@ class ProductionTrackingIntegrationTest extends TaskTestBase {
     }
 
     @Test
+    void shotAlertListsCurrentUnarchivedRadiographyPiecesInTheSelectedProjectWithoutAnAgeThreshold() throws Exception {
+        Piece shot = addPiece(201, PieceStage.RADIOGRAPHY);
+        shot.setRadiographySubStage(RadiographySubStage.SHOT);
+        Piece archived = addPiece(202, PieceStage.RADIOGRAPHY);
+        archived.setRadiographySubStage(RadiographySubStage.SHOT);
+        archived.setArchivedAt(LocalDateTime.now());
+        Piece interpreting = addPiece(203, PieceStage.RADIOGRAPHY);
+        interpreting.setRadiographySubStage(RadiographySubStage.INTERPRETATION);
+        Piece otherStage = addPiece(204, PieceStage.HEAT_TREATMENT);
+        otherStage.setRadiographySubStage(RadiographySubStage.SHOT);
+        Piece otherProject = newPiece("OTHER-" + UUID.randomUUID(), "Other", 205);
+        otherProject.setCurrentStage(PieceStage.RADIOGRAPHY);
+        otherProject.setRadiographySubStage(RadiographySubStage.SHOT);
+        pieceRepository.flush();
+
+        call(get("/api/dashboard/overview")
+                        .param("projectId", definition.getProject().getId().toString())
+                        .param("subStageThresholdDays", "30"), admin)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.awaitingShot.length()").value(1))
+                .andExpect(jsonPath("$.awaitingShot[0].pieceId").value(shot.getId().toString()))
+                .andExpect(jsonPath("$.awaitingShot[0].pieceNumber").value(201))
+                .andExpect(jsonPath("$.awaitingShot[0].daysInSubStage").value(0));
+    }
+
+    @Test
     void advancedSearchIncludesArchivesInListSummaryAndPaginationWithoutChangingOtherFilters() throws Exception {
         Piece archived = addPiece(8, PieceStage.RADIOGRAPHY);
         archived.setRadiographySubStage(RadiographySubStage.VT);

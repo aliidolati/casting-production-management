@@ -13,16 +13,24 @@ const { chromium } = require('playwright');
         .replace(/<link\b[^>]*>/g, '');
     const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_BIN });
     const requests = [];
+    const mutations = [];
+    let processDate = '2026-03-21';
     const errors = [];
     try {
         const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
         page.on('pageerror', error => errors.push(error.message));
-        await page.route('http://tracking.test/**', async route => {
+        await page.route('https://tracking.test/**', async route => {
             const url = new URL(route.request().url());
             if (!url.pathname.startsWith('/api/')) return route.fulfill({ contentType: 'text/html', body: html });
+            if (route.request().method() !== 'GET') {
+                const body = route.request().postDataJSON();
+                mutations.push({ path: url.pathname, body });
+                if (url.pathname.endsWith('/process-date')) processDate = body.processDate;
+                return route.fulfill({ json: body });
+            }
             requests.push(url);
             const archived = url.searchParams.get('includeArchived') === 'true';
-            const items = [{ id: 'active', pieceNumber: 9, pieceName: 'قطعه آزمایشی', projectCode: 'SYNTHETIC', currentStage: 'CASTING' }];
+            const items = [{ id: 'active', pieceNumber: 9, pieceName: 'قطعه آزمایشی', projectCode: 'SYNTHETIC', currentStage: 'CASTING', processDate }];
             if (archived) items.push({ id: 'archived', pieceNumber: 19, pieceName: 'قطعه بایگانی', projectCode: 'SYNTHETIC', currentStage: 'SCRAPPED', archivedAt: '2026-01-01T00:00:00' });
             const subStage = url.searchParams.get('radiographySubStage');
             if (url.searchParams.get('stage') === 'RADIOGRAPHY') {
@@ -38,7 +46,7 @@ const { chromium } = require('playwright');
                 : { items, totalElements: items.length, page: 0, size: 50, totalPages: 1, radiographyBacklogHours: hours };
             await route.fulfill({ json: body });
         });
-        await page.goto('http://tracking.test/');
+        await page.goto('https://tracking.test/');
         for (const css of ['tokens.css', 'style.css']) await page.addStyleTag({ path: path.join(root, 'css', css) });
         for (const js of ['jalali.js', 'persian-datepicker.js', 'api.js', 'app.js', 'auth.js', 'radiography.js', 'heat-treatment.js', 'rough-machining.js', 'tracking.js']) {
             await page.addScriptTag({ path: path.join(root, 'js', js) });
@@ -106,7 +114,78 @@ const { chromium } = require('playwright');
         await subStage.selectOption('VT');
         await page.locator('tr[data-piece-id=radiography]').waitFor();
         assert.equal(await backlog.isVisible(), false);
+        await subStage.selectOption('SHOT');
+        await page.getByText('انباشتگی شوت · ۲٫۵ ساعت', { exact: true }).waitFor();
+        await page.locator('.stage-card[data-filter=all]').click();
+        const row = page.locator('tr[data-piece-id=active]');
+        const input = row.locator('.process-date-input');
+        const trigger = row.getByRole('button', { name: 'باز کردن تقویم' });
+        const popup = page.locator('.jalali-datepicker-popup.open');
+        assert.equal(await page.locator('#tracking-search-input').count(), 0);
+        assert.equal(await page.locator('#tracking-filter-piece-number').isVisible(), true);
+        await input.click();
+        assert.equal(await popup.count(), 0);
+        assert.equal(await input.inputValue(), '1405/01/01');
+        await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+        await input.press('Control+a');
+        await input.press('Control+c');
+        assert.equal(await page.evaluate(() => navigator.clipboard.readText()), '1405/01/01');
+        await page.evaluate(() => navigator.clipboard.writeText('۱۴۰۵/۰۱/۰۲'));
+        await input.press('Control+v');
+        await page.waitForFunction(() => document.querySelector('.process-date-input').value === '۱۴۰۵/۰۱/۰۲');
+        const savingRow = page.waitForResponse('**/pieces/active/process-date');
+        await input.press('Enter');
+        await savingRow;
+        assert.equal(await input.inputValue(), '1405/01/02');
+        assert.deepEqual(mutations[0], { path: '/api/pieces/active/process-date', body: { processDate: '2026-03-22' } });
+
+        await input.fill('1404/12/30');
+        await input.press('Tab');
+        assert.equal(await input.getAttribute('aria-invalid'), 'true');
+        assert.equal(mutations.length, 1);
+        await trigger.click();
+        await popup.waitFor();
+        const fieldBounds = await input.boundingBox();
+        const triggerBounds = await trigger.boundingBox();
+        assert.ok(triggerBounds.x >= fieldBounds.x && triggerBounds.x - fieldBounds.x < 8);
+        const clearingRow = page.waitForResponse('**/pieces/active/process-date');
+        await popup.locator('[data-action=clear]').click();
+        await clearingRow;
+        assert.deepEqual(mutations[1].body, { processDate: null });
+        await input.fill('1405/01/03');
+        await input.press('Tab');
+        await page.waitForFunction(() => !document.querySelector('.process-date-input').disabled);
+        assert.deepEqual(mutations[2].body, { processDate: '2026-03-23' });
+
+        await page.evaluate(() => {
+            openPieceProfile = () => {};
+            openStageProcessDateEditor({ id: 'active' }, {
+                dataset: { stage: 'RADIOGRAPHY', kind: 'RADIOGRAPHY', sub: 'SHOT', processDate: '2026-03-21' },
+            });
+        });
+        const historyInput = page.locator('#stage-process-date');
+        await historyInput.fill('١٤٠٥/٠١/٠٤');
+        await page.locator('#btn-save-stage-date').click();
+        await historyInput.waitFor({ state: 'detached' });
+        assert.deepEqual(mutations[3], {
+            path: '/api/pieces/active/sub-stage-process-dates',
+            body: { kind: 'RADIOGRAPHY', subStage: 'SHOT', processDate: '2026-03-24' },
+        });
+
+        await page.evaluate(() => advancePieceFromProfile(
+            { id: 'active', forwardMove: { processDateRequired: true } },
+            document.getElementById('modal-close')
+        ));
+        const advance = page.locator('#btn-confirm-advance-date');
+        await page.locator('#advance-process-date').fill('۱۴۰۵/۰۷/۳۱');
+        await advance.click();
+        assert.equal(await page.locator('#advance-process-date-error').isVisible(), true);
+        await page.locator('#advance-process-date').fill('۱۴۰۵/۰۱/۰۵');
+        const advancing = page.waitForResponse('**/pieces/active/advance');
+        await advance.click();
+        await advancing;
+        assert.deepEqual(mutations[4], { path: '/api/pieces/active/advance', body: { processDate: '2026-03-25' } });
         assert.deepEqual(errors, []);
-        console.log('Tracking archive browser smoke passed: keyboard toggle, list/summary HTTP params, bulk exclusion, read-only dates, desktop/mobile header and selected radiography backlog.');
+        console.log('Tracking archive browser smoke passed: keyboard toggle, list/summary HTTP params, bulk exclusion, read-only dates, desktop/mobile layout, radiography backlog and editable process dates.');
     } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

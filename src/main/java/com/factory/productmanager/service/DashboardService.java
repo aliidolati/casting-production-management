@@ -207,7 +207,15 @@ public class DashboardService {
 
         List<NeedsWeldingAlertItem> needsWelding = findNeedsWeldingAlerts(projectId);
         List<StuckPieceAlertItem> stuckPieces = findStuckPieceAlerts(stuckThreshold, activePieces, lastStageChangeByPiece);
-        List<SubStageOverdueAlertItem> awaitingInterpretation = findSubStageOverdueAlerts(
+        List<SubStageOverdueAlertItem> awaitingShot = findSubStageAlerts(
+                SubStageKind.RADIOGRAPHY,
+                RadiographySubStage.SHOT.name(),
+                PieceStage.RADIOGRAPHY,
+                0,
+                activePieces,
+                lastStageChangeByPiece
+        );
+        List<SubStageOverdueAlertItem> awaitingInterpretation = findSubStageAlerts(
                 SubStageKind.RADIOGRAPHY,
                 RadiographySubStage.INTERPRETATION.name(),
                 PieceStage.RADIOGRAPHY,
@@ -215,7 +223,7 @@ public class DashboardService {
                 activePieces,
                 lastStageChangeByPiece
         );
-        List<SubStageOverdueAlertItem> awaitingOperations = findSubStageOverdueAlerts(
+        List<SubStageOverdueAlertItem> awaitingOperations = findSubStageAlerts(
                 SubStageKind.HEAT_TREATMENT,
                 HeatTreatmentSubStage.AWAITING_OPERATIONS.name(),
                 PieceStage.HEAT_TREATMENT,
@@ -256,7 +264,8 @@ public class DashboardService {
                 needsWelding.size(),
                 stuckPieces.size(),
                 awaitingInterpretation.size(),
-                awaitingOperations.size()
+                awaitingOperations.size(),
+                awaitingShot
         );
     }
 
@@ -595,7 +604,7 @@ public class DashboardService {
                 .toList();
     }
 
-    private List<SubStageOverdueAlertItem> findSubStageOverdueAlerts(
+    private List<SubStageOverdueAlertItem> findSubStageAlerts(
             SubStageKind kind,
             String subStage,
             PieceStage requiredStage,
@@ -630,7 +639,7 @@ public class DashboardService {
                             days
                     );
                 })
-                .filter(item -> item.getDaysInSubStage() >= thresholdDays)
+                .filter(item -> thresholdDays == 0 || item.getDaysInSubStage() >= thresholdDays)
                 .sorted(Comparator.comparingLong(SubStageOverdueAlertItem::getDaysInSubStage).reversed())
                 .toList();
     }

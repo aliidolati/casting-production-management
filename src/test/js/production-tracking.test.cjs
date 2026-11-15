@@ -28,19 +28,21 @@ function browserContext() {
     return { context, element, run: (source) => vm.runInContext(source, context) };
 }
 
-test("dashboard displays the existing scrap count and forwards its scope filters", async () => {
+test("dashboard displays the scrap count and current shot alerts under the selected filters", async () => {
     const { context, element, run } = browserContext();
     let request;
     context.DashboardAPI = {
         getOverview: async (params) => {
             request = params;
             return { totalProjects: 1, totalPieces: 15, wipCount: 4, scrappedInPeriod: 7,
-                scrapRatePercent: 46.7, stageCounts: {} };
+                scrapRatePercent: 46.7, stageCounts: {},
+                awaitingShot: [{ pieceId: "shot-a", pieceName: "Housing", projectCode: "PR-1", pieceNumber: 9, daysInSubStage: 0 }],
+            };
         },
     };
     context.setElementLoading = () => {};
     for (const fn of ["ensureDashboardProjects", "renderBottlenecks", "renderStageDistribution",
-        "renderNeedsWeldingAlerts", "renderStuckPieceAlerts", "renderSubStageOverdueAlerts",
+        "renderNeedsWeldingAlerts", "renderStuckPieceAlerts",
         "renderRecentMoves", "renderPendingTensileAlerts", "syncDashboardFilterInputs",
         "renderDashboardFilterSummary", "updateDashboardLastUpdated", "startDashboardAutoRefresh"]) {
         context[fn] = () => {};
@@ -49,6 +51,9 @@ test("dashboard displays the existing scrap count and forwards its scope filters
     run('DashboardState.projectId = "project-a"; DashboardState.dateFrom = "2026-01-01"; DashboardState.dateTo = "2026-01-31";');
     await run("loadDashboard()");
     assert.equal(element("stat-scrapped-count").textContent, (7).toLocaleString("fa-IR"));
+    assert.equal(element("alert-shot-count").textContent, "۱");
+    assert.match(element("alert-shot-list").innerHTML, /data-piece-id="shot-a"/);
+    assert.match(element("alert-shot-list").innerHTML, /۰ روز/);
     assert.equal(request.projectId, "project-a");
     assert.equal(request.dateFrom, "2026-01-01");
     assert.equal(request.dateTo, "2026-01-31");
@@ -81,6 +86,7 @@ test("entering a piece number preserves the selected production stage and column
     let calls = 0;
     context.loadTracking = options => { assert.equal(options.resetPage, true); calls++; };
     run('TrackingState.activeFilter = "RADIOGRAPHY"; TrackingState.radiographySubStageFilter = "VT"; TrackingState.projectCodeQuery = "PR"; TrackingState.dateFrom = "2026-01-01"; setupSearchListeners();');
+    element("tracking-filter-project-code").value = "PR";
     const input = element("tracking-filter-piece-number");
     input.value = " 9 ";
     input.listeners.keydown({ key: "Enter", target: input, preventDefault() {} });
@@ -88,7 +94,7 @@ test("entering a piece number preserves the selected production stage and column
     assert.equal(run("TrackingState.radiographySubStageFilter"), "VT");
     assert.equal(run("TrackingState.projectCodeQuery"), "PR");
     assert.equal(run("TrackingState.dateFrom"), "2026-01-01");
-    assert.equal(element("tracking-search-input").value, "9");
+    assert.equal(run("TrackingState.searchQuery"), "9");
     assert.equal(calls, 1);
 });
 
