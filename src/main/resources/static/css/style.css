@@ -2120,6 +2120,13 @@ select.stage-select {
     overflow: clip;
 }
 
+@media (max-width: 850px) {
+    #tracking-section .table-wrap-sticky {
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+}
+
 .table-wrap-sticky .data-table thead th {
     position: sticky;
     top: 0;
