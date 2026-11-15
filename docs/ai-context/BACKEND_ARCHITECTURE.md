@@ -130,6 +130,12 @@ Report editing additionally requires `MANAGE_RADIOGRAPHY_DEFECTS` at its control
 - `GlobalExceptionHandler` returns `ApiError(timestamp,status,message,errors?)`: 400 for validation/body/type/business argument/state errors, 401 for bad credentials, 403 for denial, 404 for missing resources, 409 for explicit duplicate exceptions, and generic logged 500 for unexpected exceptions. Security-filter 401/403 uses the same error DTO.
 - Database integrity and locking exceptions have no dedicated conflict mapping. A race that bypasses pre-checks can become generic 500. Some compatibility repairs catch/log failures and let startup continue; others can fail startup.
 
+## Application and tensile registration logs
+
+The application writes `application.log` and `tensile-registration.log` under `app.logging.directory` (`log` by default, relative to the process working directory). Set `APP_LOG_DIR` to the absolute path used by the company service if that service launches from a different directory. Both active files append across restarts and roll daily or at 20 MB. Archives are kept for up to 30 days subject to a 300 MB cap per file family.
+
+Each tensile registration POST has a server-generated ID returned in the `X-Tensile-Request-Id` response header. The tensile log records request receipt, lock lookup start and end, successful database commit, and the server-side HTTP outcome. Once authentication succeeds, subsequent events also carry the user's UUID. Lock lookup timing includes connection/query time in addition to any database lock wait. The HTTP outcome reports server processing and cannot establish receipt by the browser. Search the same request ID in the application log for related failures. The registration log records IDs, timings and outcomes without capturing the request body or auth headers.
+
 ## Risk register
 
 These are source-confirmed observations with inferred consequences; they were not exercised against production.

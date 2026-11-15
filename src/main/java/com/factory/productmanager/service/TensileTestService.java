@@ -1,6 +1,7 @@
 package com.factory.productmanager.service;
 
 import com.factory.productmanager.exception.ResourceNotFoundException;
+import com.factory.productmanager.logging.TensileRegistrationLog;
 import com.factory.productmanager.model.dto.CreateTensileTestRequest;
 import com.factory.productmanager.model.dto.PendingTensileReviewItem;
 import com.factory.productmanager.model.dto.SaveTensileDispositionRequest;
@@ -24,6 +25,8 @@ import com.factory.productmanager.repository.TensileTestDispositionRepository;
 import com.factory.productmanager.repository.TensileTestRepository;
 import com.factory.productmanager.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.MDC;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,8 +64,7 @@ public class TensileTestService {
      * وگرنه در وضعیت «در انتظار تعیین‌تکلیف» برای مسئول کشش می‌ماند.
      */
     public TensileTestResponse createTest(UUID pieceId, CreateTensileTestRequest request, String username) {
-        Piece piece = pieceRepository.lockById(pieceId)
-                .orElseThrow(() -> new ResourceNotFoundException("قطعه پیدا نشد"));
+        Piece piece = lockPieceForRegistration(pieceId);
 
         if (piece.getCurrentStage() != PieceStage.TENSILE) {
             throw new IllegalStateException(
@@ -100,7 +102,27 @@ public class TensileTestService {
             applyTensileStageMove(saved.getPiece().getId(), TensileNextStage.APPROVED, username);
             notificationService.createTensileAutoApproved(saved);
         }
+        TensileRegistrationLog.afterCommit(pieceId, saved.getId(), saved.getTestIndex());
         return toResponse(saved);
+    }
+
+    private Piece lockPieceForRegistration(UUID pieceId) {
+        if (MDC.get(TensileRegistrationLog.REQUEST_ID) == null) {
+            return pieceRepository.lockById(pieceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("قطعه پیدا نشد"));
+        }
+        TensileRegistrationLog.LOG.info("event=lock_lookup_started pieceId={}", pieceId);
+        long startedAt = System.nanoTime();
+        try {
+            var piece = pieceRepository.lockById(pieceId);
+            TensileRegistrationLog.LOG.info("event=lock_lookup_finished pieceId={} found={} elapsedMs={}",
+                    pieceId, piece.isPresent(), TensileRegistrationLog.elapsedMs(startedAt));
+            return piece.orElseThrow(() -> new ResourceNotFoundException("قطعه پیدا نشد"));
+        } catch (DataAccessException failure) {
+            TensileRegistrationLog.LOG.warn("event=lock_lookup_failed pieceId={} errorType={} elapsedMs={}",
+                    pieceId, failure.getClass().getSimpleName(), TensileRegistrationLog.elapsedMs(startedAt));
+            throw failure;
+        }
     }
 
     /**

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="APP_LOG_DIRECTORY" source="app.logging.directory" defaultValue="log" />
+
+    <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
+    <property name="LOG_FILE" value="${LOG_FILE:-${APP_LOG_DIRECTORY}/application.log}" />
+    <include resource="org/springframework/boot/logging/logback/file-appender.xml" />
+
+    <appender name="TENSILE_REGISTRATION" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${APP_LOG_DIRECTORY}/tensile-registration.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${APP_LOG_DIRECTORY}/tensile-registration.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>20MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>300MB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+        <encoder>
+            <charset>UTF-8</charset>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level requestId=%X{tensileRequestId:--} actorId=%X{tensileActorId:--} %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="tensile.registration" level="INFO" additivity="false">
+        <appender-ref ref="TENSILE_REGISTRATION" />
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </root>
+</configuration>
