@@ -105,7 +105,7 @@ Fields below highlight business columns and relationships; all 31 entity tables 
 | `piece_sub_stage_history` / `PieceSubStageHistory` | Required piece FK, kind, substage string, changed-at, actor |
 | `piece_stage_process_dates` / `PieceStageProcessDate` | Required piece FK, stage, process date; unique `(piece_id,stage)` |
 | `piece_sub_stage_process_dates` / `PieceSubStageProcessDate` | Required piece FK, kind, substage, process date; unique `(piece_id,kind,sub_stage)` |
-| `piece_welding_dispatches` / `PieceWeldingDispatch` | Required piece FK, defect type/custom text, notes, sent/completed times and actors, origin stage and each origin substage |
+| `piece_welding_dispatches` / `PieceWeldingDispatch` | Required piece FK, defect type/custom text, notes, sent/completed times and actors, origin stage and each origin substage. V45 adds nullable `process_completed`: true for explicit completion, false for other new closures, null for open dispatches and unclassified legacy closures. |
 | `piece_welding_dispatch_defects` / many-to-many join | Dispatch FK and defect FK; SQL primary key `(dispatch_id,defect_id)` |
 | `piece_notes` / `PieceNote` | Piece FK, content, creation time, copied author display name and username |
 | `welding_map_marks` / `WeldingMapMark` | Piece FK, x/y percentage coordinates, defect type, note, creation time/actor; drawing comes from the piece definition |

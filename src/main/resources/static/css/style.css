@@ -955,6 +955,16 @@ textarea) {
     width: 100%;
 }
 
+#welding-report-filters .welding-history-toggle {
+    min-height: 42px;
+}
+
+#welding-report-history {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-primary);
+}
+
 .dashboard-filters .jalali-date-input {
     width: 100%;
     background-color: var(--color-surface);
@@ -5771,7 +5781,10 @@ input[type="radio"] {
 .tensile-quality-tooltip {
     position: absolute;
     z-index: 2;
-    min-width: 140px;
+    box-sizing: border-box;
+    width: max-content;
+    min-width: 160px;
+    max-width: min(300px, calc(100% - 16px));
     padding: 8px 10px;
     border-radius: 10px;
     background: var(--chart-tooltip-background);
@@ -5780,8 +5793,9 @@ input[type="radio"] {
     font-size: 12px;
     line-height: 1.6;
     pointer-events: none;
-    direction: ltr;
-    text-align: left;
+    overflow-wrap: anywhere;
+    direction: rtl;
+    text-align: start;
 }
 
 #tensile-quality-filters {

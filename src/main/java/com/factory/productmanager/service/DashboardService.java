@@ -14,6 +14,7 @@ import com.factory.productmanager.model.dto.StageOccupancyReportResponse;
 import com.factory.productmanager.model.dto.StageOccupancyRow;
 import com.factory.productmanager.model.dto.StuckPieceAlertItem;
 import com.factory.productmanager.model.dto.SubStageOverdueAlertItem;
+import com.factory.productmanager.model.dto.WeldingHistoryRow;
 import com.factory.productmanager.model.entity.DefectStatus;
 import com.factory.productmanager.model.entity.DefectTypes;
 import com.factory.productmanager.model.entity.HeatTreatmentSubStage;
@@ -417,6 +418,56 @@ public class DashboardService {
         return findNeedsWeldingAlerts(projectId);
     }
 
+    public List<WeldingHistoryRow> getWeldingHistory(UUID projectId) {
+        var candidates = pieceWeldingDispatchRepository.findHistoryCandidates(projectId);
+        var legacyPieceIds = candidates.stream()
+                .filter(dispatch -> dispatch.getProcessCompleted() == null)
+                .map(dispatch -> dispatch.getPiece().getId())
+                .distinct().toList();
+        Map<UUID, List<PieceStageHistory>> stageHistory = legacyPieceIds.isEmpty() ? Map.of()
+                : pieceStageHistoryRepository.findByPiece_IdInOrderByChangedAtAsc(legacyPieceIds).stream()
+                        .collect(Collectors.groupingBy(entry -> entry.getPiece().getId()));
+
+        return candidates.stream()
+                .filter(dispatch -> Boolean.TRUE.equals(dispatch.getProcessCompleted())
+                        || isLegacyWeldingCompletion(dispatch,
+                                stageHistory.getOrDefault(dispatch.getPiece().getId(), List.of())))
+                .map(dispatch -> {
+                    var piece = dispatch.getPiece();
+                    var definition = piece.getPieceDefinition();
+                    return new WeldingHistoryRow(
+                            piece.getId(), definition.getProject().getCode(), definition.getPieceName(),
+                            piece.getPieceNumber(),
+                            DefectTypes.displayLabel(dispatch.getDefectType(), dispatch.getDefectTypeCustom()),
+                            dispatch.getNotes(), dispatch.getSentBy(), dispatch.getSentAt(),
+                            dispatch.getCompletedBy(), dispatch.getCompletedAt());
+                })
+                .toList();
+    }
+
+    private boolean isLegacyWeldingCompletion(PieceWeldingDispatch dispatch, List<PieceStageHistory> history) {
+        // Match the recorded visit and its first exit to the legacy closure.
+        LocalDateTime latestExit = dispatch.getCompletedAt().plusMinutes(1);
+        boolean enteredWelding = false;
+        for (var entry : history) {
+            if (entry.getChangedAt().isBefore(dispatch.getSentAt())) continue;
+            if (entry.getChangedAt().isAfter(latestExit)) break;
+            if (entry.getStage() == PieceStage.WELDING) {
+                if (entry.getChangedAt().isAfter(dispatch.getCompletedAt())) break;
+                enteredWelding = true;
+            } else if (enteredWelding) {
+                var origin = dispatch.getOriginStage();
+                boolean allowedExit = entry.getStage() == PieceStage.RADIOGRAPHY
+                        || (entry.getStage() == origin && (origin == PieceStage.NOT_STARTED
+                            || origin == PieceStage.CASTING || origin == PieceStage.ROUGH_MACHINING));
+                return allowedExit && !entry.getChangedAt().isBefore(dispatch.getCompletedAt())
+                        && dispatch.getCompletedBy() != null
+                        && dispatch.getCompletedBy().equals(entry.getChangedBy());
+            }
+        }
+        return false;
+    }
+
     public TensileQualityReportResponse getTensileQualityReport(
             UUID projectId,
             UUID pieceDefinitionId,
@@ -474,7 +525,8 @@ public class DashboardService {
             sumYs = sumYs.add(sample.getYs());
             sumEl = sumEl.add(sample.getEl());
 
-            var piece = sample.getTensileTest().getPiece();
+            var test = sample.getTensileTest();
+            var piece = test.getPiece();
             var definition = piece.getPieceDefinition();
             points.add(new TensileQualityPointResponse(
                     sample.getId(),
@@ -485,7 +537,13 @@ public class DashboardService {
                     sample.getEl(),
                     sample.getYs(),
                     evaluation.q(),
-                    evaluation.band().name()
+                    evaluation.band().name(),
+                    test.getTestIndex(),
+                    test.getCreatedAt(),
+                    test.getStatus(),
+                    sample.getUts(),
+                    sample.getHb(),
+                    sample.getDescription()
             ));
         }
 
@@ -634,7 +692,8 @@ public class DashboardService {
     public StageOccupancyReportResponse getStageOccupancyReport(
             UUID projectId,
             LocalDate dateFrom,
-            LocalDate dateTo
+            LocalDate dateTo,
+            PieceStage stage
     ) {
         if (dateFrom == null || dateTo == null) {
             throw new IllegalArgumentException("انتخاب تاریخ شروع و پایان الزامی است");
@@ -694,6 +753,9 @@ public class DashboardService {
                     subDatesByPiece.getOrDefault(piece.getId(), List.of()), rangeFrom, rangeToExclusive));
         }
 
+        if (stage != null) {
+            rows.removeIf(row -> row.getStage() != stage);
+        }
         rows.sort(Comparator
                 .comparing(StageOccupancyRow::getProjectCode, Comparator.nullsLast(String::compareTo))
                 .thenComparing(StageOccupancyRow::getRowNum, Comparator.nullsLast(Integer::compareTo))

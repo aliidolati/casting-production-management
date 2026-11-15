@@ -1556,7 +1556,7 @@ public class PieceService {
         String displayName = resolveDisplayName(changedByUsername);
 
         if (oldStage == PieceStage.WELDING) {
-            closeOpenWeldingDispatch(piece.getId(), displayName, false);
+            closeOpenWeldingDispatch(piece.getId(), displayName);
         }
 
         if (heatSubOnly) {
@@ -1599,14 +1599,12 @@ public class PieceService {
         pieceStageHistoryRepository.save(history);
     }
 
-    private void closeOpenWeldingDispatch(UUID pieceId, String displayName, boolean confirmDefects) {
+    private void closeOpenWeldingDispatch(UUID pieceId, String displayName) {
         pieceWeldingDispatchRepository.findFirstByPieceIdAndCompletedAtIsNullOrderBySentAtDesc(pieceId)
                 .ifPresent(dispatch -> {
                     dispatch.setCompletedAt(LocalDateTime.now());
                     dispatch.setCompletedBy(displayName);
-                    if (confirmDefects) {
-                        confirmLinkedWeldingDefects(dispatch);
-                    }
+                    dispatch.setProcessCompleted(false);
                     pieceWeldingDispatchRepository.save(dispatch);
                 });
     }
@@ -1705,6 +1703,7 @@ public class PieceService {
         if (openDispatch != null) {
             openDispatch.setCompletedAt(LocalDateTime.now());
             openDispatch.setCompletedBy(displayName);
+            openDispatch.setProcessCompleted(true);
             confirmLinkedWeldingDefects(openDispatch);
             pieceWeldingDispatchRepository.save(openDispatch);
         }
@@ -1770,6 +1769,7 @@ public class PieceService {
         weldingCancellationGuard.assertNoLaterWork(d);
         d.setCancelledAt(LocalDateTime.now());d.setCancelledBy(resolveDisplayName(username));d.setCancellationReason(request.reason().trim());
         d.setCompletedAt(d.getCancelledAt());d.setCompletedBy(d.getCancelledBy());
+        d.setProcessCompleted(false);
         // An undo restores the original cycle, unlike a new trusted move into CASTING.
         // Keep melt membership and existing dated snapshots; never confirm defects.
         p.setCurrentStage(d.getOriginStage());p.setRadiographySubStage(d.getOriginRadiographySubStage());

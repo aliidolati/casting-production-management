@@ -376,9 +376,10 @@ const DashboardAPI = {
         if (dateTo) params.set("dateTo", dateTo);
         return apiRequest(`/dashboard/radiography-defect-report?${params.toString()}`);
     },
-    getStageOccupancyReport: ({ projectId, dateFrom, dateTo } = {}) => {
+    getStageOccupancyReport: ({ projectId, dateFrom, dateTo, stage } = {}) => {
         const params = new URLSearchParams();
         if (projectId) params.set("projectId", projectId);
+        if (stage) params.set("stage", stage);
         if (dateFrom) params.set("dateFrom", dateFrom);
         if (dateTo) params.set("dateTo", dateTo);
         return apiRequest(`/dashboard/stage-occupancy-report?${params.toString()}`);
@@ -388,11 +389,12 @@ const DashboardAPI = {
         if (projectId) params.set("projectId", projectId);
         return apiRequest(`/dashboard/scrap-report?${params}`);
     },
-    getWeldingStationReport: ({ projectId } = {}) => {
+    getWeldingStationReport: ({ projectId, history } = {}) => {
         const params = new URLSearchParams();
         if (projectId) params.set("projectId", projectId);
         const qs = params.toString();
-        return apiRequest(`/dashboard/welding-station-report${qs ? `?${qs}` : ""}`);
+        const route = history ? "/dashboard/welding-station-report/history" : "/dashboard/welding-station-report";
+        return apiRequest(qs ? `${route}?${qs}` : route);
     },
     getTensileQualityReport: ({ projectId, pieceDefinitionId, sampleLabels, dateFrom, dateTo } = {}) => {
         const params = new URLSearchParams();

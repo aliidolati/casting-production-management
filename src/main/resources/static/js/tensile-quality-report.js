@@ -597,22 +597,34 @@ function onTensileQualityHover(event) {
         return;
     }
     const point = best.point;
+    const value = (number, unit) => number == null ? "—" : `${formatQiNumber(number, 2)}${unit}`;
     const label = point.sampleLabel ? escapeHtml(point.sampleLabel) : "بدون شماره";
+    const status = typeof TENSILE_STATUS_LABELS === "undefined" ? null : TENSILE_STATUS_LABELS[point.testStatus];
     const qText = point.q == null ? "تعریف نشده" : formatQiNumber(point.q, 3);
     tip.innerHTML = `
-        <div>${label}</div>
-        <div>EL: ${formatQiNumber(point.el, 2)}%</div>
-        <div>YS: ${formatQiNumber(point.ys, 2)} MPa</div>
-        <div>Q: ${qText}</div>
+        <div>کد پروژه: <bdi>${escapeHtml(point.projectCode || "—")}</bdi></div>
+        <div>نام کابین: <bdi>${escapeHtml(point.pieceName || "—")}</bdi></div>
+        <div>شماره کابین: <bdi>${formatQiNumber(point.pieceNumber, 0)}</bdi></div>
+        <div>شماره آزمون: <bdi>${formatQiNumber(point.testIndex, 0)}</bdi></div>
+        <div>پلیت: <bdi>${label}</bdi></div>
+        <div>تاریخ ثبت: <bdi>${point.testedAt ? escapeHtml(formatDateTime(point.testedAt)) : "—"}</bdi></div>
+        <div>وضعیت آزمون: ${escapeHtml(status || point.testStatus || "—")}</div>
+        <div dir="ltr">UTS: ${value(point.uts, " MPa")} · YS: ${value(point.ys, " MPa")}</div>
+        <div dir="ltr">EL: ${value(point.el, "%")} · HB: ${value(point.hb, "")} · Q: ${qText}</div>
+        ${point.sampleDescription ? `<div>توضیح نمونه: <bdi>${escapeHtml(point.sampleDescription)}</bdi></div>` : ""}
     `;
     tip.hidden = false;
     const wrap = canvas.parentElement.getBoundingClientRect();
-    let left = event.clientX - wrap.left + 12;
-    let top = event.clientY - wrap.top + 12;
-    if (left + 160 > wrap.width) left = event.clientX - wrap.left - 168;
-    if (top + 90 > wrap.height) top = event.clientY - wrap.top - 96;
-    tip.style.left = `${Math.max(8, left)}px`;
-    tip.style.top = `${Math.max(8, top)}px`;
+    const cursorX = event.clientX - wrap.left;
+    const cursorY = event.clientY - wrap.top;
+    const right = cursorX + 12;
+    const below = cursorY + 12;
+    const maxLeft = wrap.width - tip.offsetWidth - 8;
+    const maxTop = wrap.height - tip.offsetHeight - 8;
+    const left = right <= maxLeft ? right : cursorX - tip.offsetWidth - 12;
+    const top = below <= maxTop ? below : cursorY - tip.offsetHeight - 12;
+    tip.style.left = `${Math.max(8, Math.min(left, maxLeft))}px`;
+    tip.style.top = `${Math.max(8, Math.min(top, maxTop))}px`;
 }
 
 function hideTensileQualityTooltip() {

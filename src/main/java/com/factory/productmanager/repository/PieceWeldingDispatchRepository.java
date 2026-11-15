@@ -24,4 +24,17 @@ public interface PieceWeldingDispatchRepository extends JpaRepository<PieceWeldi
         WHERE d.piece.id IN :pieceIds AND d.completedAt IS NULL
         """)
     List<PieceWeldingDispatch> findByPiece_IdInAndCompletedAtIsNull(@Param("pieceIds") Collection<UUID> pieceIds);
+
+    @Query("""
+        SELECT d FROM PieceWeldingDispatch d
+        JOIN FETCH d.piece p
+        JOIN FETCH p.pieceDefinition definition
+        JOIN FETCH definition.project project
+        WHERE d.completedAt IS NOT NULL
+          AND d.cancelledAt IS NULL
+          AND (d.processCompleted = true OR d.processCompleted IS NULL)
+          AND (:projectId IS NULL OR project.id = :projectId)
+        ORDER BY d.completedAt DESC, d.id DESC
+        """)
+    List<PieceWeldingDispatch> findHistoryCandidates(@Param("projectId") UUID projectId);
 }

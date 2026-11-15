@@ -1,9 +1,11 @@
 package com.factory.productmanager.model.dto;
 
+import com.factory.productmanager.model.entity.TensileTestStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -18,4 +20,10 @@ public class TensileQualityPointResponse {
     private BigDecimal ys;
     private BigDecimal q;
     private String band;
+    private Integer testIndex;
+    private LocalDateTime testedAt;
+    private TensileTestStatus testStatus;
+    private BigDecimal uts;
+    private BigDecimal hb;
+    private String sampleDescription;
 }

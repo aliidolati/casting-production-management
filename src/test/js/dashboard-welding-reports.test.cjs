@@ -123,3 +123,95 @@ test('scrap report preserves archived/legacy rows, escapes reasons and exports o
     assert.match(view.exported().lines[1], /تفسیر/);
     assert.match(view.exported().lines[2], /ثبت نشده/);
 });
+
+test('stage filter is passed to the report and invalidates a previous export', async () => {
+    const view = fixture();
+    let request;
+    view.context.showTableLoader = () => {};
+    view.context.withButtonLoader = async (button, action) => action();
+    view.context.formatDate = value => value;
+    view.context.DashboardAPI = {
+        getStageOccupancyReport: async filters => {
+            request = filters;
+            return { projectCode: 'P', rows: [{ stage: filters.stage, enteredAt: '2026-01-10' }] };
+        }
+    };
+    view.run('initOccupancyReportUi()');
+    const stage = view.node('occupancy-report-stage');
+    assert.match(stage.innerHTML, /value="RADIOGRAPHY"/);
+    stage.value = 'RADIOGRAPHY';
+    view.run("OccupancyReportState.dateFrom = '2026-01-01'; OccupancyReportState.dateTo = '2026-01-31';");
+    await view.run('runOccupancyReport()');
+    assert.equal(request.stage, 'RADIOGRAPHY');
+    view.run('exportOccupancyReportCsv()');
+    assert.match(view.exported().filename, /-radiography-/);
+    stage.value = 'HEAT_TREATMENT';
+    stage.listeners.change();
+    assert.equal(view.node('btn-occupancy-report-export').disabled, true);
+    view.run('clearOccupancyReportFilters()');
+    assert.equal(stage.value, '');
+});
+
+test('welding history exports the displayed completions and ignores stale live responses', async () => {
+    const view = fixture();
+    const requests = [];
+    let finishLive;
+    view.context.showTableLoader = () => {};
+    view.context.withButtonLoader = async (button, action) => action();
+    view.context.formatDateTime = value => 'date:' + value;
+    view.context.DashboardAPI = {
+        getWeldingStationReport: filters => {
+            requests.push(filters);
+            return filters.history
+                ? Promise.resolve([{ pieceId: 'piece', projectCode: 'P', pieceName: 'کابین', pieceNumber: 7,
+                    sentAt: 'sent', completedBy: 'نام, کاربر', completedAt: 'done' }])
+                : new Promise(resolve => { finishLive = resolve; });
+        }
+    };
+    view.run('initWeldingReportUi()');
+    const live = view.run('runWeldingReport()');
+    const toggle = view.node('welding-report-history');
+    toggle.checked = true;
+    toggle.listeners.change();
+    assert.equal(view.node('btn-welding-report-export').disabled, true);
+    assert.equal(view.node('welding-report-completed-at').hidden, false);
+    await view.run('runWeldingReport()');
+    finishLive([{ pieceName: 'قدیمی' }]);
+    await live;
+    assert.deepEqual(requests.map(request => request.history), [false, true]);
+    assert.match(view.node('welding-report-table-body').innerHTML, /date:done/);
+    assert.doesNotMatch(view.node('welding-report-table-body').innerHTML, /قدیمی/);
+    view.run('exportWeldingReportCsv()');
+    assert.match(view.exported().filename, /^welding-history-/);
+    assert.match(view.exported().lines[0], /ثبت‌کننده اتمام,تاریخ اتمام$/);
+    assert.match(view.exported().lines[1], /"نام, کاربر",date:done$/);
+});
+
+test('quality hover shows the hovered test metadata and fits the tooltip inside the chart', () => {
+    const view = fixture();
+    view.context.formatDateTime = value => value;
+    const tooltip = view.node('tensile-quality-tooltip');
+    Object.assign(tooltip, { offsetWidth: 200, offsetHeight: 170 });
+    view.run(`TensileQualityState.hits = [
+        { x: 30, y: 30, point: { pieceName: 'کابین دیگر', testIndex: 1, uts: 200 } },
+        { x: 270, y: 330, point: { projectCode: 'P-123', pieceName: '<کابین>', pieceNumber: 7,
+            testIndex: 2, testedAt: '2026-01-10', testStatus: 'APPROVED', sampleLabel: 'R1',
+            uts: 260, ys: 200, el: 0, hb: null, q: null, sampleDescription: '<توضیح>' } }
+    ];
+    const chartRect = { left: 0, top: 0, width: 280, height: 350 };
+    onTensileQualityHover({ clientX: 270, clientY: 330, currentTarget: {
+        getBoundingClientRect: () => chartRect, parentElement: { getBoundingClientRect: () => chartRect }
+    } });`);
+    assert.equal(tooltip.hidden, false);
+    assert.match(tooltip.innerHTML, /کد پروژه.*P-123/);
+    assert.match(tooltip.innerHTML, /نام کابین.*&lt;کابین&gt;/);
+    assert.match(tooltip.innerHTML, /شماره کابین.*۷/);
+    assert.match(tooltip.innerHTML, /شماره آزمون.*۲/);
+    assert.match(tooltip.innerHTML, /UTS: ۲۶۰/);
+    assert.match(tooltip.innerHTML, /EL: ۰/);
+    assert.match(tooltip.innerHTML, /HB: —/);
+    assert.match(tooltip.innerHTML, /&lt;توضیح&gt;/);
+    assert.doesNotMatch(tooltip.innerHTML, /کابین دیگر/);
+    assert.equal(tooltip.style.left, '58px');
+    assert.equal(tooltip.style.top, '148px');
+});

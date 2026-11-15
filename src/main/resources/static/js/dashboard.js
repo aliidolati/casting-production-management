@@ -46,14 +46,16 @@ const OccupancyReportState = {
     dateToPicker: null,
     rows: [],
     projectCode: "",
+    filters: null,
 };
 
 const ScrapReportState = { projectId: "", projectCode: "", rows: [] };
 
 const WeldingReportState = {
-    projectId: "",
     rows: [],
     projectCode: "",
+    history: false,
+    filters: null,
 };
 
 const DASHBOARD_REPORT_TABS = new Set(["defect-report", "occupancy-report", "welding-report", "scrap-report", "tensile-quality-report", "tensile-trend-report"]);
@@ -315,10 +317,9 @@ async function ensureDashboardProjects() {
         }
         const weldingSelect = document.getElementById("welding-report-project");
         if (weldingSelect) {
+            const previous = weldingSelect.value;
             weldingSelect.innerHTML = `<option value="">همه پروژه‌ها</option>` + optionsHtml;
-            weldingSelect.value = WeldingReportState.projectId || "";
-            const opt = weldingSelect.options[weldingSelect.selectedIndex];
-            WeldingReportState.projectCode = opt && opt.value ? opt.textContent : "";
+            weldingSelect.value = previous || "";
         }
         const tensileQualitySelect = document.getElementById("tensile-quality-project");
         if (tensileQualitySelect) {
@@ -1246,13 +1247,21 @@ function csvEscape(value) {
 function initOccupancyReportUi() {
     const dateFromInput = document.getElementById("occupancy-report-date-from");
     const dateToInput = document.getElementById("occupancy-report-date-to");
+    const stageSelect = document.getElementById("occupancy-report-stage");
+    if (stageSelect) {
+        stageSelect.innerHTML = '<option value="">همه مراحل</option>' + ALL_STAGES
+            .map(stage => `<option value="${stage}">${escapeHtml(stageLabel(stage))}</option>`).join("");
+        stageSelect.addEventListener("change", invalidateOccupancyReport);
+    }
     if (dateFromInput && typeof attachPersianDatePicker === "function") {
         OccupancyReportState.dateFromPicker = attachPersianDatePicker(dateFromInput, {
             onSelect: (d) => {
                 OccupancyReportState.dateFrom = jalaliToIsoDateString(d.jy, d.jm, d.jd);
+                invalidateOccupancyReport();
             },
             onClear: () => {
                 OccupancyReportState.dateFrom = "";
+                invalidateOccupancyReport();
             },
         });
     }
@@ -1260,17 +1269,18 @@ function initOccupancyReportUi() {
         OccupancyReportState.dateToPicker = attachPersianDatePicker(dateToInput, {
             onSelect: (d) => {
                 OccupancyReportState.dateTo = jalaliToIsoDateString(d.jy, d.jm, d.jd);
+                invalidateOccupancyReport();
             },
             onClear: () => {
                 OccupancyReportState.dateTo = "";
+                invalidateOccupancyReport();
             },
         });
     }
 
     document.getElementById("occupancy-report-project")?.addEventListener("change", (e) => {
         OccupancyReportState.projectId = e.target.value;
-        const opt = e.target.options[e.target.selectedIndex];
-        OccupancyReportState.projectCode = opt && opt.value ? opt.textContent : "";
+        invalidateOccupancyReport();
     });
 
     document.getElementById("btn-occupancy-report-run")?.addEventListener("click", runOccupancyReport);
@@ -1280,18 +1290,26 @@ function initOccupancyReportUi() {
 
 function clearOccupancyReportFilters() {
     const projectSelect = document.getElementById("occupancy-report-project");
+    const stageSelect = document.getElementById("occupancy-report-stage");
     if (projectSelect) projectSelect.value = "";
+    if (stageSelect) stageSelect.value = "";
     OccupancyReportState.projectId = "";
     OccupancyReportState.projectCode = "";
     OccupancyReportState.dateFrom = "";
     OccupancyReportState.dateTo = "";
-    OccupancyReportState.rows = [];
     if (OccupancyReportState.dateFromPicker) OccupancyReportState.dateFromPicker.clear();
     if (OccupancyReportState.dateToPicker) OccupancyReportState.dateToPicker.clear();
-    clearOccupancyReportTable("تاریخ شروع و پایان را انتخاب کنید و «اجرای گزارش» را بزنید");
+    invalidateOccupancyReport();
+}
+
+function invalidateOccupancyReport() {
+    clearOccupancyReportTable(OccupancyReportState.dateFrom && OccupancyReportState.dateTo
+        ? "«اجرای گزارش» را بزنید"
+        : "تاریخ شروع و پایان را انتخاب کنید و «اجرای گزارش» را بزنید");
 }
 
 function clearOccupancyReportTable(message) {
+    OccupancyReportState.filters = null;
     OccupancyReportState.rows = [];
     const tbody = document.getElementById("occupancy-report-table-body");
     if (tbody) {
@@ -1308,20 +1326,28 @@ async function runOccupancyReport() {
         return;
     }
 
+    const filters = {
+        projectId: OccupancyReportState.projectId || undefined,
+        dateFrom: OccupancyReportState.dateFrom,
+        dateTo: OccupancyReportState.dateTo,
+        stage: document.getElementById("occupancy-report-stage")?.value || undefined,
+    };
+    OccupancyReportState.filters = filters;
+    OccupancyReportState.rows = [];
+    const exportBtn = document.getElementById("btn-occupancy-report-export");
+    if (exportBtn) exportBtn.disabled = true;
     const tbody = document.getElementById("occupancy-report-table-body");
     showTableLoader(tbody, 8);
     const runBtn = document.getElementById("btn-occupancy-report-run");
     await withButtonLoader(runBtn, async () => {
         try {
-            const report = await DashboardAPI.getStageOccupancyReport({
-                projectId: OccupancyReportState.projectId || undefined,
-                dateFrom: OccupancyReportState.dateFrom,
-                dateTo: OccupancyReportState.dateTo,
-            });
+            const report = await DashboardAPI.getStageOccupancyReport(filters);
+            if (OccupancyReportState.filters !== filters) return;
             OccupancyReportState.rows = report.rows || [];
             OccupancyReportState.projectCode = report.projectCode || "";
             renderOccupancyReportTable(OccupancyReportState.rows);
         } catch (error) {
+            if (OccupancyReportState.filters !== filters) return;
             showToast(error.message, "error");
             clearOccupancyReportTable("خطا در اجرای گزارش");
         }
@@ -1423,7 +1449,8 @@ function exportOccupancyReportCsv() {
 
     const code = OccupancyReportState.projectCode || "all";
     const today = new Date().toISOString().slice(0, 10);
-    downloadCsv(`stage-occupancy-${code}-${OccupancyReportState.dateFrom}-${OccupancyReportState.dateTo}-${today}.csv`, lines);
+    const stage = OccupancyReportState.filters?.stage;
+    downloadCsv(`stage-occupancy-${code}${stage ? `-${stage.toLowerCase()}` : ""}-${OccupancyReportState.dateFrom}-${OccupancyReportState.dateTo}-${today}.csv`, lines);
 }
 
 /* ===========================
@@ -1431,11 +1458,8 @@ function exportOccupancyReportCsv() {
    =========================== */
 
 function initWeldingReportUi() {
-    document.getElementById("welding-report-project")?.addEventListener("change", (e) => {
-        WeldingReportState.projectId = e.target.value;
-        const opt = e.target.options[e.target.selectedIndex];
-        WeldingReportState.projectCode = opt && opt.value ? opt.textContent : "";
-    });
+    document.getElementById("welding-report-project")?.addEventListener("change", invalidateWeldingReport);
+    document.getElementById("welding-report-history")?.addEventListener("change", invalidateWeldingReport);
     document.getElementById("btn-welding-report-run")?.addEventListener("click", runWeldingReport);
     document.getElementById("btn-welding-report-export")?.addEventListener("click", exportWeldingReportCsv);
 }
@@ -1445,28 +1469,48 @@ function setWeldingReportExportEnabled(enabled) {
     if (exportBtn) exportBtn.disabled = !enabled;
 }
 
+function invalidateWeldingReport() {
+    const history = Boolean(document.getElementById("welding-report-history")?.checked);
+    WeldingReportState.history = history;
+    const hint = document.getElementById("welding-report-hint");
+    if (hint) {
+        hint.textContent = history ? "سوابق اتمام جوشکاری، یک ردیف برای هر نوبت اعزام"
+            : "قطعاتی که هم‌اکنون در ایستگاه جوشکاری هستند، همراه با نوع عیب";
+    }
+    for (const id of ["welding-report-completed-by", "welding-report-completed-at"]) {
+        const column = document.getElementById(id);
+        if (column) column.hidden = !history;
+    }
+    clearWeldingReportTable("«اجرای گزارش» را بزنید");
+}
+
 function clearWeldingReportTable(message) {
+    WeldingReportState.filters = null;
     WeldingReportState.rows = [];
     const tbody = document.getElementById("welding-report-table-body");
     if (tbody) {
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="7">${escapeHtml(message)}</td></tr>`;
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="${WeldingReportState.history ? 9 : 7}">${escapeHtml(message)}</td></tr>`;
     }
     setWeldingReportExportEnabled(false);
 }
 
 async function runWeldingReport() {
-    WeldingReportState.projectId = document.getElementById("welding-report-project")?.value || "";
+    invalidateWeldingReport();
+    const project = document.getElementById("welding-report-project");
+    const filters = { projectId: project?.value || undefined, history: WeldingReportState.history };
+    WeldingReportState.filters = filters;
+    WeldingReportState.projectCode = filters.projectId ? project.selectedOptions?.[0]?.textContent || "" : "";
     const tbody = document.getElementById("welding-report-table-body");
-    showTableLoader(tbody, 7);
+    showTableLoader(tbody, filters.history ? 9 : 7);
     const runBtn = document.getElementById("btn-welding-report-run");
     await withButtonLoader(runBtn, async () => {
         try {
-            const rows = await DashboardAPI.getWeldingStationReport({
-                projectId: WeldingReportState.projectId || undefined,
-            });
+            const rows = await DashboardAPI.getWeldingStationReport(filters);
+            if (WeldingReportState.filters !== filters) return;
             WeldingReportState.rows = rows || [];
             renderWeldingReportTable(WeldingReportState.rows);
         } catch (error) {
+            if (WeldingReportState.filters !== filters) return;
             showToast(error.message, "error");
             clearWeldingReportTable("خطا در اجرای گزارش");
         }
@@ -1477,9 +1521,9 @@ function renderWeldingReportTable(rows) {
     const tbody = document.getElementById("welding-report-table-body");
     if (!tbody) return;
 
+    const history = WeldingReportState.history;
     if (!rows.length) {
-        tbody.innerHTML = `<tr class="empty-row"><td colspan="7">قطعه‌ای در ایستگاه جوشکاری نیست</td></tr>`;
-        setWeldingReportExportEnabled(false);
+        clearWeldingReportTable(history ? "سابقه‌ای از اتمام جوشکاری پیدا نشد" : "قطعه‌ای در ایستگاه جوشکاری نیست");
         return;
     }
 
@@ -1494,6 +1538,8 @@ function renderWeldingReportTable(rows) {
             <td>${escapeHtml(r.notes || "—")}</td>
             <td>${escapeHtml(r.sentBy || "—")}</td>
             <td>${r.sentAt ? formatDateTime(r.sentAt) : "—"}</td>
+            ${history ? `<td>${escapeHtml(r.completedBy || "—")}</td>
+            <td>${r.completedAt ? formatDateTime(r.completedAt) : "—"}</td>` : ""}
         </tr>`
         )
         .join("");
@@ -1532,24 +1578,28 @@ function exportWeldingReportCsv() {
         "ارسال‌کننده",
         "تاریخ ارسال",
     ];
+    const history = WeldingReportState.history;
+    if (history) headers.push("ثبت‌کننده اتمام", "تاریخ اتمام");
     const lines = [headers.join(",")];
     rows.forEach((r) => {
-        lines.push(
-            [
-                csvEscape(r.projectCode),
-                csvEscape(r.pieceName),
-                r.pieceNumber ?? "",
-                csvEscape(r.defectType || ""),
-                csvEscape(r.notes || ""),
-                csvEscape(r.sentBy || ""),
-                csvEscape(r.sentAt ? formatDateTime(r.sentAt) : ""),
-            ].join(",")
-        );
+        const columns = [
+            csvEscape(r.projectCode),
+            csvEscape(r.pieceName),
+            r.pieceNumber ?? "",
+            csvEscape(r.defectType || ""),
+            csvEscape(r.notes || ""),
+            csvEscape(r.sentBy || ""),
+            csvEscape(r.sentAt ? formatDateTime(r.sentAt) : ""),
+        ];
+        if (history) {
+            columns.push(csvEscape(r.completedBy), csvEscape(r.completedAt ? formatDateTime(r.completedAt) : ""));
+        }
+        lines.push(columns.join(","));
     });
 
     const code = WeldingReportState.projectCode || "all";
     const today = new Date().toISOString().slice(0, 10);
-    downloadCsv(`welding-station-${code}-${today}.csv`, lines);
+    downloadCsv(`welding-${history ? "history" : "station"}-${code}-${today}.csv`, lines);
 }
 
 function scrapOriginLabel(row) {
