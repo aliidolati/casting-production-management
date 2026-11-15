@@ -942,7 +942,7 @@ function renderProcessDateCell(piece) {
     if (piece.archivedAt || !canEditProcessDate()) {
         return piece.processDate ? isoToJalaliString(piece.processDate) : "—";
     }
-    return `<input type="text" class="process-date-input" data-piece-id="${piece.id}" placeholder="انتخاب تاریخ" />`;
+    return `<input type="text" class="process-date-input" data-piece-id="${piece.id}" aria-label="تاریخ انجام فرآیند قطعه ${piece.pieceNumber}" />`;
 }
 
 function attachProcessDatePickers(root) {
@@ -950,30 +950,31 @@ function attachProcessDatePickers(root) {
     root.querySelectorAll(".process-date-input").forEach((input) => {
         const pieceId = input.dataset.pieceId;
         const piece = TrackingState.pieces.find((p) => p.id === pieceId);
+        if (!piece) return;
+
+        const save = async (iso) => {
+            if (iso === (piece.processDate || null)) return;
+            input.disabled = true;
+            try {
+                const updated = await PieceAPI.updateProcessDate(pieceId, iso);
+                piece.processDate = updated.processDate;
+                picker.setIsoDate(piece.processDate);
+                showToast(iso ? "تاریخ انجام فرآیند ذخیره شد" : "تاریخ انجام فرآیند پاک شد");
+                if (TrackingState.sortBy === "processDate") loadTracking({ includeSummary: false });
+            } catch (error) {
+                picker.setIsoDate(piece.processDate);
+                showToast(error.message, "error");
+            } finally {
+                input.disabled = false;
+            }
+        };
         const picker = attachPersianDatePicker(input, {
-            onSelect: async (d) => {
-                const iso = jalaliToIsoDateString(d.jy, d.jm, d.jd);
-                try {
-                    const updated = await PieceAPI.updateProcessDate(pieceId, iso);
-                    if (piece) piece.processDate = updated.processDate;
-                    showToast("تاریخ انجام فرآیند ذخیره شد");
-                    if (TrackingState.sortBy === "processDate") loadTracking({ includeSummary: false });
-                } catch (error) {
-                    showToast(error.message, "error");
-                }
-            },
-            onClear: async () => {
-                try {
-                    const updated = await PieceAPI.updateProcessDate(pieceId, null);
-                    if (piece) piece.processDate = updated.processDate;
-                    showToast("تاریخ انجام فرآیند پاک شد");
-                    if (TrackingState.sortBy === "processDate") loadTracking({ includeSummary: false });
-                } catch (error) {
-                    showToast(error.message, "error");
-                }
-            },
+            editable: true,
+            onSelect: ({ jy, jm, jd }) => save(jalaliToIsoDateString(jy, jm, jd)),
+            onClear: () => save(null),
+            onInvalid: () => showToast("تاریخ شمسی معتبر وارد کنید، مانند ۱۴۰۵/۰۸/۲۴", "error"),
         });
-        if (piece && piece.processDate) picker.setIsoDate(piece.processDate);
+        picker.setIsoDate(piece.processDate);
     });
 }
 
@@ -1137,7 +1138,7 @@ function openStageProcessDateEditor(piece, stepEl) {
     openNestedModal(
         `تاریخ انجام — ${label}`,
         `
-        <p class="form-hint">${group ? `این تاریخ فقط برای زیرمرحلهٔ «${escapeHtml(label)}» از مرحلهٔ «${escapeHtml(group)}» ثبت می‌شود و روی زیرمرحله‌های دیگر اثری ندارد.` : "تاریخ انجام فرآیند این مرحله را وارد کنید. برای پاک کردن، تاریخ را خالی بگذارید."}</p>
+        <p class="form-hint">${group ? `این تاریخ فقط برای زیرمرحلهٔ «${escapeHtml(label)}» از مرحلهٔ «${escapeHtml(group)}» ثبت می‌شود و روی زیرمرحله‌های دیگر اثری ندارد.` : "تاریخ انجام فرآیند این مرحله را وارد کنید. برای پاک کردن، دکمهٔ «پاک کردن تاریخ» را بزنید."}</p>
         <div class="form-group">
             <label for="stage-process-date">تاریخ انجام فرآیند</label>
             <input type="text" id="stage-process-date" placeholder="انتخاب تاریخ">
@@ -1150,19 +1151,9 @@ function openStageProcessDateEditor(piece, stepEl) {
         </div>`
     );
 
-    let selectedIso = existing || null;
     const input = document.getElementById("stage-process-date");
-    const picker = typeof attachPersianDatePicker === "function"
-        ? attachPersianDatePicker(input, {
-            onSelect: (d) => {
-                selectedIso = jalaliToIsoDateString(d.jy, d.jm, d.jd);
-            },
-            onClear: () => {
-                selectedIso = null;
-            },
-        })
-        : null;
-    if (existing && picker) picker.setIsoDate(existing);
+    const picker = attachPersianDatePicker(input, { editable: true });
+    picker.setIsoDate(existing);
 
     const save = async (processDate) => {
         const button = document.getElementById(processDate ? "btn-save-stage-date" : "btn-clear-stage-date");
@@ -1185,15 +1176,16 @@ function openStageProcessDateEditor(piece, stepEl) {
     document.getElementById("btn-cancel-stage-date")?.addEventListener("click", closeNestedModal);
     document.getElementById("btn-clear-stage-date")?.addEventListener("click", () => save(null));
     document.getElementById("btn-save-stage-date")?.addEventListener("click", () => {
-        if (!selectedIso) {
+        const date = picker.getSelected();
+        if (!date) {
             const err = document.getElementById("stage-process-date-error");
             if (err) {
-                err.textContent = "تاریخ را انتخاب کنید، یا «پاک کردن تاریخ» را بزنید";
+                err.textContent = "تاریخ شمسی معتبر وارد کنید یا «پاک کردن تاریخ» را بزنید";
                 err.style.display = "block";
             }
             return;
         }
-        save(selectedIso);
+        save(jalaliToIsoDateString(date.jy, date.jm, date.jd));
     });
 }
 
@@ -1344,32 +1336,23 @@ async function advancePieceFromProfile(piece, btn) {
         </div>`
     );
 
-    let selectedIso = null;
     const input = document.getElementById("advance-process-date");
-    if (typeof attachPersianDatePicker === "function") {
-        attachPersianDatePicker(input, {
-            onSelect: (d) => {
-                selectedIso = jalaliToIsoDateString(d.jy, d.jm, d.jd);
-            },
-            onClear: () => {
-                selectedIso = null;
-            },
-        });
-    }
+    const picker = attachPersianDatePicker(input, { editable: true });
     document.getElementById("btn-cancel-advance-date")?.addEventListener("click", closeNestedModal);
     document.getElementById("btn-confirm-advance-date")?.addEventListener("click", async () => {
-        if (!selectedIso) {
+        const date = picker.getSelected();
+        if (!date) {
             const err = document.getElementById("advance-process-date-error");
             if (err) {
-                err.textContent = "تاریخ انجام فرایند را انتخاب کنید";
+                err.textContent = "تاریخ شمسی معتبر وارد کنید یا از تقویم انتخاب کنید";
                 err.style.display = "block";
             } else {
-                showToast("تاریخ انجام فرایند را انتخاب کنید", "error");
+                showToast("تاریخ شمسی معتبر وارد کنید یا از تقویم انتخاب کنید", "error");
             }
             return;
         }
         closeNestedModal();
-        await runAdvance(selectedIso);
+        await runAdvance(jalaliToIsoDateString(date.jy, date.jm, date.jd));
     });
 }
 
@@ -1378,58 +1361,18 @@ async function advancePieceFromProfile(piece, btn) {
    =========================== */
 
 function setupSearchListeners() {
-    const searchInput = document.getElementById("tracking-search-input");
-    const clearBtn = document.getElementById("btn-clear-search");
+    const pieceNumberInput = document.getElementById("tracking-filter-piece-number");
     const pieceNameInput = document.getElementById("tracking-filter-piece-name");
     const projectCodeInput = document.getElementById("tracking-filter-project-code");
 
-    const pieceNumberInput = document.getElementById("tracking-filter-piece-number");
-
-    /* جستجوی شماره‌ی قطعه همان جستجوی سراسری (q) است؛ دو input یک مقدار را نگه می‌دارند */
-    const applyGlobalSearch = (value) => {
-        const query = value.trim();
-        TrackingState.searchQuery = query;
-        if (searchInput.value.trim() !== query) searchInput.value = query;
-        if (pieceNumberInput && pieceNumberInput.value.trim() !== query) pieceNumberInput.value = query;
-        loadTracking({ resetPage: true });
-    };
-
     const applyColumnFilters = () => {
+        TrackingState.searchQuery = (pieceNumberInput?.value || "").trim();
         TrackingState.pieceNameQuery = (pieceNameInput?.value || "").trim();
         TrackingState.projectCodeQuery = (projectCodeInput?.value || "").trim();
         loadTracking({ resetPage: true });
     };
 
-    searchInput.addEventListener("input", (e) => {
-        clearTimeout(TrackingState.searchDebounceTimer);
-        TrackingState.searchDebounceTimer = setTimeout(() => applyGlobalSearch(e.target.value), 300);
-    });
-
-    searchInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            clearTimeout(TrackingState.searchDebounceTimer);
-            applyGlobalSearch(e.target.value);
-        }
-    });
-
-    if (pieceNumberInput) {
-        pieceNumberInput.addEventListener("click", (e) => e.stopPropagation());
-        pieceNumberInput.addEventListener("mousedown", (e) => e.stopPropagation());
-        pieceNumberInput.addEventListener("input", (e) => {
-            clearTimeout(TrackingState.searchDebounceTimer);
-            TrackingState.searchDebounceTimer = setTimeout(() => applyGlobalSearch(e.target.value), 300);
-        });
-        pieceNumberInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                clearTimeout(TrackingState.searchDebounceTimer);
-                applyGlobalSearch(e.target.value);
-            }
-        });
-    }
-
-    [pieceNameInput, projectCodeInput].forEach((input) => {
+    [pieceNumberInput, pieceNameInput, projectCodeInput].forEach((input) => {
         if (!input) return;
         input.addEventListener("click", (e) => e.stopPropagation());
         input.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -1444,19 +1387,6 @@ function setupSearchListeners() {
                 applyColumnFilters();
             }
         });
-    });
-
-    clearBtn.addEventListener("click", () => {
-        searchInput.value = "";
-        if (pieceNumberInput) pieceNumberInput.value = "";
-        TrackingState.searchQuery = "";
-        if (pieceNameInput) pieceNameInput.value = "";
-        if (projectCodeInput) projectCodeInput.value = "";
-        TrackingState.pieceNameQuery = "";
-        TrackingState.projectCodeQuery = "";
-        TrackingState.activeFilter = "all";
-        loadTracking({ resetPage: true });
-        searchInput.focus();
     });
 }
 

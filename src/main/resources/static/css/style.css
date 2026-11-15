@@ -2120,6 +2120,13 @@ select.stage-select {
     overflow: clip;
 }
 
+@media (max-width: 850px) {
+    #tracking-section .table-wrap-sticky {
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+}
+
 .table-wrap-sticky .data-table thead th {
     position: sticky;
     top: 0;
@@ -2226,7 +2233,6 @@ select.stage-select {
     min-width: 128px;
     padding: 6px 10px;
     font-size: 13px;
-    cursor: pointer;
 }
 
 .inline-check {
@@ -4082,41 +4088,6 @@ select.stage-select {
 }
 
 /* ===========================
-   نوار جستجو (ردیابی قطعات)
-   =========================== */
-.search-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background-color: var(--color-surface);
-    border-radius: 999px;
-    padding: 10px 18px;
-    margin-bottom: 1.25rem;
-    box-shadow: var(--shadow-border);
-}
-
-.search-icon {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    color: var(--color-text-secondary);
-}
-
-.search-input {
-    flex: 1;
-    border: none;
-    outline: none;
-    font-family: inherit;
-    font-size: 14px;
-    color: var(--color-text);
-    background-color: transparent;
-}
-
-.search-input::placeholder {
-    color: var(--color-text-muted);
-}
-
-/* ===========================
    فیلترهای پیشرفته (ردیابی قطعات)
    =========================== */
 .advanced-filters {
@@ -4176,6 +4147,53 @@ select.stage-select {
 .jalali-datepicker-wrapper {
     position: relative;
     display: inline-block;
+}
+
+.jalali-datepicker-editable {
+    display: block;
+}
+
+.jalali-datepicker-editable .jalali-date-input {
+    cursor: text;
+    padding-left: 34px;
+    direction: ltr;
+    text-align: right;
+}
+
+.jalali-datepicker-editable .jalali-date-input[aria-invalid="true"] {
+    border-color: var(--color-danger);
+}
+
+.data-table .jalali-datepicker-editable {
+    display: inline-block;
+}
+
+.jalali-datepicker-trigger {
+    position: absolute;
+    left: 3px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+.jalali-datepicker-trigger:hover,
+.jalali-datepicker-trigger:focus-visible {
+    color: var(--color-text);
+    background-color: var(--color-surface);
+}
+
+.jalali-datepicker-trigger svg {
+    width: 16px;
+    height: 16px;
 }
 
 .jalali-datepicker-popup {

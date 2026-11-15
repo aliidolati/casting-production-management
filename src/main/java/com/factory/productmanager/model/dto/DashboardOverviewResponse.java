@@ -67,4 +67,7 @@ public class DashboardOverviewResponse {
     private long stuckPiecesTotal;
     private long awaitingInterpretationOverdueTotal;
     private long awaitingOperationsOverdueTotal;
+
+    /** همهٔ قطعات فعال که هم‌اکنون در زیرمرحلهٔ شوت هستند. */
+    private List<SubStageOverdueAlertItem> awaitingShot;
 }

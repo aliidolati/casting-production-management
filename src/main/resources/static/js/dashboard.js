@@ -239,10 +239,11 @@ async function loadDashboard() {
 
         renderBottlenecks(overview.bottleneckStage, overview.bottleneckProject);
         renderStageDistribution(overview.stageCounts || {});
-        // سرور هر لیست هشدار را سقف‌دار برمی‌گرداند؛ تعداد واقعی در فیلدهای *Total است
+        // برای هشدارهای سقف‌دار، تعداد واقعی در فیلدهای *Total است
         renderNeedsWeldingAlerts(overview.needsWelding || [], overview.needsWeldingTotal);
         renderStuckPieceAlerts(overview.stuckPieces || [], overview.stuckThresholdDays, overview.stuckPiecesTotal);
-        renderSubStageOverdueAlerts(
+        renderSubStageAlerts("alert-shot-count", "alert-shot-list", overview.awaitingShot || [], null, "منتظر شوت");
+        renderSubStageAlerts(
             "alert-interp-count",
             "alert-interp-list",
             overview.awaitingInterpretationOverdue || [],
@@ -250,7 +251,7 @@ async function loadDashboard() {
             "تفسیر",
             overview.awaitingInterpretationOverdueTotal
         );
-        renderSubStageOverdueAlerts(
+        renderSubStageAlerts(
             "alert-ops-count",
             "alert-ops-list",
             overview.awaitingOperationsOverdue || [],
@@ -576,12 +577,15 @@ function renderStuckPieceAlerts(items, thresholdDays, total) {
     attachAlertItemClickHandlers(container);
 }
 
-function renderSubStageOverdueAlerts(countId, listId, items, thresholdDays, label, total) {
+function renderSubStageAlerts(countId, listId, items, thresholdDays, label, total) {
     document.getElementById(countId).textContent = formatFaNumber(total ?? items.length);
     const container = document.getElementById(listId);
 
     if (items.length === 0) {
-        container.innerHTML = `<div class="alert-widget-empty">هیچ قطعه‌ای بیش از ${formatFaNumber(thresholdDays)} روز در «${label}» نمانده</div>`;
+        const message = thresholdDays == null
+            ? `هیچ قطعه‌ای در «${label}» نیست`
+            : `هیچ قطعه‌ای بیش از ${formatFaNumber(thresholdDays)} روز در «${label}» نمانده`;
+        container.innerHTML = `<div class="alert-widget-empty">${message}</div>`;
         return;
     }
 
