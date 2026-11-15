@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.factory.productmanager.logging.TensileRegistrationLog;
 import com.factory.productmanager.service.UserActivityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
@@ -59,6 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    TensileRegistrationLog.identifyActor(userDetails.getUserId());
                 }
             }
         } catch (Exception e) {
