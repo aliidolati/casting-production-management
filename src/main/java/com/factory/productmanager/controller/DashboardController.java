@@ -8,7 +8,9 @@ import com.factory.productmanager.model.dto.RadiographyDefectReportResponse;
 import com.factory.productmanager.model.dto.StageOccupancyReportResponse;
 import com.factory.productmanager.model.dto.TensileQualityReportResponse;
 import com.factory.productmanager.model.dto.TensileTrendReportResponse;
+import com.factory.productmanager.model.dto.WeldingHistoryRow;
 import com.factory.productmanager.model.entity.DefectStatus;
+import com.factory.productmanager.model.entity.PieceStage;
 import com.factory.productmanager.service.DashboardService;
 import com.factory.productmanager.service.TensileTrendService;
 import lombok.RequiredArgsConstructor;
@@ -87,9 +89,10 @@ public class DashboardController {
     public ResponseEntity<StageOccupancyReportResponse> getStageOccupancyReport(
             @RequestParam(required = false) UUID projectId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) PieceStage stage
     ) {
-        return ResponseEntity.ok(dashboardService.getStageOccupancyReport(projectId, dateFrom, dateTo));
+        return ResponseEntity.ok(dashboardService.getStageOccupancyReport(projectId, dateFrom, dateTo, stage));
     }
 
     @GetMapping("/welding-station-report")
@@ -97,6 +100,13 @@ public class DashboardController {
             @RequestParam(required = false) UUID projectId
     ) {
         return ResponseEntity.ok(dashboardService.getWeldingStationReport(projectId));
+    }
+
+    @GetMapping("/welding-station-report/history")
+    public ResponseEntity<List<WeldingHistoryRow>> getWeldingHistory(
+            @RequestParam(required = false) UUID projectId
+    ) {
+        return ResponseEntity.ok(dashboardService.getWeldingHistory(projectId));
     }
 
     @GetMapping("/tensile-quality-report")

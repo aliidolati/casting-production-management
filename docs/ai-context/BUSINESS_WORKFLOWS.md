@@ -1,5 +1,7 @@
 # Business workflows
 
+Update 2026-11-14: the stage occupancy report accepts an optional main stage, including its historical and current substages. The welding history report exports one row per completion with its closing time and actor. New closures record whether the completion action was used; legacy closures require a matching stage exit to an allowed completion destination, attributed to the closer within one minute. Cancellations and unclassified closures without sufficient evidence are excluded. The tensile quality chart uses each plotted sample and its own test for hover details.
+
 Update 2026-11-07: Piece definitions have optional per-piece radiography shot and interpretation hours (nonnegative, up to two decimal places). Tracking sums the matching definition duration once per piece across every page, honoring the search, project, piece name, current stage/substage and date filters. The backlog includes archived pieces independently of the list checkbox and includes pieces awaiting manager approval while they remain in INTERPRETATION. Missing hours contribute nothing. VT and other stages have no backlog field.
 
 Update 2026-11-02 (8–3/8–4): immutable drawing revisions with version-bound welding marks and project/definition deletion previews. V42 / fixture: 53 tables, 67 FKs. See [Drawing history and deletion preview](DRAWING_HISTORY_AND_DELETE_PREVIEW.md).

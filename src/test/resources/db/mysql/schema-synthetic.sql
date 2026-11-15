@@ -351,6 +351,7 @@ CREATE TABLE `piece_welding_dispatch_defects` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `piece_welding_dispatches` (
+  `process_completed` BIT(1) NULL,
   `origin_process_date` DATE NULL,
   `dispatch_piece_version` BIGINT NULL,
   `cancelled_at` DATETIME(6) NULL,

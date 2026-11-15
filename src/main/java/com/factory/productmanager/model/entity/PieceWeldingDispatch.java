@@ -55,6 +55,10 @@ public class PieceWeldingDispatch {
     @Column(name = "completed_by")
     private String completedBy;
 
+    // Null for legacy closures that did not distinguish process completion from other exits.
+    @Column(name = "process_completed")
+    private Boolean processCompleted;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "origin_stage", length = 32)
     private PieceStage originStage;
