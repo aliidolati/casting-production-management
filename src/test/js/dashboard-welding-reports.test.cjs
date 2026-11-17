@@ -215,3 +215,20 @@ test('quality hover shows the hovered test metadata and fits the tooltip inside 
     assert.equal(tooltip.style.left, '58px');
     assert.equal(tooltip.style.top, '148px');
 });
+
+test('text defect details escape markup and export one CSV row per course entry', () => {
+    const { run, exported } = fixture();
+    const defects = [
+        { course: 'C1', text: 'L4, "بررسی"\n<نمونه>' },
+        { course: 'C2', text: '=example' },
+    ];
+    run(`var textDefects = ${JSON.stringify(defects)};`);
+    const html = run('renderFreeTextDefectDetails(textDefects)');
+    assert.ok(html.includes('L4, &quot;بررسی&quot;\n&lt;نمونه&gt;'));
+    assert.ok(html.includes('C2'));
+    run(`DefectReportState.rows = [{ projectCode: 'P1', rowNum: 1, pieceName: 'قطعه', defectType: 'F.M.L',
+        pieces: [{ pieceNumber: 9, freeTextDefects: textDefects }] }];
+        exportDefectReportTextCsv();`);
+    assert.equal(exported().lines[1], 'P1,1,قطعه,F.M.L,9,C1,"L4, ""بررسی""\n<نمونه>"');
+    assert.equal(exported().lines[2], "P1,1,قطعه,F.M.L,9,C2,'=example");
+});

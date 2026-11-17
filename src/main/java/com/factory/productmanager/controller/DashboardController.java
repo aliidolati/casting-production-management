@@ -71,6 +71,7 @@ public class DashboardController {
             @RequestParam(required = false) List<String> defectTypes,
             @RequestParam(required = false) List<DefectStatus> statuses,
             @RequestParam(required = false) List<Boolean> weldingConfirmed,
+            @RequestParam(required = false) String textQuery,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo
     ) {
@@ -80,6 +81,7 @@ public class DashboardController {
                 defectTypes,
                 statuses,
                 weldingConfirmed,
+                textQuery,
                 dateFrom,
                 dateTo
         ));

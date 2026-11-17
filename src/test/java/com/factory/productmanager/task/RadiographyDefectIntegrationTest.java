@@ -183,4 +183,69 @@ class RadiographyDefectIntegrationTest extends TaskTestBase {
         assertThat((List<?>) JsonPath.read(body, "$.positions")).hasSize(5);
         assertThat((String) JsonPath.read(body, "$.chainText")).startsWith("(L9-L2)(01)(1)");
     }
+
+    @Test void freeTextKeepsItsFormattingAndCanBeEditedWithoutRecordingWelding() throws Exception {
+        String text = "  L4 → ریشوت\nجوش در شرح <نمونه>  ";
+        String body = create(Map.of("entryMode", "FREE_TEXT", "freeText", text));
+        UUID id = UUID.fromString(JsonPath.read(body, "$.id"));
+        defects.flush();
+        entityManager.clear();
+        var stored = defects.findById(id).orElseThrow();
+        assertThat(stored.getFreeText()).isEqualTo(text);
+        assertThat(stored.getEntryMode()).isEqualTo(RadiographyDefectEntryMode.FREE_TEXT);
+        assertThat(stored.getDefectType()).isNull();
+        assertThat(stored.getStatus()).isNull();
+        assertThat(stored.isWelded()).isFalse();
+        assertThat(stored.isWeldingConfirmed()).isFalse();
+        assertThat(stored.getPositions()).isEmpty();
+
+        call(get("/api/pieces/" + piece.getId() + "/radiography-defects"), admin)
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].freeText").value(text))
+                .andExpect(jsonPath("$[0].chainText").value(text))
+                .andExpect(jsonPath("$[0].course").value("C1"));
+
+        String route = "/api/radiography-defects/" + id;
+        call(patch(route), admin, Map.of("entryMode", "FREE_TEXT", "freeText", "اصلاح شرح", "defectType", "F.M.L"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.freeText").value("اصلاح شرح"))
+                .andExpect(jsonPath("$.defectType").value("F.M.L"));
+        call(patch(route), admin, Map.of("entryMode", "STRUCTURED", "defectType", "CR"))
+                .andExpect(status().isBadRequest());
+        call(patch(route + "/confirm-welding"), admin).andExpect(status().isBadRequest());
+    }
+
+    @Test void freeTextRejectsBlankTextStructuredFieldsAndStandaloneRegistration() throws Exception {
+        String route = "/api/pieces/" + piece.getId() + "/radiography-defects";
+        call(post(route), admin, Map.of("reportLineId", lineId, "entryMode", "FREE_TEXT", "freeText", "  \n "))
+                .andExpect(status().isBadRequest());
+        call(post(route), admin, Map.of("reportLineId", lineId, "entryMode", "FREE_TEXT", "freeText", "شرح", "status", "NEEDS_WELDING"))
+                .andExpect(status().isBadRequest());
+        call(post(route), admin, Map.of("entryMode", "FREE_TEXT", "freeText", "شرح"))
+                .andExpect(status().isBadRequest());
+        call(post(route), admin, Map.of("reportLineId", lineId, "entryMode", "FREE_TEXT", "freeText", "x".repeat(4001)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test void dashboardGroupsAndSearchesTextWithoutCountingItAsWeldingOrApproval() throws Exception {
+        create(Map.of("defectType", "F.M.L"));
+        create(Map.of("entryMode", "FREE_TEXT", "defectType", "F.M.L", "freeText", "L4 ریشوت"));
+        create(Map.of("entryMode", "FREE_TEXT", "defectType", "F.M.L", "freeText", "L5 ریشوت"));
+        create(Map.of("entryMode", "FREE_TEXT", "freeText", "بدون رده"));
+        String projectId = piece.getPieceDefinition().getProject().getId().toString();
+        String report = "/api/dashboard/radiography-defect-report";
+
+        call(get(report).param("projectId", projectId).param("defectTypes", "F.M.L"), admin)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.rows[0].defectCount").value(3))
+                .andExpect(jsonPath("$.rows[0].piecesWithDefect").value(1))
+                .andExpect(jsonPath("$.rows[0].pieces[0].approvedCount").value(1))
+                .andExpect(jsonPath("$.rows[0].pieces[0].needsWeldingCount").value(0))
+                .andExpect(jsonPath("$.rows[0].pieces[0].freeTextDefects.length()").value(2));
+        call(get(report).param("projectId", projectId).param("textQuery", " l4 "), admin)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.rows[0].defectCount").value(1))
+                .andExpect(jsonPath("$.rows[0].pieces[0].freeTextDefects[0].course").value("C1"))
+                .andExpect(jsonPath("$.rows[0].pieces[0].freeTextDefects[0].text").value("L4 ریشوت"));
+        call(get(report).param("projectId", projectId).param("defectTypes", "UNCATEGORIZED_FREE_TEXT"), admin)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.rows[0].defectType").value("عیوب متنی بدون دسته‌بندی"));
+        call(get(report).param("projectId", projectId).param("textQuery", "ریشوت").param("weldingConfirmed", "false"), admin)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.rows").isEmpty());
+    }
 }

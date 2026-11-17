@@ -8,7 +8,7 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M8 22V10h6a4 4 0 010 8h-3v4z' fill='%23fff'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/fonts.css?v=48">
     <link rel="stylesheet" href="css/tokens.css?v=1">
-    <link rel="stylesheet" href="css/style.css?v=20261115-tracking-shot-mobile">
+    <link rel="stylesheet" href="css/style.css?v=20261117-rt-update">
     <link rel="stylesheet" href="css/theme-selector.css?v=1">
     <link rel="stylesheet" href="css/tasks.css?v=2">
     <link rel="stylesheet" href="css/performance.css?v=1">
@@ -336,6 +336,7 @@
                     <div class="section-header-actions">
                         <button type="button" class="btn btn-secondary btn-sm" id="btn-defect-report-export-summary" disabled>خروجی خلاصه CSV</button>
                         <button type="button" class="btn btn-secondary btn-sm" id="btn-defect-report-export-detail" disabled>خروجی جزئیات قطعات CSV</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-defect-report-export-text" disabled>خروجی عیوب متنی CSV</button>
                     </div>
                 </div>
                 <div class="dashboard-filters dashboard-filters-primary" id="defect-report-filters">
@@ -381,6 +382,10 @@
                             </summary>
                             <div class="multi-filter-options" id="defect-report-welding-confirmed"></div>
                         </details>
+                    </div>
+                    <div class="form-group">
+                        <label for="defect-report-text-query">جست‌وجو در عیوب متنی</label>
+                        <input type="search" id="defect-report-text-query" maxlength="4000" />
                     </div>
                     <div class="form-group">
                         <label for="defect-report-date-from">از تاریخ ورود به ذوب‌ریزی</label>
@@ -1102,16 +1107,16 @@
 
     <script src="js/jalali.js?v=20261102-integrated"></script>
     <script src="js/persian-datepicker.js?v=20261115-tracking-shot"></script>
-    <script src="js/api.js?v=20261114-reports"></script>
+    <script src="js/api.js?v=20261115-rt-free-text"></script>
 
     <script src="js/auth.js?v=20261108-unified-correction"></script>
 
     <script src="js/app.js?v=20261108-unified-correction"></script>
-    <script src="js/dashboard.js?v=20261115-tracking-shot"></script>
+    <script src="js/dashboard.js?v=20261115-rt-free-text"></script>
     <script src="js/projects.js?v=20261107-rt-hours"></script>
     <script src="js/pieces.js?v=20261108-unified-correction"></script>
-    <script src="js/radiography.js?v=20261102-integrated"></script>
-    <script src="js/radiography-report.js?v=20261102-integrated"></script>
+    <script src="js/radiography.js?v=20261117-rt-update"></script>
+    <script src="js/radiography-report.js?v=20261117-rt-update"></script>
     <script src="js/heat-treatment.js?v=20261102-integrated"></script>
     <script src="js/heat-treatment-log.js?v=20261102-integrated"></script>
     <script src="js/rough-machining.js?v=20261102-integrated"></script>

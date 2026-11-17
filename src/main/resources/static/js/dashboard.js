@@ -30,6 +30,7 @@ const DefectReportState = {
     defectTypes: [],
     statuses: [],
     weldingConfirmed: [],
+    textQuery: "",
     dateFrom: "",
     dateTo: "",
     dateFromPicker: null,
@@ -836,11 +837,14 @@ document.addEventListener("DOMContentLoaded", () => {
    =========================== */
 
 function initDefectReportUi() {
-    const reportTypes = DEFECT_REPORT_TYPE_OPTIONS;
+    const reportTypes = DEFECT_REPORT_TYPE_OPTIONS.map((type) => ({
+        value: type,
+        label: defectTypeOptionLabel(type),
+    }));
 
     renderMultiFilterOptions(
         "defect-report-defect-types",
-        reportTypes.map((t) => ({ value: t, label: typeof defectTypeOptionLabel === "function" ? defectTypeOptionLabel(t) : t }))
+        [...reportTypes, { value: "UNCATEGORIZED_FREE_TEXT", label: "عیوب متنی بدون دسته‌بندی" }]
     );
     renderMultiFilterOptions("defect-report-statuses", [
         { value: "NEEDS_WELDING", label: "نیاز به جوش" },
@@ -914,7 +918,11 @@ function initDefectReportUi() {
     document.getElementById("btn-defect-report-run")?.addEventListener("click", () => runDefectReport());
     document.getElementById("btn-defect-report-clear")?.addEventListener("click", () => clearDefectReportFilters());
     document.getElementById("btn-defect-report-export-summary")?.addEventListener("click", () => exportDefectReportSummaryCsv());
-    document.getElementById("btn-defect-report-export-detail")?.addEventListener("click", () => exportDefectReportDetailCsv());
+    document.getElementById("btn-defect-report-export-detail")?.addEventListener("click", exportDefectReportDetailCsv);
+    document.getElementById("btn-defect-report-export-text")?.addEventListener("click", exportDefectReportTextCsv);
+    document.getElementById("defect-report-text-query")?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") runDefectReport();
+    });
 }
 
 async function loadDefectReportDefinitions(projectId) {
@@ -947,6 +955,7 @@ function readDefectReportFilters() {
     DefectReportState.pieceDefinitionIds = getMultiFilterValues("defect-report-definitions");
     DefectReportState.defectTypes = getMultiFilterValues("defect-report-defect-types");
     DefectReportState.statuses = getMultiFilterValues("defect-report-statuses");
+    DefectReportState.textQuery = document.getElementById("defect-report-text-query")?.value.trim() || "";
     DefectReportState.weldingConfirmed = getMultiFilterValues("defect-report-welding-confirmed").map(
         (v) => v === "true"
     );
@@ -971,6 +980,7 @@ async function runDefectReport() {
                 defectTypes: DefectReportState.defectTypes,
                 statuses: DefectReportState.statuses,
                 weldingConfirmed: DefectReportState.weldingConfirmed,
+                textQuery: DefectReportState.textQuery,
                 dateFrom: DefectReportState.dateFrom || undefined,
                 dateTo: DefectReportState.dateTo || undefined,
             });
@@ -989,6 +999,12 @@ function setDefectReportExportEnabled(enabled) {
     const detailBtn = document.getElementById("btn-defect-report-export-detail");
     if (summaryBtn) summaryBtn.disabled = !enabled;
     if (detailBtn) detailBtn.disabled = !enabled;
+    const textBtn = document.getElementById("btn-defect-report-export-text");
+    if (textBtn) {
+        textBtn.disabled = !enabled || !DefectReportState.rows.some((row) =>
+            row.pieces?.some((piece) => piece.freeTextDefects?.length)
+        );
+    }
 }
 
 function clearDefectReportTable(message) {
@@ -1052,6 +1068,7 @@ function renderDefectReportTable(rows) {
 
 function openDefectReportPiecesModal(row) {
     const pieces = row.pieces || [];
+    const showText = pieces.some((piece) => piece.freeTextDefects?.length);
     const title = `قطعات دارای ${row.defectType || "عیب"} — ردیف ${row.rowNum ?? "—"} (${row.pieceName || ""})`;
 
     const body = pieces.length
@@ -1067,6 +1084,7 @@ function openDefectReportPiecesModal(row) {
                         <th>نیاز به جوش</th>
                         <th>بدون نیاز به جوش</th>
                         <th>جوش تاییدشده</th>
+                        ${showText ? "<th>عیوب متنی</th>" : ""}
                     </tr>
                 </thead>
                 <tbody>
@@ -1085,6 +1103,7 @@ function openDefectReportPiecesModal(row) {
                             <td>${formatFaNumber(p.needsWeldingCount)}</td>
                             <td>${formatFaNumber(p.approvedCount)}</td>
                             <td>${formatFaNumber(p.weldingConfirmedCount)}</td>
+                            ${showText ? `<td class="defect-report-text-cell">${renderFreeTextDefectDetails(p.freeTextDefects)}</td>` : ""}
                         </tr>`
                         )
                         .join("")}
@@ -1112,6 +1131,15 @@ function openDefectReportPiecesModal(row) {
     });
 }
 
+function renderFreeTextDefectDetails(defects = []) {
+    if (!defects.length) return "—";
+    return `<ul class="defect-report-text-list">${defects.map(({ course, text }) => `
+        <li>
+            <strong>کورس <bdi>${escapeHtml(course)}</bdi></strong>
+            <span class="rt-free-text" dir="auto">${escapeHtml(text)}</span>
+        </li>`).join("")}</ul>`;
+}
+
 function clearDefectReportFilters() {
     const projectSelect = document.getElementById("defect-report-project");
     if (projectSelect) projectSelect.value = "";
@@ -1120,6 +1148,9 @@ function clearDefectReportFilters() {
     DefectReportState.defectTypes = [];
     DefectReportState.statuses = [];
     DefectReportState.weldingConfirmed = [];
+    DefectReportState.textQuery = "";
+    const textQuery = document.getElementById("defect-report-text-query");
+    if (textQuery) textQuery.value = "";
     DefectReportState.dateFrom = "";
     DefectReportState.dateTo = "";
     clearMultiFilter("defect-report-definitions");
@@ -1234,6 +1265,27 @@ function exportDefectReportDetailCsv() {
     const code = DefectReportState.projectCode || "project";
     const today = new Date().toISOString().slice(0, 10);
     downloadCsv(`radiography-defects-pieces-${code}-${today}.csv`, lines);
+}
+
+function exportDefectReportTextCsv() {
+    const headers = ["کد پروژه", "ردیف", "نام قطعه", "نوع عیب برای آمار", "شماره قطعه", "کورس", "متن عیب"];
+    const lines = [headers.join(",")];
+    for (const row of DefectReportState.rows) {
+        for (const piece of row.pieces || []) {
+            for (const { course, text } of piece.freeTextDefects || []) {
+                lines.push([
+                    row.projectCode, row.rowNum, row.pieceName, row.defectType, piece.pieceNumber, course, text,
+                ].map((value) => {
+                    const cell = String(value ?? "");
+                    return csvEscape(/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(cell) ? "'" + cell : cell);
+                }).join(","));
+            }
+        }
+    }
+    if (lines.length === 1) return;
+    const code = DefectReportState.projectCode || "project";
+    const today = new Date().toISOString().slice(0, 10);
+    downloadCsv(`radiography-defects-text-${code}-${today}.csv`, lines);
 }
 
 function csvEscape(value) {

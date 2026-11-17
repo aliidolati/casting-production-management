@@ -4595,8 +4595,7 @@ select.stage-select {
     direction: ltr;
     text-align: left;
     unicode-bidi: isolate;
-    /* جای دکمه‌ی «+ عیب» */
-    padding-right: 46px;
+
 }
 
 /* فونت این لیست را JS بر اساس تعداد عیوب کم می‌کند تا داخل ردیف ۱۲mm جا شود */
@@ -4614,6 +4613,55 @@ select.stage-select {
 
 .rt-defect-chip {
     display: inline;
+}
+
+.rt-defect-chip-text {
+    flex-basis: 100%;
+}
+
+.rt-free-text-weld {
+    display: inline-block;
+    padding-inline: 0.45em;
+    margin-block-end: 0.2em;
+    border: 1px solid currentColor;
+    border-radius: 0.25em;
+    font-weight: 700;
+}
+
+.rt-free-text {
+    display: block;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    text-align: start;
+}
+
+.defect-report-text-cell {
+    min-width: 15rem;
+}
+
+.defect-report-text-list {
+    margin: 0;
+    padding-inline-start: 1.25rem;
+}
+
+.defect-report-text-list li + li {
+    margin-block-start: 0.5rem;
+}
+
+.rt-defect-chip-text:not(:last-child)::after {
+    content: none;
+}
+
+.rt-defect-mode[hidden],
+#rt-text-fields[hidden],
+#rt-structured-fields[hidden] {
+    display: none;
+}
+
+#rt-defect-free-text {
+    box-sizing: border-box;
+    width: 100%;
+    resize: vertical;
 }
 
 .rt-defect-chip:not(:last-child)::after {
@@ -4864,8 +4912,14 @@ select.stage-select {
     font-size: 14px;
 }
 
-.rt-sheet-table tbody td.rt-defect-cell {
-    padding-right: 46px;
+@media screen {
+    .rt-sheet-table tbody td.rt-defect-cell:has(> .rt-cell-btn) {
+        padding-right: 46px;
+    }
+}
+
+.rt-sheet-table tbody .rt-defect-continuation td.rt-defect-cell {
+    padding-right: 3px;
 }
 
 .rt-sheet-table .rt-iqi-real-cell {

@@ -58,7 +58,9 @@ public class RadiographyDefectMapper {
                 actionLabel,
                 second,
                 Boolean.TRUE.equals(defect.getReshootOk()),
-                chainText(positions, defect, second)
+                chainText(positions, defect, second),
+                defect.getEntryMode(),
+                defect.getFreeText()
         );
     }
 
@@ -111,6 +113,9 @@ public class RadiographyDefectMapper {
      * «جوش» فقط وقتی می‌آید که جوشکاری شده باشد؛ بخش‌های خالی حذف می‌شوند.
      */
     private String chainText(List<DefectPositionDto> positions, RadiographyDefect defect, RadiographySecondDefectDto second) {
+        if (defect.getFreeText() != null) {
+            return defect.isWelded() ? "جوش — " + defect.getFreeText() : defect.getFreeText();
+        }
         List<String> parts = new ArrayList<>();
         parts.add(join(positionsText(positions), typeAndClass(defect.getDefectType(), defect.getDefectTypeCustom(), defect.getDefectClass())));
         boolean reshoot = Boolean.TRUE.equals(defect.getReshootOk());

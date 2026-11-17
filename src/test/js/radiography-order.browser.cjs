@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
 // Run directly with Node; no server, datasource or runtime credentials are used.
 (async () => {
     const browser = await chromium.launch({
-        executablePath: process.env.CHROME_BIN || '/usr/bin/chromium', headless: true,
+        executablePath: process.env.CHROME_BIN, headless: true,
     });
     try {
         const page = await browser.newPage();
@@ -69,7 +69,55 @@ const { chromium } = require('playwright');
                 renderReportDefectChip(defect, false);
             return document.querySelectorAll('#fixture img, #fixture script').length;
         }), 0);
-        console.log('Radiography order passed: Persian/Latin defects, preview/report, desktop/mobile, screen/print, escaping.');
+        await page.emulateMedia({ media: 'screen' });
+        await page.evaluate(() => {
+            window.openNestedModal = (_title, html) => { document.getElementById('fixture').innerHTML = html; };
+            window.closeNestedModal = () => {};
+            window.showToast = () => {};
+            window.reloadRadiographyReportModal = async () => {};
+            window.saveReportQuietly = async () => ({ lines: [{ templateLineId: 'line', id: 'saved-line' }] });
+            window.RadiographyDefectAPI = { create: async (pieceId, payload) => { window.sent = { pieceId, payload }; } };
+            RadiographyReportState.piece = { id: 'synthetic-piece' };
+            showReportLineDefectForm('line', 'C1');
+        });
+        assert.equal(await page.locator('#rt-defect-entry-mode').inputValue(), 'STRUCTURED');
+        await page.locator('#rt-defect-entry-mode').selectOption('FREE_TEXT');
+        assert.equal(await page.locator('.rt-welded').isVisible(), false);
+        const freeText = '  L4 → بررسی\n<img src=x>  ';
+        await page.locator('#rt-defect-free-text').fill(freeText);
+        assert.equal(await page.locator('#rt-chain-text .rt-free-text').textContent(), freeText);
+        await page.locator('#rt-text-defect-type').selectOption('F.M.L');
+        await page.locator('button[type=submit]').click();
+        assert.deepEqual(await page.evaluate(() => window.sent), {
+            pieceId: 'synthetic-piece',
+            payload: { reportLineId: 'saved-line', entryMode: 'FREE_TEXT', freeText, welded: false, defectType: 'F.M.L', defectTypeCustom: null },
+        });
+        await page.evaluate((freeText) => showReportLineDefectForm('line', 'C1',
+            { id: 'text', entryMode: 'FREE_TEXT', freeText, defectType: 'F.M.L' }), freeText);
+        assert.equal(await page.locator('#rt-defect-free-text').inputValue(), freeText);
+        assert.equal(await page.locator('#rt-text-defect-type').inputValue(), 'F.M.L');
+        assert.equal(await page.locator('.rt-welded').isVisible(), false);
+
+        const reportText = Array.from({ length: 104 }, (_, i) => `سطر ${i} <ردیف> 🙂`).join('\n');
+        for (const media of ['screen', 'print']) {
+            await page.emulateMedia({ media });
+            const result = await page.evaluate((reportText) => {
+                const lines = [{ id: 'line', templateLineId: 'template-line', courseCode: 'C1',
+                    defects: [{ id: 'text', entryMode: 'FREE_TEXT', freeText: reportText }] }];
+                const fixture = document.getElementById('fixture');
+                buildSheetPages(fixture, { lines, renderHeader: () => '', renderRow: (line, index) => renderRadiographyReportLineRow(line, index, true) });
+                const pages = [...fixture.querySelectorAll('.rt-page-table-wrap')];
+                return {
+                    pages: pages.length,
+                    fits: pages.every(wrap => wrap.scrollHeight <= wrap.clientHeight + 1),
+                    text: [...fixture.querySelectorAll('.rt-free-text')].map(el => el.textContent).join(''),
+                };
+            }, reportText);
+            assert.ok(result.pages > 1);
+            assert.ok(result.fits);
+            assert.equal(result.text, reportText);
+        }
+        console.log('Radiography passed: structured defect order, free-text form and pagination, escaping.');
     } finally {
         await browser.close();
     }

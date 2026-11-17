@@ -107,6 +107,12 @@ Authority: `RadiographyReportService`, `RadiographyDefectService`, `RadiographyD
 
 **Confirmed gaps:** defect create/update/delete/confirm methods do not call `RadiographyWorkflowGate`. An authorized defect editor is not subject to the same pending-manager lock as the report-save endpoint. Template additions/read synchronization also are not a universal approval lock. This can affect what a live report contains while workflow snapshots retain earlier contents.
 
+### Free-text defects on report courses
+
+Each new defect on a report course can use the structured form or a free-text entry. Free text preserves line breaks and accepts an optional catalog type for dashboard grouping. Existing defects keep their entry mode when edited. Free-text defects use the same report permissions, approval snapshots and deletion flow. They have no welding status, action or confirmation, and the report renders text literally across continuation pages when needed.
+
+The dashboard groups uncategorized text separately and includes categorized text in its type totals. The text filter is a case-insensitive substring match on the entered description. A dedicated text CSV lists the project, piece, course and text for each matching entry. Existing aggregate CSVs still report their original per-category and per-piece counts.
+
 ## Radiography interpretation and approval
 
 Authority: [RadiographyWorkflowService](../../src/main/java/com/factory/productmanager/service/RadiographyWorkflowService.java), `RadiographyWorkflowGate`, `WorkflowTaskOperations`, workflow repositories/entities.
