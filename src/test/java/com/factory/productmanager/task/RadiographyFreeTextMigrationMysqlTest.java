@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class RadiographyFreeTextMigrationMysqlTest {
     @Test
     void preservesLegacyRowsAndAllowsUncategorizedTextOnRepeat() throws Exception {
-        String schema = "radiography_free_text_upgrade";
+        String schema = "radiography_free_text_upgrade_synthetic";
         try (var connection = IsolatedMysql.connect(schema); var statement = connection.createStatement()) {
             IsolatedMysql.assertOwned(connection, schema);
             statement.execute("""
