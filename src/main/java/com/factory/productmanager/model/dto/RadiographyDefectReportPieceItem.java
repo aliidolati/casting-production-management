@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -21,4 +22,5 @@ public class RadiographyDefectReportPieceItem {
     private long needsWeldingCount;
     private long approvedCount;
     private long weldingConfirmedCount;
+    private List<RadiographyFreeTextDefectDetail> freeTextDefects;
 }

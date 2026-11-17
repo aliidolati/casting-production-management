@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -41,8 +44,17 @@ public class RadiographyDefect {
     @Column(nullable = false)
     private String course;
 
-    // یکی از مقادیر ثابت فهرست عیب، یا OTHER وقتی کاربر نوع را خودش می‌نویسد
-    @Column(name = "defect_type", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "entry_mode", length = 16, nullable = false)
+    @ColumnDefault("'STRUCTURED'")
+    private RadiographyDefectEntryMode entryMode = RadiographyDefectEntryMode.STRUCTURED;
+
+    @Column(name = "free_text", columnDefinition = "TEXT")
+    private String freeText;
+
+    // اختیاری برای عیب متنی؛ در فرم انتخابی از فهرست نوع عیب می‌آید.
+    @Column(name = "defect_type")
     private String defectType;
 
     /** فقط وقتی defectType برابر OTHER است: شرحی که کاربر نوشته */
@@ -111,7 +123,8 @@ public class RadiographyDefect {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(length = 32)
     private DefectStatus status;
 
     /**

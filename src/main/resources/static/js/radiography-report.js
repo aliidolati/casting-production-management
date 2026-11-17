@@ -77,12 +77,12 @@ const RT_COLGROUP = `
     <colgroup>
         <col style="width: 10mm" />
         <col style="width: 22mm" />
+        <col style="width: 21mm" />
+        <col style="width: 14mm" />
+        <col style="width: 14mm" />
         <col style="width: 24mm" />
         <col style="width: 16mm" />
-        <col style="width: 16mm" />
-        <col style="width: 26mm" />
-        <col style="width: 16mm" />
-        ${RADIOGRAPHY_RESULT_OPTIONS.map(() => `<col style="width: 11mm" />`).join("")}
+        ${RADIOGRAPHY_RESULT_OPTIONS.map(() => `<col style="width: 10.5mm" />`).join("")}
         <col />
     </colgroup>`;
 
@@ -195,6 +195,7 @@ function renderRadiographyStaticFooter(stamps = {}) {
 function fitRowDefectFont(tr) {
     const limit = rtMmToPx(RT_ROW_MM) - 4;
     tr.querySelectorAll(".rt-defect-list").forEach((list) => {
+        if (list.querySelector(".rt-defect-chip-text")) return;
         let size = RT_MAX_FONT_PX;
         list.style.fontSize = `${size}px`;
         while (list.offsetHeight > limit && size > RT_MIN_FONT_PX) {
@@ -234,6 +235,54 @@ function buildSheetPages(container, { lines, renderHeader, renderRow, footerStam
     let current = makePage();
     const overflows = () => current.wrap.scrollHeight > current.wrap.clientHeight + 1;
 
+    const paginateFreeText = (tr) => {
+        if (!tr.querySelector(".rt-defect-chip-text")) return;
+        const chips = [...tr.querySelectorAll(".rt-defect-chip")];
+        chips.forEach((chip) => chip.remove());
+        fitRowDefectFont(tr);
+
+        const appendContinuation = (chip) => {
+            const continuation = tr.cloneNode(true);
+            continuation.classList.add("rt-defect-continuation");
+            [...continuation.cells].slice(2).forEach((cell) => cell.replaceChildren());
+            continuation.lastElementChild.appendChild(chip);
+            current.tbody.appendChild(continuation);
+            if (overflows()) {
+                continuation.remove();
+                current = makePage();
+                current.tbody.appendChild(continuation);
+            }
+        };
+        for (const chip of chips) {
+            const source = chip.querySelector(".rt-free-text");
+            if (!source) {
+                appendContinuation(chip);
+                continue;
+            }
+            const text = Array.from(source.textContent);
+            let offset = 0;
+            while (offset < text.length) {
+                const fragment = chip.cloneNode(true);
+                if (offset > 0) fragment.querySelector(".rt-free-text-weld")?.remove();
+                const content = fragment.querySelector(".rt-free-text");
+                content.textContent = text[offset];
+                appendContinuation(fragment);
+
+                // Find how many characters fit at the actual font and column width.
+                let fits = 1;
+                let end = text.length - offset;
+                while (fits < end) {
+                    const size = Math.ceil((fits + end) / 2);
+                    content.textContent = text.slice(offset, offset + size).join("");
+                    if (overflows()) end = size - 1;
+                    else fits = size;
+                }
+                content.textContent = text.slice(offset, offset + fits).join("");
+                offset += fits;
+            }
+        }
+    };
+
     lines.forEach((line, index) => {
         const html = renderRow(line, index);
         current.tbody.insertAdjacentHTML("beforeend", html);
@@ -247,6 +296,7 @@ function buildSheetPages(container, { lines, renderHeader, renderRow, footerStam
             tr = current.tbody.lastElementChild;
             fitRowDefectFont(tr);
         }
+        if (overflows()) paginateFreeText(tr);
     });
 
     const pages = [...container.querySelectorAll(".rt-page")];
@@ -862,6 +912,7 @@ function renderRadiographyReportLineRow(line, index, canFill) {
 function renderReportDefectChip(d, canFill) {
     const needsWeldingOpen = (d.leadsToWelding || d.status === "NEEDS_WELDING") && !d.weldingConfirmed;
     const classes = ["rt-defect-chip"];
+    if (d.entryMode === "FREE_TEXT") classes.push("rt-defect-chip-text");
     if (needsWeldingOpen) classes.push("rt-defect-chip-weld");
     const interactive = canFill ? `role="button" tabindex="0" title="ویرایش / حذف"` : "";
     const content = formatStructuredDefectHtml(d);
@@ -1051,7 +1102,7 @@ function showReportLineDefectForm(templateLineId, courseCode, defect) {
         const known = DEFECT_TYPE_OPTIONS.includes(raw);
         const selected = known ? raw : raw ? DEFECT_TYPE_OTHER : "";
         const custom = raw === DEFECT_TYPE_OTHER ? entry?.defectTypeCustom || "" : known ? "" : raw;
-        return `<select class="${className}"><option value="">— انتخاب عیب —</option>${defectTypeSelectOptionsHtml(selected)}</select>
+        return `<select id="${className}" class="${className}"><option value="">— انتخاب عیب —</option>${defectTypeSelectOptionsHtml(selected)}</select>
             <div class="form-group" id="${customId}-wrap" style="display: ${selected === DEFECT_TYPE_OTHER ? "" : "none"};">
                 <label for="${customId}">نوع عیب (سایر)</label>
                 <input type="text" id="${customId}" maxlength="255" value="${escapeHtml(custom)}" placeholder="نوع عیب را بنویسید" />
@@ -1072,6 +1123,8 @@ function showReportLineDefectForm(templateLineId, courseCode, defect) {
         editIndex: null,
     };
     const weldedInitial = defect ? !!defect.welded : false;
+    const initialMode = defect?.entryMode || "STRUCTURED";
+    const isFreeText = initialMode === "FREE_TEXT";
 
     openNestedModal(
         title,
@@ -1079,6 +1132,25 @@ function showReportLineDefectForm(templateLineId, courseCode, defect) {
         <form id="form-rt-line-defect" class="defect-form rt-line-defect-form rt-chain-form">
             <div class="form-hint">کورس: ${escapeHtml(courseCode || "")}</div>
 
+            <div class="form-group rt-defect-mode" ${defect ? "hidden" : ""}>
+                <label for="rt-defect-entry-mode">روش ثبت عیب</label>
+                <select id="rt-defect-entry-mode" ${defect ? "disabled" : ""}>
+                    <option value="STRUCTURED" ${isFreeText ? "" : "selected"}>انتخابی</option>
+                    <option value="FREE_TEXT" ${isFreeText ? "selected" : ""}>متنی</option>
+                </select>
+            </div>
+            <div id="rt-text-fields" ${isFreeText ? "" : "hidden"}>
+                <div class="form-group">
+                    <label for="rt-defect-free-text">متن عیب</label>
+                    <textarea id="rt-defect-free-text" dir="auto" rows="5" maxlength="4000"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="rt-text-defect-type">نوع عیب برای آمار (اختیاری)</label>
+                    ${typeFieldsHtml(defect, "rt-text-defect-type", "rt-text-defect-custom")}
+                </div>
+                <label class="rt-weld-check"><input type="checkbox" id="rt-text-welded" ${isFreeText && weldedInitial ? "checked" : ""} /> جوش</label>
+            </div>
+            <div id="rt-structured-fields" ${isFreeText ? "hidden" : ""}>
             <section class="rt-chain-section">
                 <h4 class="rt-chain-title">عیب اول</h4>
 
@@ -1145,14 +1217,14 @@ function showReportLineDefectForm(templateLineId, courseCode, defect) {
 
             <button type="button" class="btn btn-secondary btn-sm" id="btn-rt-add-second" style="display: ${state.reviewEnabled ? "none" : ""};">+ ثبت نتیجه بررسی مجدد</button>
 
-            <div class="rt-chain-preview">
-                <div class="rt-chain-visual" id="rt-chain-visual"></div>
-                <div class="rt-chain-text" id="rt-chain-text"></div>
-            </div>
-
             <div class="form-group">
                 <label>توضیحات</label>
                 <input type="text" class="rt-defect-description" maxlength="1000" value="${escapeHtml(defect?.description || "")}" />
+            </div>
+            </div>
+            <div class="rt-chain-preview">
+                <div class="rt-chain-visual" id="rt-chain-visual"></div>
+                <div class="rt-chain-text" id="rt-chain-text"></div>
             </div>
             <div class="form-error" id="rt-defect-form-error"></div>
             <div class="form-actions">
@@ -1176,7 +1248,28 @@ function showReportLineDefectForm(templateLineId, courseCode, defect) {
     const q = (selector) => formEl.querySelector(selector);
     const valueOf = (selector) => q(selector).value.trim();
 
+    const modeField = q("#rt-defect-entry-mode");
+    const textField = q("#rt-defect-free-text");
+    textField.value = defect?.freeText || "";
+    bindDefectTypeOtherToggle(q(".rt-text-defect-type"), q("#rt-text-defect-custom-wrap"));
+    const updateMode = () => {
+        const textMode = modeField.value === "FREE_TEXT";
+        q("#rt-text-fields").hidden = !textMode;
+        q("#rt-structured-fields").hidden = textMode;
+    };
+    modeField.addEventListener("change", updateMode);
+
     const readDraft = () => {
+        if (modeField.value === "FREE_TEXT") {
+            const defectType = valueOf(".rt-text-defect-type") || null;
+            return {
+                entryMode: "FREE_TEXT",
+                freeText: textField.value,
+                welded: q("#rt-text-welded").checked,
+                defectType,
+                defectTypeCustom: defectType === DEFECT_TYPE_OTHER ? valueOf("#rt-text-defect-custom") : null,
+            };
+        }
         return {
             positions: state.positions,
             defectType: valueOf(".rt-defect-type"),
@@ -1198,7 +1291,7 @@ function showReportLineDefectForm(templateLineId, courseCode, defect) {
 
     const refreshPreview = () => {
         const draft = readDraft();
-        document.getElementById("rt-chain-visual").innerHTML = renderDefectChainVisual(draft);
+        q("#rt-chain-visual").innerHTML = draft.entryMode === "FREE_TEXT" ? "" : renderDefectChainVisual(draft);
         document.getElementById("rt-chain-text").innerHTML = formatDefectChainHtml(draft);
     };
 
@@ -1344,14 +1437,17 @@ function showReportLineDefectForm(templateLineId, courseCode, defect) {
         e.preventDefault();
         e.stopPropagation();
         const draft = readDraft();
+        const textMode = draft.entryMode === "FREE_TEXT";
 
         // اعتبارسنجی هم‌راستا با بک‌اند (بک‌اند هم دوباره بررسی می‌کند)
         const stillEditing = state.editIndex != null;
         // بررسی مجدد اختیاری است؛ اگر انتخاب شود باید نتیجه و در حالت عیب دوم، نوع عیب مشخص باشد.
         const second = draft.secondDefect;
         const secondHasData = !!(second && (second.defectType || second.defectClass || second.correctiveAction));
-        const problem =
-            (stillEditing && "ویرایش موقعیت را با «ثبت ویرایش» تایید کنید") ||
+        const problem = textMode
+            ? (!draft.freeText.trim() && "متن عیب را وارد کنید") ||
+              (draft.defectType === DEFECT_TYPE_OTHER && !draft.defectTypeCustom && "برای گزینهٔ سایر، نوع عیب را بنویسید")
+            : (stillEditing && "ویرایش موقعیت را با «ثبت ویرایش» تایید کنید") ||
             (!draft.defectType && "عیب اول را وارد کنید") ||
             (draft.defectType === DEFECT_TYPE_OTHER && !draft.defectTypeCustom && "برای گزینهٔ سایر، نوع عیب اول را بنویسید") ||
             (state.reviewEnabled && !state.reviewMode && "نتیجه بررسی مجدد را انتخاب کنید یا آن را حذف کنید") ||
@@ -1363,7 +1459,7 @@ function showReportLineDefectForm(templateLineId, courseCode, defect) {
             return;
         }
 
-        const payload = {
+        const payload = textMode ? draft : {
             positions: draft.positions.map((p) => ({ startCm: p.startCm, endCm: p.endCm })),
             defectType: draft.defectType,
             defectTypeCustom: draft.defectType === DEFECT_TYPE_OTHER ? draft.defectTypeCustom : null,

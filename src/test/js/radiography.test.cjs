@@ -46,3 +46,13 @@ test('text positions are escaped in report chips and the visual preview', () => 
         assert.ok(!html.includes('L<test>'));
     }
 });
+
+test('free-text defects retain line breaks and render literal text without a category or welding marker', () => {
+    const run = fixture();
+    const text = '  L4 → بررسی\n<img src=x>  ';
+    run(`var textDefect = { id: 'text', entryMode: 'FREE_TEXT', defectType: 'F.M.L', freeText: ${JSON.stringify(text)} };`);
+    assert.equal(run('formatDefectChainText(textDefect)'), text);
+    const html = run('renderReportDefectChip(textDefect, true)');
+    assert.ok(html.includes('  L4 → بررسی\n&lt;img src=x&gt;  '));
+    assert.doesNotMatch(html, /F\.M\.L|rt-defect-chip-weld|<img/);
+});

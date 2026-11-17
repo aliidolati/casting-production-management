@@ -363,6 +363,7 @@ const DashboardAPI = {
         defectTypes,
         statuses,
         weldingConfirmed,
+        textQuery,
         dateFrom,
         dateTo,
     } = {}) => {
@@ -372,6 +373,7 @@ const DashboardAPI = {
         (defectTypes || []).forEach((t) => params.append("defectTypes", t));
         (statuses || []).forEach((s) => params.append("statuses", s));
         (weldingConfirmed || []).forEach((v) => params.append("weldingConfirmed", String(v)));
+        if (textQuery) params.set("textQuery", textQuery);
         if (dateFrom) params.set("dateFrom", dateFrom);
         if (dateTo) params.set("dateTo", dateTo);
         return apiRequest(`/dashboard/radiography-defect-report?${params.toString()}`);

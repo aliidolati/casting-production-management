@@ -1,6 +1,7 @@
 package com.factory.productmanager.model.dto;
 
 import com.factory.productmanager.model.entity.DefectStatus;
+import com.factory.productmanager.model.entity.RadiographyDefectEntryMode;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -47,4 +48,6 @@ public class RadiographyDefectResponse {
     private boolean reshootOk;
     /** خروجی متنی زنجیره، مثل «(12-20)(25) F.M.L T1 → جوش → سنگ زنی» */
     private String chainText;
+    private RadiographyDefectEntryMode entryMode;
+    private String freeText;
 }

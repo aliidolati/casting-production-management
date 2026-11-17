@@ -1,5 +1,8 @@
 # Database structure
 
+Update 2026-11-15 (V46): `radiography_defects` stores the entry mode in `entry_mode` (default `STRUCTURED`) and multiline text in nullable `free_text`. Type and status are nullable for `FREE_TEXT`; status is always null for those entries. V46 upgrades existing MySQL schemas and preserves existing rows. The runtime Hibernate mapping creates the new columns in update mode; the existing MySQL startup repair relaxes legacy type and status constraints when required. V46 can also be applied explicitly before deploying an upgraded application. The synthetic MySQL fixture reflects the same schema.
+
+
 Update 2026-11-07: V43 adds two nullable `DECIMAL(10,2)` columns, `radiography_shot_hours` and `radiography_interpretation_hours`, to `piece_definitions`. The JPA mapping and synthetic fixture match the additive MySQL script, which can be rerun after Hibernate schema update. Existing rows retain their values and unconfigured durations are NULL.
 
 Update 2026-11-02 (8–3/8–4): immutable drawing revisions with version-bound welding marks and project/definition deletion previews. V42 / fixture: 53 tables, 67 FKs. See [Drawing history and deletion preview](DRAWING_HISTORY_AND_DELETE_PREVIEW.md).

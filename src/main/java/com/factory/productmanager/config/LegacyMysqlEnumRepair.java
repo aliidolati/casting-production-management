@@ -31,7 +31,9 @@ public class LegacyMysqlEnumRepair implements ApplicationRunner {
         convertIfEnum("pieces", "radiography_sub_stage", "VARCHAR(32) NULL");
         convertIfEnum("piece_sub_stage_history", "kind", "VARCHAR(32) NOT NULL");
         convertIfEnum("users", "role", "VARCHAR(32) NOT NULL");
-        convertIfEnum("radiography_defects", "status", "VARCHAR(32) NOT NULL");
+        convertIfEnum("radiography_defects", "status", "VARCHAR(32) NULL");
+        allowNullIfRequired("radiography_defects", "status", "VARCHAR(32) NULL");
+        allowNullIfRequired("radiography_defects", "defect_type", "VARCHAR(255) NULL");
         allowNullIfRequired("piece_welding_dispatches", "notes", "TEXT NULL");
         remapLegacyRadiographyValues();
     }

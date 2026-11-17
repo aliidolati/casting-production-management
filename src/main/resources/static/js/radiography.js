@@ -205,24 +205,29 @@ function defectChainParts(defect) {
 }
 
 function formatDefectChainText(defect) {
+    if (defect.entryMode === "FREE_TEXT") return (defect.welded ? "جوش — " : "") + (defect.freeText || "");
     return defectChainParts(defect).join(" → ");
 }
 
 /** Keep Persian steps from merging into one RTL run across the arrows. */
 function formatDefectChainHtml(defect) {
+    if (defect.entryMode === "FREE_TEXT") {
+        const label = defect.welded ? '<span class="rt-free-text-weld" dir="rtl">جوش</span>' : "";
+        return `${label}<span class="rt-free-text" dir="auto">${escapeHtml(defect.freeText || "")}</span>`;
+    }
     const steps = defectChainParts(defect).map(part => `<bdi dir="auto">${escapeHtml(part)}</bdi>`);
     return `<span class="rt-chain-inline" dir="ltr">${steps.join(" → ")}</span>`;
 }
 
 function formatStructuredDefectHtml(defect) {
-    return defect.reportLineId || defect.correctiveAction
+    return defect.entryMode === "FREE_TEXT" || defect.reportLineId || defect.correctiveAction
         ? formatDefectChainHtml(defect) : escapeHtml(formatStructuredDefect(defect));
 }
 
 /** نمایش ساخت‌یافته مثل G.h T1(13-17) (منجر به جوش) یا G.h T1(20) */
 function formatStructuredDefect(defect) {
     // عیب‌های ثبت‌شده از داخل سطر گزارش (زنجیره) با فرمت زنجیره نمایش داده می‌شوند
-    if (defect.reportLineId || defect.correctiveAction) return formatDefectChainText(defect);
+    if (defect.entryMode === "FREE_TEXT" || defect.reportLineId || defect.correctiveAction) return formatDefectChainText(defect);
     const start = defect.startCm != null ? defect.startCm : defect.locationCm;
     const end = defect.endCm != null ? defect.endCm : start;
     let loc = "";

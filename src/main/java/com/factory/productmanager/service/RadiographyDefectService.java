@@ -11,6 +11,7 @@ import com.factory.productmanager.model.entity.DefectStatus;
 import com.factory.productmanager.model.entity.DefectTypes;
 import com.factory.productmanager.model.entity.Piece;
 import com.factory.productmanager.model.entity.RadiographyDefect;
+import com.factory.productmanager.model.entity.RadiographyDefectEntryMode;
 import com.factory.productmanager.model.entity.RadiographyReportLine;
 import com.factory.productmanager.repository.RadiographyDefectRepository;
 import com.factory.productmanager.repository.RadiographyReportLineRepository;
@@ -61,6 +62,9 @@ public class RadiographyDefectService {
         defect.setPiece(piece);
         defect.setWeldingConfirmed(false);
         defect.setRecordedBy(resolveDisplayName(recordedByUsername));
+        if (request.getEntryMode() != null) {
+            defect.setEntryMode(request.getEntryMode());
+        }
 
         if (request.getReportLineId() != null) {
             RadiographyReportLine line = radiographyReportLineRepository.findById(request.getReportLineId())
@@ -72,12 +76,21 @@ public class RadiographyDefectService {
             defect.setReportLine(line);
             defect.setCourse(line.getTemplateLine().getCourseCode());
 
+            if (defect.getEntryMode() == RadiographyDefectEntryMode.FREE_TEXT) {
+                applyFreeTextFields(defect, request);
+                return toResponse(radiographyDefectRepository.save(defect));
+            }
+            assertNoFreeText(request);
             applyChainFields(defect, request);
             RadiographyDefect saved = radiographyDefectRepository.save(defect);
             RadiographyDefect second = applySecondDefect(saved, request.getSecondDefect());
             return defectMapper.toResponse(saved, second);
         }
 
+        if (defect.getEntryMode() == RadiographyDefectEntryMode.FREE_TEXT) {
+            throw new IllegalArgumentException("عیب متنی باید در یک کورس گزارش رادیوگرافی ثبت شود");
+        }
+        assertNoFreeText(request);
         String course = request.getCourse() == null ? "" : request.getCourse().trim();
         if (course.isEmpty()) {
             throw new IllegalArgumentException("کورس نمی‌تواند خالی باشد");
@@ -95,6 +108,14 @@ public class RadiographyDefectService {
             throw new IllegalStateException("عیب دوم را از طریق عیب اول همان زنجیره ویرایش کنید");
         }
 
+        if (request.getEntryMode() != null && request.getEntryMode() != defect.getEntryMode()) {
+            throw new IllegalArgumentException("حالت ثبت عیب پس از ذخیره قابل تغییر نیست");
+        }
+        if (defect.getEntryMode() == RadiographyDefectEntryMode.FREE_TEXT) {
+            applyFreeTextFields(defect, request);
+            return toResponse(radiographyDefectRepository.save(defect));
+        }
+        assertNoFreeText(request);
         if (defect.getReportLine() != null) {
             applyChainFields(defect, request);
             RadiographyDefect saved = radiographyDefectRepository.save(defect);
@@ -160,6 +181,40 @@ public class RadiographyDefectService {
     /* ===========================
        زنجیره‌ی گزارش (عیب 1 + عیب 2 اختیاری)
        =========================== */
+
+    private void applyFreeTextFields(RadiographyDefect defect, RadiographyDefectRequest request) {
+        String text = request.getFreeText();
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("متن عیب را وارد کنید");
+        }
+        if (request.getLeadsToWelding() != null || request.getStatus() != null
+                || request.getSecondDefect() != null || Boolean.TRUE.equals(request.getReshootOk())
+                || trimToNull(request.getCorrectiveAction()) != null
+                || (request.getPositions() != null && !request.getPositions().isEmpty())
+                || trimToNull(request.getStartCm()) != null || trimToNull(request.getEndCm()) != null
+                || trimToNull(request.getLocationCm()) != null || trimToNull(request.getDefectClass()) != null
+                || trimToNull(request.getTypeCode()) != null || trimToNull(request.getDescription()) != null) {
+            throw new IllegalArgumentException("برای عیب متنی فقط متن و نوع اختیاری عیب قابل ثبت است");
+        }
+        if (trimToNull(request.getDefectType()) == null) {
+            if (trimToNull(request.getDefectTypeCustom()) != null) {
+                throw new IllegalArgumentException("برای ثبت نوع دلخواه، گزینهٔ سایر را انتخاب کنید");
+            }
+            defect.setDefectType(null);
+            defect.setDefectTypeCustom(null);
+        } else {
+            applyType(defect, request.getDefectType(), request.getDefectTypeCustom());
+        }
+        defect.setDefectClass("");
+        defect.setFreeText(text);
+        if (request.getWelded() != null) defect.setWelded(request.getWelded());
+    }
+
+    private void assertNoFreeText(RadiographyDefectRequest request) {
+        if (request.getFreeText() != null) {
+            throw new IllegalArgumentException("برای ثبت متن آزاد، حالت متنی را انتخاب کنید");
+        }
+    }
 
     private void applyChainFields(RadiographyDefect defect, RadiographyDefectRequest request) {
         if (Boolean.TRUE.equals(request.getReshootOk()) && request.getSecondDefect() != null) {

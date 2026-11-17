@@ -9,6 +9,7 @@ import com.factory.productmanager.model.dto.NeedsWeldingAlertItem;
 import com.factory.productmanager.model.dto.RadiographyDefectReportPieceItem;
 import com.factory.productmanager.model.dto.RadiographyDefectReportResponse;
 import com.factory.productmanager.model.dto.RadiographyDefectReportRow;
+import com.factory.productmanager.model.dto.RadiographyFreeTextDefectDetail;
 import com.factory.productmanager.model.dto.RecentStageMoveItem;
 import com.factory.productmanager.model.dto.StageOccupancyReportResponse;
 import com.factory.productmanager.model.dto.StageOccupancyRow;
@@ -24,6 +25,7 @@ import com.factory.productmanager.model.entity.PieceStage;
 import com.factory.productmanager.model.entity.PieceStageHistory;
 import com.factory.productmanager.model.entity.Project;
 import com.factory.productmanager.model.entity.RadiographyDefect;
+import com.factory.productmanager.model.entity.RadiographyDefectEntryMode;
 import com.factory.productmanager.model.entity.RadiographySubStage;
 import com.factory.productmanager.model.entity.SubStageKind;
 import com.factory.productmanager.model.entity.PieceSubStageHistory;
@@ -63,6 +65,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -940,6 +943,7 @@ public class DashboardService {
             List<String> defectTypes,
             List<DefectStatus> statuses,
             List<Boolean> weldingConfirmedFilters,
+            String textQuery,
             LocalDate dateFrom,
             LocalDate dateTo
     ) {
@@ -964,9 +968,14 @@ public class DashboardService {
         Set<DefectStatus> statusFilter = normalizeStatusFilter(statuses);
         Set<Boolean> weldingFilter = normalizeWeldingConfirmedFilter(weldingConfirmedFilters);
 
+        String normalizedTextQuery = textQuery == null ? "" : textQuery.strip().toLowerCase(Locale.ROOT);
+
         defects = defects.stream()
                 .filter(d -> eligiblePieceIds.contains(d.getPiece().getId()))
-                .filter(d -> !"VT".equalsIgnoreCase(d.getDefectType()))
+                .filter(d -> d.getEntryMode() == RadiographyDefectEntryMode.FREE_TEXT
+                        || !"VT".equalsIgnoreCase(d.getDefectType()))
+                .filter(d -> normalizedTextQuery.isEmpty() || (d.getFreeText() != null
+                        && d.getFreeText().toLowerCase(Locale.ROOT).contains(normalizedTextQuery)))
                 .filter(d -> defectTypeFilter.isEmpty() || matchesDefectTypeFilter(d, defectTypeFilter))
                 .filter(d -> statusFilter.isEmpty() || statusFilter.contains(d.getStatus()))
                 .filter(d -> matchesWeldingConfirmedFilter(d, weldingFilter))
@@ -979,12 +988,12 @@ public class DashboardService {
             }
         }
 
-        record GroupKey(UUID definitionId, String type) {}
+        record GroupKey(UUID definitionId, String type, boolean uncategorized) {}
 
         Map<GroupKey, List<RadiographyDefect>> grouped = new LinkedHashMap<>();
         for (RadiographyDefect d : defects) {
             PieceDefinition pd = d.getPiece().getPieceDefinition();
-            GroupKey key = new GroupKey(pd.getId(), DefectTypes.displayLabel(d.getDefectType(), d.getDefectTypeCustom()));
+            GroupKey key = new GroupKey(pd.getId(), defectReportTypeLabel(d), d.getDefectType() == null);
             grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(d);
         }
 
@@ -1010,6 +1019,10 @@ public class DashboardService {
                         long confirmedWeldingCount = pieceDefects.stream()
                                 .filter(d -> d.getStatus() == DefectStatus.NEEDS_WELDING && d.isWeldingConfirmed())
                                 .count();
+                        List<RadiographyFreeTextDefectDetail> freeTextDefects = pieceDefects.stream()
+                                .filter(d -> d.getEntryMode() == RadiographyDefectEntryMode.FREE_TEXT)
+                                .map(d -> new RadiographyFreeTextDefectDetail(d.getCourse(), d.getFreeText()))
+                                .toList();
                         return new RadiographyDefectReportPieceItem(
                                 piece.getId(),
                                 piece.getPieceNumber(),
@@ -1017,7 +1030,8 @@ public class DashboardService {
                                 pieceDefects.size(),
                                 needsWelding,
                                 approved,
-                                confirmedWeldingCount
+                                confirmedWeldingCount,
+                                freeTextDefects
                         );
                     })
                     .sorted(Comparator.comparing(RadiographyDefectReportPieceItem::getPieceNumber,
@@ -1080,12 +1094,19 @@ public class DashboardService {
         ));
     }
 
+    private static final String UNCATEGORIZED_TEXT_DEFECT = "UNCATEGORIZED_FREE_TEXT";
+
+    private String defectReportTypeLabel(RadiographyDefect defect) {
+        return defect.getDefectType() == null
+                ? "عیوب متنی بدون دسته‌بندی"
+                : DefectTypes.displayLabel(defect.getDefectType(), defect.getDefectTypeCustom());
+    }
+
     private boolean matchesDefectTypeFilter(RadiographyDefect defect, Set<String> filter) {
-        if (filter.contains(defect.getDefectType())) {
-            return true;
+        if (defect.getDefectType() == null) {
+            return filter.contains(UNCATEGORIZED_TEXT_DEFECT);
         }
-        String display = DefectTypes.displayLabel(defect.getDefectType(), defect.getDefectTypeCustom());
-        return filter.contains(display);
+        return filter.contains(defect.getDefectType()) || filter.contains(defectReportTypeLabel(defect));
     }
 
     private Set<String> normalizeDefectTypeFilter(List<String> defectTypes) {
@@ -1093,7 +1114,7 @@ public class DashboardService {
             return Set.of();
         }
         return defectTypes.stream()
-                .filter(t -> t != null && !t.isBlank() && !"VT".equalsIgnoreCase(t.trim()))
+                .filter(t -> t != null && !t.isBlank())
                 .map(String::trim)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
@@ -1119,6 +1140,7 @@ public class DashboardService {
         if (defect.getStatus() == DefectStatus.APPROVED) {
             return true;
         }
-        return weldingFilter.contains(defect.isWeldingConfirmed());
+        return defect.getStatus() == DefectStatus.NEEDS_WELDING
+                && weldingFilter.contains(defect.isWeldingConfirmed());
     }
 }

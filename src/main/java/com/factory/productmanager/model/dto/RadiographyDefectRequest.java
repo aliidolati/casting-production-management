@@ -1,8 +1,8 @@
 package com.factory.productmanager.model.dto;
 
 import com.factory.productmanager.model.entity.DefectStatus;
+import com.factory.productmanager.model.entity.RadiographyDefectEntryMode;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -24,7 +24,11 @@ public class RadiographyDefectRequest {
      */
     private UUID reportLineId;
 
-    @NotBlank(message = "نوع عیب نمی‌تواند خالی باشد")
+    private RadiographyDefectEntryMode entryMode;
+
+    @Size(max = 4000, message = "متن عیب حداکثر ۴۰۰۰ کاراکتر است")
+    private String freeText;
+
     @Size(max = 255, message = "نوع عیب حداکثر ۲۵۵ کاراکتر است")
     private String defectType;
 
