@@ -50,6 +50,9 @@ function clearSession() {
 }
 
 function showLoginScreen(message) {
+    if (document.getElementById("spectrometry-section")?.classList.contains("active")) {
+        closeSpectrometryPage();
+    }
     document.getElementById("app-shell").classList.add("hidden");
     document.getElementById("login-screen").classList.remove("hidden");
     if (typeof teardownNotificationCenter === "function") {
@@ -80,6 +83,7 @@ function showLoginScreen(message) {
 // شناسه‌ی دکمه‌هایی که بر اساس دسترسی نمایش داده می‌شوند
 const PERMISSION_BUTTONS = [
     { id: "nav-btn-dashboard", permission: "VIEW_DASHBOARD" },
+    { id: "btn-dashboard-spectrometry", permission: "VIEW_SPECTROMETRY" },
     { id: "nav-btn-users", permission: "VIEW_USERS" },
     { id: "btn-add-user", adminOnly: true },
     { id: "nav-btn-tasks-all", permission: "MANAGE_TASKS" },
@@ -113,6 +117,9 @@ function renderCurrentUser() {
         const el = document.getElementById(id);
         if (el) el.classList.toggle("hidden", !shouldShowButton(rule));
     });
+
+    document.getElementById("nav-btn-spectrometry")?.classList.toggle("hidden",
+        !hasPermission("VIEW_SPECTROMETRY") || hasPermission("VIEW_DASHBOARD"));
 
     // ستون چک‌باکس و نوار عملیات دسته‌جمعی در ردیابی
     const selectAllTh = document.querySelector("#tracking-table thead .checkbox-cell");

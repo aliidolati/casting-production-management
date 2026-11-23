@@ -46,6 +46,16 @@ const MeltPassportAPI = {
     consumption: (filters) => apiRequest(`/melt-passports/consumption?${trackingQueryString(filters)}`),
 };
 
+const SpectrometryAPI = {
+    history: (filters) => apiRequest(`/spectrometry?${trackingQueryString(filters)}`),
+    points: (filters) => apiRequest(`/spectrometry/points?${trackingQueryString(filters)}`),
+    csv: (filters) => apiBlob(`/spectrometry/csv?${trackingQueryString(filters)}`, "no-store"),
+    pieceOptions: (definitionId) => apiRequest(`/spectrometry/pieces?${trackingQueryString({ definitionId })}`),
+    saveBatch: (body) => apiRequest("/spectrometry/batch", "POST", body),
+    update: (id, body) => apiRequest(`/spectrometry/${encodeURIComponent(id)}`, "PUT", body),
+    remove: (id, version) => apiRequest(`/spectrometry/${encodeURIComponent(id)}?${trackingQueryString({ version })}`, "DELETE"),
+};
+
 /**
  * تابع کمکی مرکزی برای انجام درخواست‌های HTTP
  * تمام توابع دیگر این فایل از این تابع استفاده می‌کنند.

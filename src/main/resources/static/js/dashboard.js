@@ -823,6 +823,11 @@ document.addEventListener("DOMContentLoaded", () => {
         aggBtn.addEventListener("click", () => openAggregateWeldingMapPicker());
     }
 
+    document.getElementById("btn-dashboard-spectrometry")?.addEventListener("click", () => {
+        setReportsMenuOpen(false);
+        openSpectrometryPage();
+    });
+
     initDefectReportUi();
     initOccupancyReportUi();
     initWeldingReportUi();
