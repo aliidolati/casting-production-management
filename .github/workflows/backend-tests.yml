@@ -54,6 +54,7 @@ jobs:
         run: |
           node --test src/test/js/*.test.cjs
           NODE_PATH="$PWD/target/browser-tools/node_modules" node src/test/js/tracking-archive.browser.cjs
+          NODE_PATH="$PWD/target/browser-tools/node_modules" node src/test/js/heat-log-edit.browser.cjs
           NODE_PATH="$PWD/target/browser-tools/node_modules" node src/test/js/radiography-order.browser.cjs
       - name: Drawing and deletion browser smoke test
         run: NODE_PATH="$PWD/target/browser-tools/node_modules" bash mvnw -B -ntp -Ddrawing.browser.enabled=true -Dtest=DrawingBrowserSmokeTest test
