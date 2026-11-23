@@ -13,6 +13,7 @@ public class MysqlTestContextInitializer implements ApplicationContextInitialize
                 : profiles.contains("scrap-mysql") ? "scrap_workflow_synthetic"
                 : profiles.contains("melt-mysql") ? "melt_lookup_synthetic"
                 : profiles.contains("performance-mysql") ? "performance_synthetic"
+                : profiles.contains("spectrometry-mysql") ? "spectrometry_synthetic"
                 : profiles.contains("mysql-schema") ? "schema_baseline_synthetic" : "cloud_business_synthetic";
         if (profiles.contains("mysql-schema")) {
             try (var c = IsolatedMysql.connect(schema); var statement = c.createStatement()) {

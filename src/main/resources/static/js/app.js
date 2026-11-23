@@ -16,6 +16,10 @@ const AppState = {
    =========================== */
 
 function showSection(sectionId) {
+    if (sectionId !== "spectrometry-section" &&
+            document.getElementById("spectrometry-section")?.classList.contains("active")) {
+        closeSpectrometryPage();
+    }
     document.querySelectorAll(".content-section").forEach((el) => el.classList.remove("active"));
     document.getElementById(sectionId).classList.add("active");
 }
@@ -337,6 +341,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 showSection("dashboard-section");
                 loadDashboard();
+            } else if (section === "spectrometry") {
+                openSpectrometryPage();
             } else if (section === "projects") {
                 showSection("projects-section");
                 loadProjects();

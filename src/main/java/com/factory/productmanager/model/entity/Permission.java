@@ -46,7 +46,11 @@ public enum Permission {
     EDIT_HEAT_TREATMENT_BATCH("اصلاح سیکل محموله کوره"),
     MANAGE_MELT_MATERIALS("مدیریت کاتالوگ مواد ذوب"),
     ASSIGN_MELT_OPERATOR("تخصیص اپراتور ذوب"),
-    APPROVE_MELT_PASSPORT("تأیید شناسنامه ذوب");
+    APPROVE_MELT_PASSPORT("تأیید شناسنامه ذوب"),
+    VIEW_SPECTROMETRY("مشاهده کوانتومتری"),
+    CREATE_SPECTROMETRY_TEST("ثبت آزمون کوانتومتری"),
+    EDIT_SPECTROMETRY_TEST("ویرایش آزمون کوانتومتری"),
+    DELETE_SPECTROMETRY_TEST("حذف آزمون کوانتومتری");
 
     private final String label;
 

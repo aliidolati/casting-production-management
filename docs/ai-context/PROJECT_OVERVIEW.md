@@ -1,5 +1,7 @@
 # Project overview
 
+Update 2026-11-23: [Spectrometry](SPECTROMETRY.md) adds optional chemical composition results, bulk entry, history and selectable trend analysis for existing cast pieces.
+
 Update 2026-11-08: manual production movement uses the existing normal next step or permissioned single/bulk status correction in either direction. This retires the separate stage-skip action. See [stage movement access](STAGE_MOVEMENT_ACCESS.md).
 
 Update 2026-11-02 (8–3/8–4): immutable drawing revisions with version-bound welding marks and project/definition deletion previews. V42 / fixture: 53 tables, 67 FKs. See [Drawing history and deletion preview](DRAWING_HISTORY_AND_DELETE_PREVIEW.md).

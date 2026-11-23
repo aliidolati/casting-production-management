@@ -1,5 +1,6 @@
 package com.factory.productmanager.repository;
 
+import com.factory.productmanager.model.dto.SpectrometryDto.PieceOption;
 import com.factory.productmanager.model.entity.Piece;
 import com.factory.productmanager.model.entity.PieceStage;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -49,6 +50,12 @@ public interface PieceRepository extends JpaRepository<Piece, UUID>, PieceReposi
     boolean existsByPieceDefinitionIdAndPieceNumber(UUID pieceDefinitionId, Integer pieceNumber);
 
     boolean existsByPieceDefinitionIdAndPieceNumberAndIdNot(UUID pieceDefinitionId, Integer pieceNumber, UUID id);
+
+    @Query("""
+        select new com.factory.productmanager.model.dto.SpectrometryDto$PieceOption(p.id, p.pieceNumber, p.archivedAt)
+        from Piece p where p.pieceDefinition.id = :definitionId order by p.pieceNumber
+        """)
+    List<PieceOption> findPieceNumberOptions(UUID definitionId);
 
     List<Piece> findByPieceDefinitionIdAndArchivedAtIsNull(UUID pieceDefinitionId);
 
