@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="css/performance.css?v=1">
     <link rel="stylesheet" href="css/radiography-workflow.css?v=3">
     <link rel="stylesheet" href="css/melt-passport.css?v=6">
-    <link rel="stylesheet" href="css/spectrometry.css?v=1">
+    <link rel="stylesheet" href="css/spectrometry.css?v=2">
     <!-- تم باید قبل از اولین رنگ‌آمیزی (هم‌زمان) اعمال شود تا صفحه چشمک نزند -->
     <script src="js/theme-definitions.js?v=20261102-integrated"></script>
     <script src="js/theme-manager.js?v=20261102-integrated"></script>
@@ -753,111 +753,149 @@
         </section>
 
         <section id="spectrometry-section" class="content-section" aria-labelledby="spectrometry-title" dir="rtl">
-            <div class="section-header">
-                <h2 class="section-title" id="spectrometry-title" tabindex="-1">کوانتومتری</h2>
-                <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-back">بازگشت به داشبورد</button>
+            <div class="section-header spectrometry-heading">
+                <div>
+                    <h2 class="section-title" id="spectrometry-title" tabindex="-1">کوانتومتری</h2>
+                    <p class="form-hint">ثبت و تحلیل ترکیب شیمیایی قطعات ریخته‌گری</p>
+                </div>
+                <div class="section-header-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-back">بازگشت به داشبورد</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="spectrometry-open-entry" hidden>ثبت گروهی آزمون‌ها</button>
+                </div>
             </div>
 
-            <form class="spectrometry-card" id="spectrometry-entry" novalidate hidden>
-                <div class="section-header">
-                    <h3>ثبت گروهی آزمون‌ها</h3>
-                    <button type="button" class="btn btn-primary btn-sm" id="spectrometry-add">افزودن قطعه</button>
-                </div>
-                <p class="form-hint">تاریخ آزمون، شماره قطعه و مقادیر هر هشت عنصر را وارد کنید. مقادیر بر حسب درصد وزنی (wt%) هستند.</p>
-                <datalist id="spectrometry-project-options"></datalist>
-                <fieldset class="spectrometry-fields" id="spectrometry-entry-fields" aria-label="ردیف‌های ثبت آزمون">
+            <div class="spectrometry-tabs" id="spectrometry-tabs" role="tablist" aria-label="بخش‌های کوانتومتری">
+                <button type="button" id="spectrometry-tab-overview" role="tab"
+                        aria-controls="spectrometry-panel-overview" aria-selected="true">پایش و سوابق</button>
+                <button type="button" id="spectrometry-tab-entry" role="tab" hidden tabindex="-1"
+                        aria-controls="spectrometry-panel-entry" aria-selected="false">ثبت گروهی</button>
+            </div>
+            <div id="spectrometry-panel-overview" role="tabpanel" aria-labelledby="spectrometry-tab-overview">
+                <form class="spectrometry-card spectrometry-filter-card" id="spectrometry-filters" aria-label="فیلتر نتایج" novalidate>
+                    <div class="spectrometry-filter-fields">
+                        <div class="form-group">
+                            <label for="spectrometry-filter-from">از تاریخ</label>
+                            <input type="text" id="spectrometry-filter-from">
+                        </div>
+                        <div class="form-group">
+                            <label for="spectrometry-filter-to">تا تاریخ</label>
+                            <input type="text" id="spectrometry-filter-to">
+                        </div>
+                        <div class="form-group">
+                            <label for="spectrometry-filter-project">کد پروژه</label>
+                            <input id="spectrometry-filter-project" maxlength="255" type="search">
+                        </div>
+                        <div class="spectrometry-filter-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-more-filters"
+                                    aria-expanded="false" aria-controls="spectrometry-filter-extra">فیلترهای بیشتر</button>
+                            <button type="submit" class="btn btn-primary btn-sm">اعمال فیلتر</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-reset-filters">بازنشانی</button>
+                        </div>
+                    </div>
+                    <div class="spectrometry-filter-fields spectrometry-filter-extra" id="spectrometry-filter-extra" hidden>
+                        <div class="form-group">
+                            <label for="spectrometry-filter-name">نام قطعه</label>
+                            <input id="spectrometry-filter-name" maxlength="255" type="search">
+                        </div>
+                        <div class="form-group">
+                            <label for="spectrometry-filter-number">شماره دقیق قطعه</label>
+                            <input id="spectrometry-filter-number" maxlength="32" inputmode="numeric" type="search">
+                        </div>
+                    </div>
+                    <p class="form-error" id="spectrometry-filter-error" role="alert" hidden></p>
+                </form>
+
+                <section class="spectrometry-card" aria-labelledby="spectrometry-charts-title">
+                    <div class="section-header spectrometry-analysis-bar">
+                        <div>
+                            <h3 id="spectrometry-charts-title">روند ترکیب شیمیایی</h3>
+                            <p class="form-hint">آزمون‌های موردنظر را در جدول سوابق انتخاب کنید.</p>
+                        </div>
+                        <fieldset class="spectrometry-basis spectrometry-segment" aria-label="مبنای محاسبات آماری">
+                            <label><input type="radio" name="spectrometry-basis" value="all" checked> همه آزمون‌ها</label>
+                            <label><input type="radio" name="spectrometry-basis" value="selected"> آزمون‌های انتخاب‌شده</label>
+                        </fieldset>
+                    </div>
+                    <div class="spectrometry-chart-switcher">
+                        <fieldset id="spectrometry-elements" class="spectrometry-basis spectrometry-segment" aria-label="عنصر نمودار"></fieldset>
+                    </div>
+                    <p class="form-error" id="spectrometry-chart-error" role="alert" hidden></p>
+                    <p class="form-hint" id="spectrometry-chart-status" role="status"></p>
+                    <div id="spectrometry-charts"></div>
+                    <div class="trend-tooltip spectrometry-tooltip" id="spectrometry-tooltip" hidden></div>
+                </section>
+
+                <section class="spectrometry-card" aria-labelledby="spectrometry-history-title">
+                    <div class="section-header">
+                        <div class="spectrometry-history-heading">
+                            <h3 id="spectrometry-history-title">سوابق آزمون‌ها</h3>
+                            <span id="spectrometry-history-count" class="form-hint"></span>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-export" disabled>خروجی CSV</button>
+                    </div>
+                    <p class="form-error" id="spectrometry-history-error" role="alert" hidden></p>
                     <div class="table-wrap table-wrap-scroll">
-                        <table class="data-table spectrometry-table spectrometry-entry-table">
+                        <table class="data-table spectrometry-table spectrometry-history-table">
                             <thead><tr>
-                                <th scope="col">ردیف</th><th scope="col">کد پروژه</th><th scope="col">نام قطعه</th>
-                                <th scope="col">شماره قطعه</th><th scope="col">تاریخ آزمون</th>
+                                <th scope="col">تحلیل</th><th scope="col">کد پروژه</th>
+                                <th scope="col">نام قطعه</th><th scope="col">شماره قطعه</th>
+                                <th scope="col" id="spectrometry-sort-header" aria-sort="descending">
+                                    <button type="button" class="btn-link" id="spectrometry-sort">تاریخ آزمون ↓</button>
+                                </th>
                                 <th scope="col">Al</th><th scope="col">Si</th><th scope="col">Mg</th><th scope="col">Cu</th>
                                 <th scope="col">Fe</th><th scope="col">Mn</th><th scope="col">Zn</th><th scope="col">Ti</th>
-                                <th scope="col">حذف ردیف</th>
+                                <th scope="col" id="spectrometry-actions-header">عملیات</th>
                             </tr></thead>
-                            <tbody id="spectrometry-drafts"></tbody>
+                            <tbody id="spectrometry-history"></tbody>
                         </table>
                     </div>
-                </fieldset>
-                <p class="form-error" id="spectrometry-entry-error" role="alert" hidden></p>
-                <button type="submit" class="btn btn-primary" id="spectrometry-save">ذخیره آزمون‌ها</button>
-            </form>
+                    <div class="pagination-bar" id="spectrometry-pagination" hidden>
+                        <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-prev">قبلی</button>
+                        <span class="pagination-info" id="spectrometry-page-info" aria-live="polite"></span>
+                        <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-next">بعدی</button>
+                        <label class="pagination-size" for="spectrometry-page-size">تعداد در صفحه
+                            <select id="spectrometry-page-size">
+                                <option value="25">۲۵</option><option value="50" selected>۵۰</option><option value="100">۱۰۰</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="spectrometry-selection-footer">
+                        <span id="spectrometry-selection-count" aria-live="polite"></span>
+                        <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-clear-selection" disabled>پاک‌کردن همه انتخاب‌ها</button>
+                    </div>
+                </section>
 
-            <section class="spectrometry-card" aria-labelledby="spectrometry-history-title">
-                <div class="section-header">
-                    <h3 id="spectrometry-history-title">سوابق آزمون‌ها</h3>
-                    <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-export" disabled>خروجی CSV</button>
-                </div>
-                <form class="dashboard-filters" id="spectrometry-filters" novalidate>
-                    <div class="form-group">
-                        <label for="spectrometry-filter-project">کد پروژه</label>
-                        <input id="spectrometry-filter-project" maxlength="255" type="search">
+            </div>
+
+            <div id="spectrometry-panel-entry" role="tabpanel" aria-labelledby="spectrometry-tab-entry" hidden>
+                <form class="spectrometry-card" id="spectrometry-entry" novalidate>
+                    <div class="section-header">
+                        <h3 id="spectrometry-entry-title" tabindex="-1">ثبت گروهی آزمون‌ها</h3>
+                        <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-add">افزودن قطعه</button>
                     </div>
-                    <div class="form-group">
-                        <label for="spectrometry-filter-name">نام قطعه</label>
-                        <input id="spectrometry-filter-name" maxlength="255" type="search">
-                    </div>
-                    <div class="form-group">
-                        <label for="spectrometry-filter-number">شماره دقیق قطعه</label>
-                        <input id="spectrometry-filter-number" maxlength="32" inputmode="numeric" type="search">
-                    </div>
-                    <div class="form-group">
-                        <label for="spectrometry-filter-from">از تاریخ</label>
-                        <input type="text" id="spectrometry-filter-from">
-                    </div>
-                    <div class="form-group">
-                        <label for="spectrometry-filter-to">تا تاریخ</label>
-                        <input type="text" id="spectrometry-filter-to">
-                    </div>
-                    <div class="dashboard-filters-actions">
-                        <button type="submit" class="btn btn-primary btn-sm">اعمال فیلتر</button>
-                        <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-reset-filters">بازنشانی فیلترها</button>
+                    <p class="spectrometry-entry-hint">قطعه را از فهرست انتخاب کنید و مقادیر هر هشت عنصر را به درصد وزنی <bdi>(wt%)</bdi> وارد کنید.</p>
+                    <datalist id="spectrometry-project-options"></datalist>
+                    <fieldset class="spectrometry-fields" id="spectrometry-entry-fields" aria-label="ردیف‌های ثبت آزمون">
+                        <div class="table-wrap table-wrap-scroll">
+                            <table class="data-table spectrometry-table spectrometry-entry-table">
+                                <thead><tr>
+                                    <th scope="col">ردیف</th><th scope="col">کد پروژه</th><th scope="col">نام قطعه</th>
+                                    <th scope="col">شماره قطعه</th><th scope="col">تاریخ آزمون</th>
+                                    <th scope="col">Al</th><th scope="col">Si</th><th scope="col">Mg</th><th scope="col">Cu</th>
+                                    <th scope="col">Fe</th><th scope="col">Mn</th><th scope="col">Zn</th><th scope="col">Ti</th>
+                                    <th scope="col">حذف ردیف</th>
+                                </tr></thead>
+                                <tbody id="spectrometry-drafts"></tbody>
+                            </table>
+                        </div>
+                    </fieldset>
+                    <p class="form-error" id="spectrometry-entry-error" role="alert" hidden></p>
+                    <div class="spectrometry-entry-footer">
+                        <p class="form-hint" id="spectrometry-draft-summary"></p>
+                        <button type="submit" class="btn btn-primary" id="spectrometry-save">ذخیره آزمون‌ها</button>
                     </div>
                 </form>
-                <p class="form-error" id="spectrometry-history-error" role="alert" hidden></p>
-                <div class="table-wrap table-wrap-scroll">
-                    <table class="data-table spectrometry-table spectrometry-history-table">
-                        <thead><tr>
-                            <th scope="col">انتخاب برای تحلیل</th><th scope="col">کد پروژه</th>
-                            <th scope="col">نام قطعه</th><th scope="col">شماره قطعه</th>
-                            <th scope="col" id="spectrometry-sort-header" aria-sort="descending">
-                                <button type="button" class="btn-link" id="spectrometry-sort">تاریخ آزمون ↓</button>
-                            </th>
-                            <th scope="col">Al</th><th scope="col">Si</th><th scope="col">Mg</th><th scope="col">Cu</th>
-                            <th scope="col">Fe</th><th scope="col">Mn</th><th scope="col">Zn</th><th scope="col">Ti</th>
-                            <th scope="col" id="spectrometry-actions-header">عملیات</th>
-                        </tr></thead>
-                        <tbody id="spectrometry-history"></tbody>
-                    </table>
-                </div>
-                <div class="pagination-bar" id="spectrometry-pagination" hidden>
-                    <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-prev">قبلی</button>
-                    <span class="pagination-info" id="spectrometry-page-info" aria-live="polite"></span>
-                    <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-next">بعدی</button>
-                    <label class="pagination-size" for="spectrometry-page-size">تعداد در صفحه
-                        <select id="spectrometry-page-size">
-                            <option value="25">۲۵</option><option value="50" selected>۵۰</option><option value="100">۱۰۰</option>
-                        </select>
-                    </label>
-                </div>
-            </section>
-
-            <section class="spectrometry-card" aria-labelledby="spectrometry-charts-title">
-                <h3 id="spectrometry-charts-title">نمودارهای کوانتومتری</h3>
-                <div class="spectrometry-analysis-bar">
-                    <fieldset class="spectrometry-basis">
-                        <legend>مبنای محاسبات آماری</legend>
-                        <label class="trend-toggle"><input type="radio" name="spectrometry-basis" value="all" checked> تمام قطعات</label>
-                        <label class="trend-toggle"><input type="radio" name="spectrometry-basis" value="selected"> فقط قطعات انتخاب‌شده</label>
-                    </fieldset>
-                    <span id="spectrometry-selection-count" aria-live="polite"></span>
-                    <button type="button" class="btn btn-secondary btn-sm" id="spectrometry-clear-selection" disabled>پاک‌کردن همه انتخاب‌ها</button>
-                </div>
-                <p class="form-error" id="spectrometry-chart-error" role="alert" hidden></p>
-                <p class="form-hint" id="spectrometry-chart-status" role="status"></p>
-                <div id="spectrometry-charts"></div>
-                <div class="trend-tooltip spectrometry-tooltip" id="spectrometry-tooltip" hidden></div>
-            </section>
+            </div>
         </section>
 
         <!-- بخش پروژه‌ها -->
@@ -1241,8 +1279,8 @@
     <script src="js/record-edit.js?v=20261102-integrated"></script>
     <script src="js/tensile-quality-report.js?v=20261114-reports"></script>
     <script src="js/tensile-trend-report.js?v=20261102-integrated"></script>
-    <script src="js/spectrometry-charts.js?v=1"></script>
-    <script src="js/spectrometry.js?v=1"></script>
+    <script src="js/spectrometry-charts.js?v=2"></script>
+    <script src="js/spectrometry.js?v=2"></script>
     <script src="js/production-flow.js?v=20261102-integrated"></script>
     <script src="js/tracking.js?v=20261115-tracking-shot"></script>
     <script src="js/notifications.js?v=20261102-integrated"></script>

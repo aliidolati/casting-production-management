@@ -12,6 +12,22 @@ const SpectrometryPage = (() => {
         toPicker = attachPersianDatePicker(byId("filter-to"), { editable: true });
         SpectrometryCharts.init(toggleSelection);
         byId("back").addEventListener("click", () => document.getElementById("nav-btn-dashboard").click());
+        byId("tab-overview").addEventListener("click", () => showTab("overview"));
+        byId("tab-entry").addEventListener("click", () => showTab("entry"));
+        byId("open-entry").addEventListener("click", () => {
+            showTab("entry");
+            byId("entry-title").focus();
+        });
+        byId("tabs").addEventListener("keydown", (event) => {
+            if (byId("tab-entry").hidden || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            const tab = event.key === "Home" ? "overview" : event.key === "End" ? "entry"
+                : event.target === byId("tab-overview") ? "entry" : "overview";
+            showTab(tab);
+            byId(`tab-${tab}`).focus();
+        });
+        byId("more-filters").addEventListener("click", () => setExtraFilters(byId("filter-extra").hidden));
+        byId("drafts").addEventListener("input", () => syncDraftSummary(page));
         byId("add").addEventListener("click", () => addRow(page, true));
         byId("entry").addEventListener("submit", saveBatch);
         byId("filters").addEventListener("submit", (event) => {
@@ -59,7 +75,9 @@ const SpectrometryPage = (() => {
             ascending: false, exporting: false,
         };
         byId("back").hidden = !hasPermission("VIEW_DASHBOARD");
-        byId("entry").hidden = !hasPermission("CREATE_SPECTROMETRY_TEST");
+        byId("tab-entry").hidden = !hasPermission("CREATE_SPECTROMETRY_TEST");
+        showTab("overview");
+        setExtraFilters(false);
         byId("drafts").replaceChildren();
         byId("project-options").replaceChildren();
         byId("actions-header").hidden = !(canEdit() || canDelete());
@@ -67,6 +85,7 @@ const SpectrometryPage = (() => {
         byId("export").disabled = true;
         setMessage("entry-error");
         resetFilters();
+        setMessage("filter-error");
         document.querySelector('[name="spectrometry-basis"][value="all"]').checked = true;
         SpectrometryCharts.reset();
         syncSelection();
@@ -75,7 +94,7 @@ const SpectrometryPage = (() => {
         setActiveNavButton(hasPermission("VIEW_DASHBOARD") ? "dashboard" : "spectrometry");
         showSection("spectrometry-section");
         byId("title").focus();
-        if (!byId("entry").hidden) addRow(page);
+        if (!byId("tab-entry").hidden) addRow(page);
         refresh(page);
     }
 
@@ -85,6 +104,25 @@ const SpectrometryPage = (() => {
         byId("history").replaceChildren();
         byId("drafts").replaceChildren();
         byId("project-options").replaceChildren();
+    }
+
+    function showTab(tab) {
+        if (tab === "entry" && byId("tab-entry").hidden) return;
+        for (const name of ["overview", "entry"]) {
+            const active = tab === name;
+            const button = byId(`tab-${name}`);
+            button.setAttribute("aria-selected", String(active));
+            button.tabIndex = active ? 0 : -1;
+            byId(`panel-${name}`).hidden = !active;
+        }
+        byId("open-entry").hidden = tab === "entry" || byId("tab-entry").hidden;
+        SpectrometryCharts.hideTooltip();
+        if (tab === "overview") SpectrometryCharts.redraw();
+    }
+
+    function setExtraFilters(expanded) {
+        byId("filter-extra").hidden = !expanded;
+        byId("more-filters").setAttribute("aria-expanded", String(expanded));
     }
 
     function setMessage(id, message = "") {
@@ -196,7 +234,11 @@ const SpectrometryPage = (() => {
         const fields = Object.fromEntries([...root.querySelectorAll("[data-input]")]
             .map(element => [element.dataset.input, element]));
         const initialDate = today();
-        const datePicker = attachPersianDatePicker(fields.date, { editable: true });
+        const datePicker = attachPersianDatePicker(fields.date, {
+            editable: true,
+            onSelect: () => syncDraftSummary(state),
+            onClear: () => syncDraftSummary(state),
+        });
         fields.date.value = initialDate;
         fields.definition.disabled = true;
         fields.piece.disabled = true;
@@ -245,6 +287,8 @@ const SpectrometryPage = (() => {
                     project = null;
                     showToast(error.message, "error");
                 }
+            } finally {
+                syncDraftSummary(state);
             }
         }
 
@@ -267,6 +311,8 @@ const SpectrometryPage = (() => {
                     definition = null;
                     showToast(error.message, "error");
                 }
+            } finally {
+                syncDraftSummary(state);
             }
         }
 
@@ -289,9 +335,13 @@ const SpectrometryPage = (() => {
             warmProjects();
         }
 
+        function isEmpty() {
+            return fields.date.value === initialDate &&
+                Object.entries(fields).every(([key, input]) => key === "date" || !input.value.trim());
+        }
+
         function read(ignoreEmpty) {
-            if (ignoreEmpty && fields.date.value === initialDate &&
-                    ["project", "definition", "piece", ...elements].every(key => !fields[key].value.trim())) return null;
+            if (ignoreEmpty && isEmpty()) return null;
             const pieceNumber = digits(fields.piece.value.trim());
             const projectMatches = project && project.code === fields.project.value.trim();
             const definitionMatches = definition && optionsByName.get(fields.definition.value)?.id === definition.id;
@@ -319,10 +369,25 @@ const SpectrometryPage = (() => {
             return { message, input: fields[key] };
         }
 
-        return { root, fields, read };
+        return { root, fields, read, isEmpty };
+    }
+
+    function syncDraftSummary(state) {
+        if (!state || state !== page) return;
+        let filled = 0;
+        let empty = 0;
+        for (const { fields, isEmpty } of state.rows.values()) {
+            if (isEmpty()) empty++;
+            else if (Object.values(fields).every(input => input.value.trim())) filled++;
+        }
+        const incomplete = state.rows.size - filled - empty;
+        const summary = [`${formatFaNumber(filled)} ردیف پرشده`, `${formatFaNumber(empty)} ردیف خالی`];
+        if (incomplete) summary.push(`${formatFaNumber(incomplete)} ردیف نیمه‌کاره`);
+        byId("draft-summary").textContent = summary.join(" · ");
     }
 
     function syncEntryState(state) {
+        syncDraftSummary(state);
         const locked = state.saving || !!state.pending;
         byId("entry-fields").disabled = locked;
         byId("add").disabled = locked;
@@ -423,17 +488,20 @@ const SpectrometryPage = (() => {
             if (input.value.trim() && !date) {
                 input.setAttribute("aria-invalid", "true");
                 input.focus();
-                return setMessage("history-error", "تاریخ فیلتر را با قالب سال/ماه/روز وارد کنید.");
+                return setMessage("filter-error", "تاریخ فیلتر را با قالب سال/ماه/روز وارد کنید.");
             }
             input.removeAttribute("aria-invalid");
         }
         if (dateFrom && dateTo && dateFrom > dateTo) {
-            return setMessage("history-error", "ابتدای بازهٔ تاریخ باید قبل از پایان بازه یا برابر با آن باشد.");
+            return setMessage("filter-error", "ابتدای بازهٔ تاریخ باید قبل از پایان بازه یا برابر با آن باشد.");
         }
         const pieceNumber = digits(byId("filter-number").value.trim());
         if (pieceNumber && (!/^\d+$/.test(pieceNumber) || Number(pieceNumber) > 2147483647)) {
-            return setMessage("history-error", "شماره قطعه باید عدد صحیح باشد.");
+            setExtraFilters(true);
+            byId("filter-number").focus();
+            return setMessage("filter-error", "شماره قطعه باید عدد صحیح باشد.");
         }
+        setMessage("filter-error");
         page.filters = {
             projectCode: byId("filter-project").value.trim(), pieceName: byId("filter-name").value.trim(),
             pieceNumber, dateFrom, dateTo,
@@ -462,6 +530,7 @@ const SpectrometryPage = (() => {
         const filters = { ...state.filters, page: index, size: byId("page-size").value, ascending: state.ascending };
         setMessage("history-error");
         byId("history").setAttribute("aria-busy", "true");
+        byId("history-count").textContent = "";
         byId("pagination").hidden = true;
         byId("export").disabled = true;
         historyMessage("در حال دریافت سوابق…");
@@ -487,7 +556,8 @@ const SpectrometryPage = (() => {
         byId("pagination").hidden = !history.totalElements;
         byId("prev").disabled = history.page === 0;
         byId("next").disabled = history.page + 1 >= history.totalPages;
-        byId("page-info").textContent = `صفحه ${formatFaNumber(history.page + 1)} از ${formatFaNumber(history.totalPages)} · ${formatFaNumber(history.totalElements)} آزمون`;
+        byId("history-count").textContent = `${formatFaNumber(history.totalElements)} آزمون`;
+        byId("page-info").textContent = `صفحه ${formatFaNumber(history.page + 1)} از ${formatFaNumber(history.totalPages)}`;
         if (!history.items.length) return historyMessage("آزمونی در این بازه یا با این فیلترها پیدا نشد.");
         const html = history.items.map(row => {
             const id = escapeHtml(row.id);
