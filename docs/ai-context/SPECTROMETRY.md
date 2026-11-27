@@ -25,7 +25,11 @@ All paths below are under `/api/spectrometry`. The Manager has all four grants. 
 
 The history, point and CSV routes share `projectCode`, `pieceName`, exact `pieceNumber`, and inclusive ISO `dateFrom` / `dateTo` filters. The history route accepts `page`, `size` and `ascending`. The CSV route accepts `ascending`. A result input contains `pieceId`, ISO `testDate`, and `al, si, mg, cu, fe, mn, zn, ti`. Updates and deletes return 204 on success and 409 on a stale version.
 
-## Browser analysis
+## Page layout and browser analysis
+
+The page opens in **پایش و سوابق**, with date and project filters above the scatter plot and history table. **فیلترهای بیشتر** reveals the existing piece-name and exact piece-number filters. Users with the create grant can switch to **ثبت گروهی**. Changing tabs preserves drafts, applied filters, and chart selections while the page is open.
+
+The element selector displays one of Mg, Fe, and Ti at a time. Each element keeps its independent mean, regression, and trend display controls. The mean and regression lines are enabled by default when the data supports them.
 
 The three Canvas scatter plots reuse the tensile trend theme and time-domain helpers. All matching observations remain visible with either statistical basis. Checkboxes and point clicks control the same in-memory set of test IDs. For overlapping points, the chart offers a list of the individual results at that location. Paging and filtering retain selection, and leaving the page clears it.
 

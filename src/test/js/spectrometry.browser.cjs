@@ -9,7 +9,7 @@ const definitionId = '20000000-0000-4000-8000-000000000001';
 const pieceId = '30000000-0000-4000-8000-000000000001';
 const keys = ['al', 'si', 'mg', 'cu', 'fe', 'mn', 'zn', 'ti'];
 const iso = day => new Date(Date.UTC(2026, 0, 1 + day)).toISOString().slice(0, 10);
-const markColor = { gray: [133, 140, 153], green: [22, 163, 74], orange: [223, 133, 13], blue: [59, 130, 246] };
+const markColor = { gray: [133, 140, 153], selected: [98, 75, 206], mean: [171, 108, 33], fit: [114, 89, 196] };
 
 function records() {
     return Array.from({ length: 50 }, (_, i) => ({
@@ -136,21 +136,33 @@ async function waitForColor(page, chartIndex, color) {
         await select.waitFor();
         assert.equal(await table.locator('[data-select-test]:checked').count(), 0);
         assert.equal(await canvas.count(), 3);
+        assert.equal(await page.locator('#spectrometry-charts canvas:visible').count(), 1);
+        assert.equal(await page.locator('#spectrometry-entry').isVisible(), false);
+        const chooseElement = key => page.locator(`[name="spectrometry-element"][value="${key}"]`).check();
         await chart.nth(0).getByText('افزایشی', { exact: true }).waitFor();
-        assert.match(await chart.nth(0).locator('[data-metric="trend"]').textContent(), /افزایشی/);
-        assert.match(await chart.nth(1).locator('[data-metric="trend"]').textContent(), /ثابت/);
-        assert.match(await chart.nth(2).locator('[data-metric="trend"]').textContent(), /کاهشی/);
+        await chooseElement('fe');
+        await chart.nth(1).getByText('تقریباً ثابت', { exact: true }).waitFor();
         assert.equal(await chart.nth(1).locator('[data-metric="r2"]').textContent(), '—');
+        await chooseElement('ti');
+        await chart.nth(2).getByText('کاهشی', { exact: true }).waitFor();
+        await chooseElement('mg');
+        assert.equal(await page.locator('#spectrometry-charts canvas:visible').count(), 1);
 
         // A chart click selects the last test by its actual plotted coordinates.
         await waitForColor(page, 0, markColor.gray);
         const point = await colorPixels(canvas.nth(0), markColor.gray, true);
         await canvas.nth(0).click({ position: point });
         assert.equal(await select.isChecked(), true);
-        for (let i = 0; i < 3; i++) await waitForColor(page, i, markColor.green);
+        await waitForColor(page, 0, markColor.selected);
         assert.match(await page.locator('#spectrometry-tooltip').textContent(), /LAB-26.*قطعه آزمایشگاهی/s);
         assert.match(await page.locator('#spectrometry-tooltip').textContent(), /انتخاب‌شده برای تحلیل/);
-        const greenBefore = await colorPixels(canvas.nth(0), markColor.green);
+        for (const [index, key] of ['fe', 'ti'].entries()) {
+            await chooseElement(key);
+            await waitForColor(page, index + 1, markColor.selected);
+        }
+        await chooseElement('mg');
+        await waitForColor(page, 0, markColor.selected);
+        const selectedBefore = await colorPixels(canvas.nth(0), markColor.selected);
         const grayBefore = await colorPixels(canvas.nth(0), markColor.gray);
 
         await page.locator('#spectrometry-page-size').selectOption('25');
@@ -166,15 +178,25 @@ async function waitForColor(page, chartIndex, color) {
         assert.notEqual(await mean.textContent(), '0.496 wt%');
         await page.locator('[name="spectrometry-basis"][value="selected"]').check();
         await chart.nth(0).getByText('0.496 wt%', { exact: true }).waitFor();
-        assert.equal(await colorPixels(canvas.nth(0), markColor.green), greenBefore);
+        assert.equal(await colorPixels(canvas.nth(0), markColor.selected), selectedBefore);
         assert.equal(await colorPixels(canvas.nth(0), markColor.gray), grayBefore);
         assert.match(await chart.nth(0).locator('.spectrometry-stat-note').textContent(), /دو تاریخ/);
-        await chart.nth(0).getByLabel('نمایش میانگین').check();
-        await waitForColor(page, 0, markColor.orange);
-        await chart.nth(0).getByLabel('نمایش رگرسیون خطی').check();
-        assert.equal(await colorPixels(canvas.nth(0), markColor.blue), 0);
+        await waitForColor(page, 0, markColor.mean);
+        assert.equal(await colorPixels(canvas.nth(0), markColor.fit), 0);
         await page.locator('[name="spectrometry-basis"][value="all"]').check();
-        await waitForColor(page, 0, markColor.blue);
+        await waitForColor(page, 0, markColor.fit);
+        const meanToggle = chart.nth(0).getByLabel('نمایش میانگین');
+        const fitToggle = chart.nth(0).getByLabel('نمایش رگرسیون خطی');
+        await meanToggle.uncheck();
+        await chart.nth(0).locator('[data-legend="mean"]').waitFor({ state: 'hidden' });
+        assert.equal(await colorPixels(canvas.nth(0), markColor.mean), 0);
+        await meanToggle.check();
+        await waitForColor(page, 0, markColor.mean);
+        await fitToggle.uncheck();
+        await chart.nth(0).locator('[data-legend="fit"]').waitFor({ state: 'hidden' });
+        assert.equal(await colorPixels(canvas.nth(0), markColor.fit), 0);
+        await fitToggle.check();
+        await waitForColor(page, 0, markColor.fit);
         await page.locator('#spectrometry-clear-selection').click();
         assert.equal(await select.isChecked(), false);
 
@@ -182,6 +204,8 @@ async function waitForColor(page, chartIndex, color) {
         const firstJalali = await page.evaluate(date => isoToJalaliString(date), iso(0));
         await page.locator('#spectrometry-filter-from').fill(firstJalali);
         await page.locator('#spectrometry-filter-to').fill(firstJalali);
+        assert.equal(await page.locator('#spectrometry-filter-number').isVisible(), false);
+        await page.locator('#spectrometry-more-filters').click();
         await page.locator('#spectrometry-filter-number').fill('۹');
         await page.locator('#spectrometry-filter-project').fill('LAB');
         await page.locator('#spectrometry-filter-name').fill('آزمایشگاهی');
@@ -204,6 +228,19 @@ async function waitForColor(page, chartIndex, color) {
         await page.locator('#spectrometry-sort').click();
         await table.locator('[data-select-test="test-0"]').waitFor();
         assert.equal(await table.locator('[data-select-test]').first().getAttribute('data-select-test'), 'test-0');
+
+        // Both tab entry points work. Switching tabs keeps the draft and analysis state.
+        await page.locator('#spectrometry-open-entry').click();
+        assert.equal(await page.locator('#spectrometry-panel-overview').isVisible(), false);
+        await drafts.first().locator('[data-input="mg"]').fill('۱');
+        assert.match(await page.locator('#spectrometry-draft-summary').textContent(), /۱ ردیف نیمه‌کاره/);
+        await page.locator('#spectrometry-tab-entry').focus();
+        await page.keyboard.press('ArrowRight');
+        assert.equal(await page.locator('#spectrometry-tab-overview').getAttribute('aria-selected'), 'true');
+        await page.keyboard.press('ArrowLeft');
+        assert.equal(await page.locator('#spectrometry-tab-entry').getAttribute('aria-selected'), 'true');
+        assert.equal(await drafts.first().locator('[data-input="mg"]').inputValue(), '۱');
+        await drafts.first().locator('[data-input="mg"]').clear();
 
         // Repeated row operations append in place and preserve pre-existing form data.
         await page.locator('#spectrometry-add').evaluate(button => { for (let i = 0; i < 127; i++) button.click(); });
@@ -240,6 +277,8 @@ async function waitForColor(page, chartIndex, color) {
         await save.getByText('تلاش دوباره برای ذخیره').waitFor();
         assert.equal(batches.length, 1);
         await save.click();
+        await page.waitForFunction(() => document.querySelectorAll('#spectrometry-drafts tr').length === 1);
+        await page.locator('#spectrometry-tab-overview').click();
         await table.locator('[data-select-test="saved-0"]').waitFor();
         assert.equal(await drafts.count(), 1);
         assert.deepEqual(batches[0], batches[1]);
@@ -270,6 +309,8 @@ async function waitForColor(page, chartIndex, color) {
         assert.equal(await table.locator('[data-select-test]:checked').count(), 0);
         await page.setViewportSize({ width: 390, height: 844 });
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+        await page.locator('#spectrometry-tab-entry').click();
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
         assert.ok(await page.locator('.spectrometry-entry-table').evaluate(table => table.parentElement.scrollWidth > table.parentElement.clientWidth));
 
         await page.locator('#spectrometry-back').click();
@@ -280,6 +321,8 @@ async function waitForColor(page, chartIndex, color) {
         await page.locator('#nav-btn-spectrometry').click();
         await table.locator('[data-select-test]').first().waitFor();
         assert.equal(await page.locator('#spectrometry-entry').isVisible(), false);
+        assert.equal(await page.locator('#spectrometry-tab-entry').isVisible(), false);
+        assert.equal(await page.locator('#spectrometry-open-entry').isVisible(), false);
         assert.equal(await table.locator('[data-edit-test], [data-delete-test]').count(), 0);
         assert.deepEqual(errors, []);
         console.log('Spectrometry registration, retry, filters, CSV, chart interactions, permissions and mobile layout passed.');

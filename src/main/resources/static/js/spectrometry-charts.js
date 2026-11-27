@@ -4,10 +4,11 @@ const SpectrometryCharts = (() => {
         { key: "fe", symbol: "Fe", name: "آهن", stableSlope: 0.0001 },
         { key: "ti", symbol: "Ti", name: "تیتانیوم", stableSlope: 0.00005 },
     ];
-    const colors = { mean: "#df850d", fit: "#3b82f6", selected: "#16a34a", other: "#858c99" };
+    const colors = { mean: "#ab6c21", fit: "#7259c4", selected: "#624bce", other: "#858c99" };
     const directions = { increasing: "افزایشی", decreasing: "کاهشی", stable: "تقریباً ثابت" };
     const hitSize = 12;
     const charts = new Map();
+    let activeElement = elements[0].key;
     let points = [];
     let selection = new Set();
     let basis = [];
@@ -59,28 +60,39 @@ const SpectrometryCharts = (() => {
     function init(toggle) {
         onToggle = toggle;
         const container = document.getElementById("spectrometry-charts");
+        const options = document.getElementById("spectrometry-elements");
         for (const element of elements) {
+            const isActive = element.key === activeElement;
+            const option = document.createElement("label");
+            option.innerHTML = `<input type="radio" name="spectrometry-element" value="${element.key}"
+                aria-label="${element.symbol} · ${element.name}" ${isActive ? "checked" : ""}><bdi>${element.symbol}</bdi>`;
+            options.append(option);
+
             const card = document.createElement("section");
-            card.className = "trend-panel spectrometry-chart";
+            card.className = "spectrometry-chart";
+            card.hidden = !isActive;
+            card.dataset.element = element.key;
             card.innerHTML = `
-                <h4 class="trend-panel-title">${element.symbol} · ${element.name}</h4>
+                <div class="spectrometry-chart-summary">
+                    <h4 class="trend-panel-title">${element.name}</h4>
+                    <dl class="spectrometry-metrics">
+                        <div><dt>میانگین</dt><dd data-metric="mean"></dd></div>
+                        <div><dt><bdi>R²</bdi></dt><dd data-metric="r2"></dd></div>
+                        <div><dt>جهت روند</dt><dd data-metric="trend"></dd></div>
+                    </dl>
+                </div>
+                <canvas role="img" aria-label="نمودار ${element.symbol} بر حسب تاریخ آزمون" dir="ltr"></canvas>
+                <ul class="spectrometry-legend">
+                    <li><span class="spectrometry-triangle"></span> آزمون انتخاب‌شده</li>
+                    <li><span class="spectrometry-dot"></span> سایر آزمون‌ها</li>
+                    <li data-legend="mean" hidden><span class="spectrometry-line spectrometry-mean"></span> میانگین</li>
+                    <li data-legend="fit" hidden><span class="spectrometry-line spectrometry-fit"></span> رگرسیون خطی</li>
+                </ul>
                 <div class="trend-chart-toolbar">
-                    <label class="trend-toggle"><input type="checkbox" data-line="mean"> نمایش میانگین</label>
-                    <label class="trend-toggle"><input type="checkbox" data-line="fit"> نمایش رگرسیون خطی</label>
+                    <label class="trend-toggle"><input type="checkbox" data-line="mean" checked> نمایش میانگین</label>
+                    <label class="trend-toggle"><input type="checkbox" data-line="fit" checked> نمایش رگرسیون خطی</label>
                     <label class="trend-toggle"><input type="checkbox" data-line="trend" checked> نمایش روند و R²</label>
                 </div>
-                <ul class="spectrometry-legend">
-                    <li><span class="spectrometry-dot"></span> انتخاب‌نشده</li>
-                    <li><span class="spectrometry-triangle"></span> انتخاب‌شده</li>
-                    <li data-legend="mean" hidden><span class="spectrometry-line spectrometry-mean"></span> میانگین</li>
-                    <li data-legend="fit" hidden><span class="spectrometry-line spectrometry-fit"></span> رگرسیون</li>
-                </ul>
-                <canvas role="img" aria-label="نمودار ${element.symbol} بر حسب تاریخ آزمون" dir="ltr"></canvas>
-                <dl class="spectrometry-metrics">
-                    <div><dt>میانگین</dt><dd data-metric="mean"></dd></div>
-                    <div><dt>R²</dt><dd data-metric="r2"></dd></div>
-                    <div><dt>جهت روند</dt><dd data-metric="trend"></dd></div>
-                </dl>
                 <p class="form-hint spectrometry-stat-note"></p>`;
             const canvas = card.querySelector("canvas");
             const chart = { ...element, card, canvas, hits: new Map() };
@@ -91,6 +103,7 @@ const SpectrometryCharts = (() => {
             canvas.addEventListener("pointerleave", () => { if (!overlap) hideTooltip(); });
             canvas.addEventListener("click", (event) => onPointer(event, chart, true));
         }
+        options.addEventListener("change", (event) => selectElement(event.target.value));
         window.addEventListener("resize", schedule);
         document.addEventListener("themechange", schedule);
         document.addEventListener("scroll", (event) => {
@@ -102,6 +115,15 @@ const SpectrometryCharts = (() => {
         document.addEventListener("keydown", (event) => {
             if (event.key === "Escape" && overlap) hideTooltip();
         });
+    }
+
+    function selectElement(key) {
+        if (!charts.has(key)) return;
+        charts.get(activeElement).card.hidden = true;
+        activeElement = key;
+        charts.get(key).card.hidden = false;
+        hideTooltip();
+        schedule();
     }
 
     function setPoints(rows) {
@@ -126,6 +148,8 @@ const SpectrometryCharts = (() => {
         setPoints([]);
         selection = new Set();
         basis = [];
+        selectElement(elements[0].key);
+        document.querySelector(`[name="spectrometry-element"][value="${activeElement}"]`).checked = true;
         charts.forEach(chart => {
             chart.hits.clear();
             chart.stats = null;
@@ -140,7 +164,8 @@ const SpectrometryCharts = (() => {
         requestAnimationFrame(() => {
             queued = false;
             if (!document.getElementById("spectrometry-section").classList.contains("active")) return;
-            charts.forEach(draw);
+            if (document.getElementById("spectrometry-panel-overview").hidden) return;
+            draw(charts.get(activeElement));
         });
     }
 
@@ -170,6 +195,7 @@ const SpectrometryCharts = (() => {
     function draw(chart) {
         if (!chart.stats) return;
         const { canvas, card, stats } = chart;
+        if (!canvas.clientWidth || !canvas.clientHeight) return;
         const meanLine = card.querySelector('[data-line="mean"]').checked && stats.mean != null;
         const regression = card.querySelector('[data-line="fit"]').checked && stats.slope != null;
         renderMetrics(chart, meanLine, regression, card.querySelector('[data-line="trend"]').checked);
@@ -177,7 +203,6 @@ const SpectrometryCharts = (() => {
 
         const width = canvas.clientWidth;
         const height = canvas.clientHeight;
-        if (!width || !height) return;
         const dpr = window.devicePixelRatio || 1;
         canvas.width = Math.round(width * dpr);
         canvas.height = Math.round(height * dpr);
@@ -208,7 +233,9 @@ const SpectrometryCharts = (() => {
         const pad = Math.max((high - low) * 0.1, Math.abs(high) * 0.003, 1e-10);
         low -= pad;
         high += pad;
-        const left = width < 400 ? 84 : 98;
+        const ticks = Array.from({ length: 5 }, (_, index) => low + (high - low) * index / 4);
+        const precision = Math.max(0, Math.min(10, Math.ceil(-Math.log10((high - low) / 4))));
+        const left = Math.max(52, ...ticks.map(value => Math.ceil(ctx.measureText(metric(value, precision)).width) + 15));
         const right = width - 16;
         const top = 20;
         const bottom = height - 47;
@@ -225,11 +252,10 @@ const SpectrometryCharts = (() => {
 
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
-        for (let tick = 0; tick <= 4; tick++) {
-            const value = low + (high - low) * tick / 4;
+        for (const value of ticks) {
             const y = py(value);
             line(left, y, right, y, palette.grid);
-            ctx.fillText(metric(value, 10), left - 6, y);
+            ctx.fillText(metric(value, precision), left - 6, y);
         }
         ctx.textAlign = "center";
         const tickCount = Math.max(2, Math.floor((right - left) / 99));
@@ -246,7 +272,11 @@ const SpectrometryCharts = (() => {
         ctx.textAlign = "left";
         ctx.fillText("wt%", 8, 10);
 
-        if (meanLine) line(left, py(stats.mean), right, py(stats.mean), colors.mean, 2);
+        if (meanLine) {
+            ctx.setLineDash([6, 4]);
+            line(left, py(stats.mean), right, py(stats.mean), colors.mean, 2);
+            ctx.setLineDash([]);
+        }
         if (regression) line(px(stats.start.day), py(stats.start.value), px(stats.end.day), py(stats.end.value), colors.fit, 2);
 
         const selectedHits = [];
@@ -262,6 +292,22 @@ const SpectrometryCharts = (() => {
             }
         }
         selectedHits.forEach(hit => drawPoint(ctx, hit, true, palette.pointStroke));
+        if (width >= 600 && selectedHits.length <= 5) {
+            ctx.font = "600 12px Vazirmatn, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillStyle = palette.label;
+            ctx.strokeStyle = palette.plotBg;
+            ctx.lineWidth = 3;
+            let previousX = -Infinity;
+            for (const { row, x, y } of selectedHits) {
+                if (x - previousX < 48) continue;
+                const label = metric(Number(row[chart.key]), 3);
+                const labelY = y < top + 12 ? y + 15 : y - 13;
+                ctx.strokeText(label, x, labelY);
+                ctx.fillText(label, x, labelY);
+                previousX = x;
+            }
+        }
     }
 
     function dateTicks({ min, max }, count) {
@@ -358,7 +404,7 @@ const SpectrometryCharts = (() => {
         if (tooltip) tooltip.hidden = true;
     }
 
-    return { init, reset, setPoints, setSelection, hideTooltip, statistics };
+    return { init, reset, setPoints, setSelection, hideTooltip, redraw: schedule, statistics };
 })();
 
 if (typeof module !== "undefined") module.exports = SpectrometryCharts;

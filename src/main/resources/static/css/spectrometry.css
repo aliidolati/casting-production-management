@@ -1,15 +1,48 @@
+.spectrometry-heading .section-title { font-size: clamp(1.5rem, 4vw, 2rem); }
+
+.spectrometry-heading .form-hint,
+.spectrometry-analysis-bar .form-hint { margin: .2rem 0 0; }
+
+.spectrometry-tabs {
+    display: flex;
+    gap: 1.25rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.spectrometry-tabs button {
+    min-height: 44px;
+    padding: .55rem .65rem;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.spectrometry-tabs [aria-selected="true"] {
+    border-bottom-color: var(--color-primary);
+    color: var(--color-primary-dark);
+}
+
+.spectrometry-tabs button:focus-visible,
+.spectrometry-segment label:focus-within {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
 .spectrometry-card {
     min-width: 0;
-    margin-block: 1rem;
-    padding: clamp(.75rem, 2vw, 1.25rem);
+    margin-block: .75rem;
+    padding: clamp(.75rem, 1.5vw, 1rem);
     border: 1px solid var(--color-border);
     border-radius: 12px;
     background: var(--color-surface);
 }
 
 .spectrometry-card h3 { margin: 0; }
-
-.spectrometry-card .section-header { gap: .65rem; }
+.spectrometry-card .section-header { gap: .65rem; margin-bottom: .7rem; }
 
 .spectrometry-fields,
 .spectrometry-basis {
@@ -19,25 +52,102 @@
     padding: 0;
 }
 
+.spectrometry-filter-fields,
+.spectrometry-filter-actions,
+.spectrometry-entry-footer,
+.spectrometry-history-heading,
+.spectrometry-selection-footer,
+.spectrometry-chart-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem .75rem;
+}
+
+.spectrometry-filter-fields { align-items: end; }
+
+.spectrometry-filter-fields .form-group {
+    flex: 1 1 8.5rem;
+    min-width: 0;
+    max-width: 15rem;
+    margin: 0;
+}
+
+.spectrometry-filter-fields label { font-size: .8rem; }
+.spectrometry-filter-fields input { width: 100%; min-width: 0; }
+.spectrometry-filter-fields [aria-invalid="true"] { border-color: var(--color-danger); }
+
+.spectrometry-filter-extra:not([hidden]) {
+    margin-top: .65rem;
+    padding-top: .65rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.spectrometry-filter-extra[hidden],
+.spectrometry-chart[hidden] { display: none; }
+
+.spectrometry-entry-hint {
+    margin: 0 0 .65rem;
+    padding: .55rem .75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface2);
+    color: var(--color-text-secondary);
+    font-size: .82rem;
+}
+
+.spectrometry-entry-footer {
+    justify-content: space-between;
+    margin-top: .75rem;
+    padding-top: .75rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.spectrometry-entry-footer p,
+.spectrometry-history-heading .form-hint { margin: 0; }
+
 .spectrometry-table { white-space: nowrap; }
 
-.spectrometry-entry-table { min-width: 1200px; }
+.spectrometry-table th,
+.spectrometry-table td {
+    padding: .4rem .48rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: normal;
+}
+
+.spectrometry-table td { font-size: .84rem; }
+.spectrometry-table tbody tr { cursor: auto; }
+
+.spectrometry-entry-table {
+    min-width: 65rem;
+    table-layout: fixed;
+}
+
+.spectrometry-entry-table td,
+.spectrometry-entry-table th {
+    padding-inline: .25rem;
+    text-align: center;
+}
+
+.spectrometry-entry-table th:nth-child(2) { width: 6.4rem; }
+.spectrometry-entry-table th:nth-child(3) { width: 10rem; }
+.spectrometry-entry-table th:nth-child(4) { width: 5.7rem; }
+.spectrometry-entry-table th:nth-child(5) { width: 8.5rem; }
+.spectrometry-entry-table th:last-child { width: 4.5rem; }
 
 .spectrometry-table input[type="text"],
 .spectrometry-edit-fields input {
     width: 100%;
-    min-width: 4.25rem;
-    padding: .4rem .45rem;
+    min-width: 0;
+    padding: .4rem .35rem;
     border: 1px solid var(--color-border);
     border-radius: 6px;
     color: var(--color-text);
     background: var(--color-input-bg, var(--color-surface));
 }
 
-.spectrometry-table [data-input="project"] { min-width: 6rem; }
-.spectrometry-table [data-input="definition"] { min-width: 10rem; }
-.spectrometry-table [data-input="piece"] { min-width: 6rem; }
-.spectrometry-table [data-input="date"] { min-width: 8.4rem; }
+.spectrometry-table input[dir="ltr"] { text-align: center; }
+
 .spectrometry-table .jalali-datepicker-editable input,
 .spectrometry-edit-fields .jalali-datepicker-editable input { padding-left: 2rem; }
 
@@ -49,7 +159,7 @@
 
 .spectrometry-table input:disabled { opacity: .58; }
 
-.spectrometry-table .spectrometry-row-number {
+.spectrometry-entry-table .spectrometry-row-number {
     background: var(--color-surface);
     font-weight: 500;
 }
@@ -62,22 +172,47 @@
     background: var(--color-surface);
 }
 
+.spectrometry-entry-table thead th { background: var(--color-surface2); }
+
 .spectrometry-entry-table th:first-child {
     inset-inline-start: 0;
-    width: 3.2rem;
-    min-width: 3.2rem;
+    width: 2.7rem;
 }
 
 .spectrometry-entry-table td:nth-child(2),
-.spectrometry-entry-table thead th:nth-child(2) { inset-inline-start: 3.2rem; }
+.spectrometry-entry-table thead th:nth-child(2) { inset-inline-start: 2.7rem; }
 
 .spectrometry-trash svg { display: block; width: 1.1rem; height: 1.1rem; }
-.spectrometry-card #spectrometry-save { margin-top: .8rem; }
 .spectrometry-card .form-error { white-space: pre-line; }
-.spectrometry-card .spectrometry-empty { min-height: 3rem; text-align: center; }
-.spectrometry-history-table { min-width: 900px; }
+.spectrometry-card .spectrometry-empty { height: 3rem; text-align: center; }
+.spectrometry-history-table { min-width: 55rem; }
 .spectrometry-history-table th:nth-child(3),
 .spectrometry-history-table td:nth-child(3) { white-space: normal; min-width: 7rem; }
+.spectrometry-history-table th:first-child,
+.spectrometry-history-table td:first-child,
+.spectrometry-history-table td[dir="ltr"] { text-align: center; }
+
+.spectrometry-history-table [data-select-test] { accent-color: var(--color-primary); }
+.spectrometry-history-table tr:has([data-select-test]:checked) { background: var(--color-primary-bg); }
+.spectrometry-history-table td:last-child .btn { padding: .25rem .45rem; }
+
+#spectrometry-sort {
+    padding: .15rem;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+#spectrometry-sort:hover { color: var(--color-primary-dark); }
+
+.spectrometry-selection-footer {
+    justify-content: space-between;
+    padding-top: .5rem;
+    color: var(--color-text-secondary);
+    font-size: .8rem;
+}
 
 .spectrometry-edit-fields {
     display: grid;
@@ -88,32 +223,77 @@
 
 .spectrometry-edit-fields label { display: grid; gap: .25rem; min-width: 0; }
 
-.spectrometry-analysis-bar,
-.spectrometry-basis,
-.spectrometry-legend {
+.spectrometry-segment {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: .5rem 1rem;
+    gap: .2rem;
+    padding: .2rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface2);
 }
 
-.spectrometry-analysis-bar { margin-block: .7rem; }
-.spectrometry-basis legend { font-weight: 600; }
+.spectrometry-segment label {
+    position: relative;
+    min-height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .25rem .55rem;
+    border-radius: 5px;
+    color: var(--color-text-secondary);
+    font-size: .8rem;
+    cursor: pointer;
+}
+
+.spectrometry-segment input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.spectrometry-segment label:has(input:checked) {
+    background: var(--color-primary-bg);
+    color: var(--color-primary-dark);
+    font-weight: 700;
+}
+
+.spectrometry-chart-switcher {
+    display: flex;
+    padding-top: .65rem;
+    border-top: 1px solid var(--color-border);
+}
+
+.spectrometry-chart-summary {
+    justify-content: space-between;
+    margin-top: .35rem;
+}
+
+.spectrometry-chart-summary .trend-panel-title { margin: 0; font-size: .9rem; }
+
 .spectrometry-chart { min-width: 0; }
-.spectrometry-chart + .spectrometry-chart { margin-top: 1rem; }
 
 .spectrometry-chart canvas {
     display: block;
     width: 100%;
-    height: 280px;
+    height: 230px;
     cursor: crosshair;
 }
 
 .spectrometry-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem 1rem;
     margin: .4rem 0;
     padding: 0;
     list-style: none;
-    font-size: .82rem;
+    color: var(--color-text-secondary);
+    font-size: .8rem;
 }
 
 .spectrometry-legend li { display: flex; align-items: center; gap: .35rem; }
@@ -128,34 +308,42 @@
 }
 
 .spectrometry-triangle {
-    border-bottom: .65rem solid #16a34a;
+    border-bottom: .65rem solid #624bce;
     border-inline: .35rem solid transparent;
 }
 
-.spectrometry-line { width: 1rem; height: 2px; }
-.spectrometry-mean { background: #df850d; }
-.spectrometry-fit { background: #3b82f6; }
+.spectrometry-line { width: 1rem; }
+.spectrometry-mean { border-top: 2px dashed #ab6c21; }
+.spectrometry-fit { border-top: 2px solid #7259c4; }
 
 .spectrometry-metrics {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: .5rem;
-    margin: .65rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem .75rem;
+    margin: 0;
+    font-size: .8rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .spectrometry-metrics div {
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: .5rem;
-    text-align: center;
-    overflow-wrap: anywhere;
+    display: flex;
+    gap: .4rem;
+    align-items: baseline;
 }
 
-.spectrometry-metrics dt { font-size: .85rem; }
-.spectrometry-metrics dd { margin: .25rem 0 0; font-weight: 600; }
+.spectrometry-metrics div + div {
+    border-inline-start: 1px solid var(--color-border);
+    padding-inline-start: .75rem;
+}
+
+.spectrometry-metrics dt { color: var(--color-text-secondary); }
+.spectrometry-metrics dd { margin: 0; font-weight: 700; }
 .spectrometry-metrics dd[data-metric="mean"],
 .spectrometry-metrics dd[data-metric="r2"] { direction: ltr; }
+
+.spectrometry-chart .trend-chart-toolbar { margin: .6rem 0 .2rem; }
 .spectrometry-stat-note { margin: 0; }
+.spectrometry-stat-note:empty { display: none; }
 
 #spectrometry-tooltip {
     position: fixed;
@@ -182,10 +370,12 @@
     text-align: start;
 }
 
-.spectrometry-overlap-option[aria-pressed="true"] { border-color: #16a34a; }
+.spectrometry-overlap-option[aria-pressed="true"] { border-color: #624bce; }
 
 @media (max-width: 600px) {
     .spectrometry-entry-table td:nth-child(2),
     .spectrometry-entry-table thead th:nth-child(2) { position: static; }
-    .spectrometry-chart canvas { height: 235px; }
+    .spectrometry-filter-fields .form-group { max-width: none; }
+    .spectrometry-chart canvas { height: 215px; }
+    .spectrometry-segment label { min-height: 2.5rem; }
 }
